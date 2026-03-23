@@ -10,9 +10,12 @@ Vector::Vector VectorField::lookUp(int x, int y) { return field[x][y]; }
 std::pair<int, int> VectorField::pointsTo(int x, int y) {
     Vector::Vector start = field[x][y];
 
-    // find the nearest coordinate that the vector points to
-    int nearestX = static_cast<int>(std::round(x + start.x));
-    int nearestY = static_cast<int>(std::round(y + start.y));
+    float xSpacing = (xMax - xMin) / (field.size() - 1);
+    float ySpacing = yMax - yMin / (field[0].size() - 1);
+
+    // find the nearest coordinate that the vector points accounting for scale
+    int nearestX = static_cast<int>(std::round((x + start.x) / xSpacing));
+    int nearestY = static_cast<int>(std::round((y + start.y) / ySpacing));
 
     return {nearestX, nearestY};
 }
