@@ -1,5 +1,6 @@
 #include "streamLine.h"
 #include "vector.h"
+#include <memory>
 #include <tuple>
 #include <vector>
 
@@ -12,7 +13,8 @@ class VectorField {
   public:
     std::pair<int, int> pointsTo(int x, int y);
     Vector::Vector lookUp(int x, int y);
-    void mergeStreamLines(StreamLine::StreamLine *a, StreamLine::StreamLine *b);
+    void mergeStreamLines(std::shared_ptr<StreamLine::StreamLine> start,
+                          std::shared_ptr<StreamLine::StreamLine> end);
     void flowFromVector(Vector::Vector &vector);
 };
 

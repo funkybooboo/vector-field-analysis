@@ -17,8 +17,9 @@ std::pair<int, int> VectorField::pointsTo(int x, int y) {
     return {nearestX, nearestY};
 }
 
-void VectorField::mergeStreamLines(StreamLine::StreamLine *start,
-                                   StreamLine::StreamLine *end) {
+void VectorField::mergeStreamLines(
+    std::shared_ptr<StreamLine::StreamLine> start,
+    std::shared_ptr<StreamLine::StreamLine> end) {
     if (!start || !end || start == end || start->path.empty())
         return;
 
@@ -37,6 +38,37 @@ void VectorField::mergeStreamLines(StreamLine::StreamLine *start,
     for (const auto &point : end->path) {
         start->path.push_back(point);
         field[point.first][point.second].stream = startSharedPtr;
+    }
+}
+
+void VectorField::flowFromVector(Vector::Vector &vector) {
+    int x = static_cast<int>(vector.x);
+    int y = static_cast<int>(vector.y);
+
+    std::pair<int, int> startCords = std::pair<int, int>(x, y);
+
+    // if not a member of a streamline create a new one
+    if (vector.stream == nullptr) {
+        auto sl = std::make_shared<StreamLine::StreamLine>(startCords);
+        field[x][y].stream = sl;
+    }
+
+    std::pair<int, int> destCords = pointsTo(x, y);
+    Vector::Vector &destination = field[destCords.first][destCords.second];
+
+    if (destination.stream == nullptr) {
+        // Create streamline starting at the source vector's coordinate
+        auto sl =
+            std::make_shared<StreamLine::StreamLine>(std::pair<int, int>(x, y));
+        // Add the destination to the path
+        sl->path.push_back(destCords);
+
+        // Update both source and destination vectors to point to this
+        // streamline
+        field[x][y].stream = sl;
+        destination.stream = sl;
+    } else {
+        mergeStreamLines(destination.stream, vector.stream);
     }
 }
 
