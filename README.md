@@ -20,7 +20,8 @@ A C++17 research tool for generating and analyzing 2D vector fields. The simulat
 ## Quick Start
 
 ```sh
-mise run deps    # install system dependencies (HDF5, clang-format, clang-tidy)
+mise install     # install pinned tools (cmake, ninja, clang-format, clang-tidy)
+mise run deps    # install system dependencies (HDF5)
 mise run build   # configure and build everything
 mise run test    # run all tests
 ```
@@ -59,11 +60,13 @@ Individual targets:
 | Eigen | 3.4.0 | FetchContent |
 | HighFive | v2.10.0 | FetchContent |
 | Catch2 | v3.5.3 | FetchContent |
+| clang-format | 22.1.1 | `mise install` (pipx/PyPI) |
+| clang-tidy | 22.1.0 | `mise install` (pipx/PyPI) |
 
 ## Code Quality
 
 - **Compiler flags:** `-Wall -Wextra -Wpedantic -Werror` -> warnings are errors
-- **Formatting:** clang-format (LLVM style, indent 4, column limit 100)
+- **Formatting:** clang-format 22.1.1 (LLVM style, indent 4, column limit 100)
 - **Linting:** clang-tidy with bugprone, modernize, performance, and readability checks; all warnings treated as errors
 
 ## CI
