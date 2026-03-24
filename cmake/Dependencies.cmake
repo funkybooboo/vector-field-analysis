@@ -1,14 +1,14 @@
 include(FetchContent)
 
-# ── System dependencies ────────────────────────────────────────────────────────
+# -- System dependencies -------------------------------------------------------
 # Install with: mise run deps
 
-# HDF5 — binary data format
+# HDF5 -> binary data format
 find_package(HDF5 REQUIRED COMPONENTS C CXX)
 
-# ── FetchContent dependencies ──────────────────────────────────────────────────
+# -- FetchContent dependencies -------------------------------------------------
 
-# Eigen — linear algebra
+# Eigen -> linear algebra
 set(EIGEN_BUILD_DOC     OFF CACHE BOOL "" FORCE)
 set(EIGEN_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(EIGEN_BUILD_BLAS    OFF CACHE BOOL "" FORCE)
@@ -22,7 +22,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Eigen)
 
-# HighFive — HDF5 C++ wrapper
+# HighFive -> HDF5 C++ wrapper
 set(HIGHFIVE_USE_BOOST  OFF CACHE BOOL "" FORCE)
 set(HIGHFIVE_USE_EIGEN  OFF CACHE BOOL "" FORCE)
 set(HIGHFIVE_EXAMPLES   OFF CACHE BOOL "" FORCE)
@@ -38,7 +38,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(HighFive)
 set(CMAKE_WARN_DEPRECATED ON CACHE BOOL "" FORCE)
 
-# Catch2 — testing
+# Catch2 -> testing
 FetchContent_Declare(
     Catch2
     GIT_REPOSITORY https://github.com/catchorg/Catch2.git

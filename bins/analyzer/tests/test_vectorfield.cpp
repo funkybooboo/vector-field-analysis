@@ -1,12 +1,12 @@
 #include "vectorField.h"
+
 #include <catch2/catch_test_macros.hpp>
 
 static VectorField::VectorField makeField() {
     // 3x3 field with all vectors pointing right (+x)
     std::vector<std::vector<Vector::Vector>> f(
-        3, std::vector<Vector::Vector>(3, Vector::Vector(1.0f, 0.0f))
-    );
-    return VectorField::VectorField(0.0f, 2.0f, 0.0f, 2.0f, f);
+        3, std::vector<Vector::Vector>(3, Vector::Vector(1.0f, 0.0f)));
+    return {0.0f, 2.0f, 0.0f, 2.0f, f};
 }
 
 TEST_CASE("pointsTo advances in vector direction", "[vectorfield]") {
@@ -19,8 +19,7 @@ TEST_CASE("pointsTo advances in vector direction", "[vectorfield]") {
 
 TEST_CASE("flowFromVector assigns a streamline", "[vectorfield]") {
     std::vector<std::vector<Vector::Vector>> f(
-        3, std::vector<Vector::Vector>(3, Vector::Vector(1.0f, 0.0f))
-    );
+        3, std::vector<Vector::Vector>(3, Vector::Vector(1.0f, 0.0f)));
     VectorField::VectorField vf(0.0f, 2.0f, 0.0f, 2.0f, f);
 
     // Before flow, no streamline assigned

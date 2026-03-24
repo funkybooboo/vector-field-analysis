@@ -1,6 +1,7 @@
 #pragma once
 #include "streamLine.h"
 #include "vector.h"
+
 #include <memory>
 #include <tuple>
 #include <vector>
@@ -13,14 +14,18 @@ class VectorField {
 
   public:
     VectorField(float xMin, float xMax, float yMin, float yMax,
-                const std::vector<std::vector<Vector::Vector>> field)
-        : xMin(xMin), xMax(xMax), yMin(yMin), yMax(yMax), field(field) {}
+                std::vector<std::vector<Vector::Vector>> field)
+        : xMin(xMin),
+          xMax(xMax),
+          yMin(yMin),
+          yMax(yMax),
+          field(std::move(field)) {}
 
     std::pair<int, int> pointsTo(int x, int y);
     std::pair<int, int> pointsTo(std::pair<int, int> coords);
 
-    void mergeStreamLines(std::shared_ptr<StreamLine::StreamLine> start,
-                          std::shared_ptr<StreamLine::StreamLine> end);
+    void mergeStreamLines(const std::shared_ptr<StreamLine::StreamLine>& start,
+                          const std::shared_ptr<StreamLine::StreamLine>& end);
 
     void flowFromVector(std::pair<int, int> startCords);
 };

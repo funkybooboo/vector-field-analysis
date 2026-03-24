@@ -1,5 +1,6 @@
 #pragma once
 #include "streamLine.h"
+
 #include <cmath>
 #include <cstddef>
 #include <memory>
@@ -14,13 +15,16 @@ class Vector {
     float y;
     std::shared_ptr<StreamLine::StreamLine> stream;
 
-    Vector(float x, float y) : x(x), y(y), stream(nullptr) {};
+    Vector(float x, float y)
+        : x(x),
+          y(y),
+          stream(nullptr) {};
 
-    float magnitude() const;
+    [[nodiscard]] float magnitude() const;
 
-    Vector unitVector() const;
+    [[nodiscard]] Vector unitVector() const;
 };
-float dotProduct(Vector a, Vector b);
+float dotProduct(const Vector& a, const Vector& b);
 
-bool almostParrallel(Vector &a, Vector &b);
+bool almostParrallel(Vector& a, Vector& b);
 } // namespace Vector

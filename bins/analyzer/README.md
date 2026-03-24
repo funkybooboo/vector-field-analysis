@@ -10,7 +10,7 @@ Parses vector field data and computes properties such as streamlines and flow pa
 
 ## Dependencies
 
-- [`libs/vector`](../../libs/vector) — Vector and StreamLine types
+- [`libs/vector`](../../libs/vector) -> Vector and StreamLine types
 
 ## Tasks
 

@@ -9,7 +9,7 @@ Generates vector fields for use in research and testing.
 
 ## Dependencies
 
-- [`libs/vector`](../../libs/vector) — Vector and StreamLine types
+- [`libs/vector`](../../libs/vector) -> Vector and StreamLine types
 
 ## Tasks
 

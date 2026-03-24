@@ -19,7 +19,7 @@ jobs:
         uses: jdx/mise-action@v2
 
       - name: Install system dependencies
-        run: sudo apt-get install -y libhdf5-dev
+        run: mise run deps
 
       - name: Build
         run: mise run build
@@ -37,10 +37,48 @@ jobs:
         uses: jdx/mise-action@v2
 
       - name: Install system dependencies
-        run: sudo apt-get install -y libhdf5-dev
+        run: mise run deps
 
       - name: Build
         run: mise run build
 
       - name: Test
         run: mise run test
+
+  format:
+    name: Format
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
+      - name: Install system dependencies
+        run: mise run deps
+
+      - name: Check formatting
+        run: mise run format:check
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-22.04
+    needs: build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
+      - name: Install system dependencies
+        run: mise run deps
+
+      - name: Build
+        run: mise run build
+
+      - name: Lint
+        run: mise run lint
