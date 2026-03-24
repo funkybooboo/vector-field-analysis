@@ -39,3 +39,15 @@
 
 # debug information files
 *.dwo
+
+# CMake build directories
+build/
+bins/*/build/
+libs/*/build/
+
+# Generated output
+*.h5
+
+# IDE / tooling
+.cache/
+compile_commands.json

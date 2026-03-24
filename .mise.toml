@@ -1,0 +1,97 @@
+[tools]
+cmake = "latest"
+ninja = "latest"
+"pipx:clang-format" = "22.1.1"
+"pipx:clang-tidy" = "22.1.0"
+
+[tasks.deps]
+description = "Install system dependencies (HDF5 only; clang-format/tidy managed by mise)"
+run = """
+if command -v apt-get &>/dev/null; then
+    sudo apt-get update -q && sudo apt-get install -y -q libhdf5-dev
+elif command -v pacman &>/dev/null; then
+    sudo pacman -S --needed hdf5
+else
+    echo "Unsupported package manager -> install HDF5 manually"
+    exit 1
+fi
+"""
+
+[tasks.configure]
+description = "Configure CMake build"
+run = "cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+
+[tasks.build]
+description = "Build everything"
+depends = ["configure"]
+run = "cmake --build build"
+
+[tasks."build:lib:vector"]
+description = "Build vector library"
+depends = ["configure"]
+run = "cmake --build build --target vector"
+
+[tasks."build:bin:analyzer"]
+description = "Build analyzer"
+depends = ["configure"]
+run = "cmake --build build --target analyzer"
+
+[tasks."build:bin:simulator"]
+description = "Build simulator"
+depends = ["configure"]
+run = "cmake --build build --target simulator"
+
+[tasks.test]
+description = "Run all tests"
+depends = ["build"]
+run = "ctest --test-dir build --output-on-failure"
+
+[tasks."test:lib:vector"]
+description = "Run vector library tests"
+depends = ["build"]
+run = "ctest --test-dir build --output-on-failure -R vector"
+
+[tasks."test:bin:analyzer"]
+description = "Run analyzer tests"
+depends = ["build"]
+run = "ctest --test-dir build --output-on-failure -R analyzer"
+
+[tasks."test:bin:simulator"]
+description = "Run simulator tests"
+depends = ["build"]
+run = "ctest --test-dir build --output-on-failure -R simulator"
+
+[tasks."run:bin:simulator"]
+description = "Build and run the simulator"
+depends = ["build:bin:simulator"]
+run = "./build/bins/simulator/simulator"
+
+[tasks."run:bin:analyzer"]
+description = "Build and run the analyzer"
+depends = ["build:bin:analyzer"]
+run = "./build/bins/analyzer/analyzer"
+
+[tasks.format]
+description = "Format all source files in place"
+run = "find bins libs -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i"
+
+[tasks."format:check"]
+description = "Check formatting without modifying files"
+run = "find bins libs -name '*.cpp' -o -name '*.hpp' | xargs clang-format --dry-run --Werror"
+
+[tasks.lint]
+description = "Run clang-tidy on all source files"
+depends = ["configure"]
+run = "find bins libs -name '*.cpp' | xargs clang-tidy -p build --config-file=.clang-tidy --warnings-as-errors=*"
+
+[tasks.ci]
+description = "Run full CI pipeline: format check, build, test, lint"
+depends = ["format:check", "build"]
+run = [
+    "ctest --test-dir build --output-on-failure",
+    "find bins libs -name '*.cpp' | xargs clang-tidy -p build --config-file=.clang-tidy --warnings-as-errors=*",
+]
+
+[tasks.clean]
+description = "Remove build artifacts"
+run = "rm -rf build"
