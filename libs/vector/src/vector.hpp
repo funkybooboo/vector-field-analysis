@@ -1,5 +1,5 @@
 #pragma once
-#include "streamLine.h"
+#include "streamLine.hpp"
 
 #include <cmath>
 #include <cstddef>
@@ -18,7 +18,7 @@ class Vector {
     Vector(float x, float y)
         : x(x),
           y(y),
-          stream(nullptr) {};
+          stream(nullptr) {}
 
     [[nodiscard]] float magnitude() const;
 

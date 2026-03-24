@@ -1,4 +1,4 @@
-#include "vectorField.h"
+#include "vectorField.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 

@@ -1,4 +1,4 @@
-#include "vectorField.h"
+#include "vectorField.hpp"
 
 #include <highfive/highfive.hpp>
 #include <iostream>

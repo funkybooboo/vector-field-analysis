@@ -1,22 +1,18 @@
 [tools]
 cmake = "latest"
 ninja = "latest"
+"pipx:clang-format" = "22.1.1"
+"pipx:clang-tidy" = "22.1.0"
 
 [tasks.deps]
-description = "Install system dependencies"
+description = "Install system dependencies (HDF5 only; clang-format/tidy managed by mise)"
 run = """
 if command -v apt-get &>/dev/null; then
-    sudo apt-get update -q
-    sudo apt-get install -y -q wget gnupg lsb-release libhdf5-dev
-    wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
-    sudo bash /tmp/llvm.sh 22
-    sudo apt-get install -y clang-format-22 clang-tidy-22
-    sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-22 100
-    sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-22 100
+    sudo apt-get update -q && sudo apt-get install -y -q libhdf5-dev
 elif command -v pacman &>/dev/null; then
-    sudo pacman -S --needed hdf5 clang clang-tools-extra
+    sudo pacman -S --needed hdf5
 else
-    echo "Unsupported package manager -> install HDF5, clang-format 22, and clang-tidy 22 manually"
+    echo "Unsupported package manager -> install HDF5 manually"
     exit 1
 fi
 """
@@ -77,11 +73,11 @@ run = "./build/bins/analyzer/analyzer"
 
 [tasks.format]
 description = "Format all source files in place"
-run = "find bins libs -name '*.cpp' -o -name '*.h' | xargs clang-format -i"
+run = "find bins libs -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i"
 
 [tasks."format:check"]
 description = "Check formatting without modifying files"
-run = "find bins libs -name '*.cpp' -o -name '*.h' | xargs clang-format --dry-run --Werror"
+run = "find bins libs -name '*.cpp' -o -name '*.hpp' | xargs clang-format --dry-run --Werror"
 
 [tasks.lint]
 description = "Run clang-tidy on all source files"

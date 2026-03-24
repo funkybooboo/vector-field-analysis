@@ -1,6 +1,6 @@
 #pragma once
-#include "streamLine.h"
-#include "vector.h"
+#include "streamLine.hpp"
+#include "vector.hpp"
 
 #include <memory>
 #include <tuple>

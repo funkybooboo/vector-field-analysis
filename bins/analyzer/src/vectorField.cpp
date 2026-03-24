@@ -1,7 +1,7 @@
-#include "vectorField.h"
+#include "vectorField.hpp"
 
-#include "streamLine.h"
-#include "vector.h"
+#include "streamLine.hpp"
+#include "vector.hpp"
 
 #include <cmath>
 #include <utility>

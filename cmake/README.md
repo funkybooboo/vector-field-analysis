@@ -21,4 +21,4 @@ HDF5 must be installed on the system before configuring. Run `mise run deps` to 
 | Arch Linux | `hdf5` |
 | Ubuntu | `libhdf5-dev` |
 
-`clang-format 22` and `clang-tidy 22` are also installed by `mise run deps` and are required for the format and lint tasks. Ubuntu installs them from the LLVM apt repository; Arch installs them via the `clang` package.
+`clang-format 22.1.1` and `clang-tidy 22.1.0` are managed by mise via the pipx backend (PyPI) and installed automatically with `mise install`. They are pinned to exact versions so all contributors and CI use identical binaries regardless of OS.
