@@ -1,18 +1,20 @@
 [tools]
 cmake = "latest"
 ninja = "latest"
+uv = "latest"
 "pipx:clang-format" = "22.1.1"
 "pipx:clang-tidy" = "22.1.0"
+"ubi:lycheeverse/lychee" = "latest"
 
 [tasks.deps]
-description = "Install system dependencies (HDF5 only; clang-format/tidy managed by mise)"
+description = "Install system dependencies (HDF5, cppcheck; clang-format/tidy/lychee/uv managed by mise)"
 run = """
 if command -v apt-get &>/dev/null; then
-    sudo apt-get update -q && sudo apt-get install -y -q libhdf5-dev
+    sudo apt-get update -q && sudo apt-get install -y -q libhdf5-dev cppcheck
 elif command -v pacman &>/dev/null; then
-    sudo pacman -S --needed hdf5
+    sudo pacman -S --needed hdf5 cppcheck
 else
-    echo "Unsupported package manager -> install HDF5 manually"
+    echo "Unsupported package manager -> install HDF5 and cppcheck manually"
     exit 1
 fi
 """
@@ -98,14 +100,84 @@ description = "Run clang-tidy on all source files"
 depends = ["configure"]
 run = "find bins libs -name '*.cpp' | xargs clang-tidy -p build --config-file=.clang-tidy --warnings-as-errors=*"
 
+[tasks."configure:sanitize"]
+description = "Configure CMake build with AddressSanitizer + UBSanitizer"
+run = """
+cmake -B build-sanitize -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+  '-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer' \
+  '-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined'
+"""
+
+[tasks."build:sanitize"]
+description = "Build with AddressSanitizer + UBSanitizer"
+depends = ["configure:sanitize"]
+run = "cmake --build build-sanitize"
+
+[tasks."test:sanitize"]
+description = "Run tests under AddressSanitizer + UBSanitizer"
+depends = ["build:sanitize"]
+run = "ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=print_stacktrace=1 ctest --test-dir build-sanitize --output-on-failure"
+
+[tasks.spell]
+description = "Check source files and docs for spelling errors"
+run = "uvx codespell bins libs docs tools README.md --skip='build,*.h5'"
+
+[tasks."configure:coverage"]
+description = "Configure CMake build with gcov coverage instrumentation"
+run = """
+cmake -B build-coverage -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+  '-DCMAKE_CXX_FLAGS=--coverage' \
+  '-DCMAKE_EXE_LINKER_FLAGS=--coverage'
+"""
+
+[tasks."build:coverage"]
+description = "Build with coverage instrumentation"
+depends = ["configure:coverage"]
+run = "cmake --build build-coverage"
+
+[tasks."test:coverage"]
+description = "Run tests and generate coverage report"
+depends = ["build:coverage"]
+run = """
+ctest --test-dir build-coverage --output-on-failure
+uvx gcovr -r . build-coverage/ \
+  --filter 'bins/.*' \
+  --filter 'libs/.*' \
+  --print-summary
+"""
+
+[tasks.cppcheck]
+description = "Run cppcheck static analysis on all source files"
+run = """
+cppcheck --enable=all --error-exitcode=1 \
+  --suppress=missingIncludeSystem \
+  --suppress=missingInclude \
+  bins/ libs/
+"""
+
+[tasks.links]
+description = "Check for broken links in markdown files"
+run = "lychee --verbose --no-progress README.md docs/ tools/ .github/"
+
 [tasks.ci]
-description = "Run full CI pipeline: format check, build, test, lint, ascii-check"
-depends = ["format:check", "build", "ascii-check"]
-run = [
-    "ctest --test-dir build --output-on-failure",
-    "find bins libs -name '*.cpp' | xargs clang-tidy -p build --config-file=.clang-tidy --warnings-as-errors=*",
+description = "Run full CI pipeline (mirrors GitHub Actions)"
+depends = [
+  "format:check",
+  "ascii-check",
+  "spell",
+  "cppcheck",
+  "links",
+  "test",
+  "lint",
+  "test:coverage",
 ]
 
 [tasks.clean]
 description = "Remove build artifacts"
-run = "rm -rf build"
+run = "rm -rf build build-sanitize build-coverage coverage.info"
