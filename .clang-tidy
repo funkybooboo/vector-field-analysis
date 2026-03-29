@@ -10,7 +10,8 @@ Checks: >
   -readability-uppercase-literal-suffix,
   -bugprone-easily-swappable-parameters,
   -bugprone-throwing-static-initialization,
-  -clang-diagnostic-c2y-extensions
+  -clang-diagnostic-c2y-extensions,
+  -clang-diagnostic-unnecessary-virtual-specifier
 
 WarningsAsErrors: "*"
 HeaderFilterRegex: ".*/(bins|libs)/.*"

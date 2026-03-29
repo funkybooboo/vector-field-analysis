@@ -62,6 +62,20 @@ jobs:
       - name: Check formatting
         run: mise run format:check
 
+  ascii-check:
+    name: ASCII Check
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
+      - name: Check for non-ASCII characters
+        run: mise run ascii-check
+
   lint:
     name: Lint
     runs-on: ubuntu-22.04

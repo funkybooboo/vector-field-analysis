@@ -64,12 +64,16 @@ run = "ctest --test-dir build --output-on-failure -R simulator"
 [tasks."run:bin:simulator"]
 description = "Build and run the simulator"
 depends = ["build:bin:simulator"]
-run = "./build/bins/simulator/simulator"
+run = "./build/bins/simulator/simulator bins/simulator/configs/karman_street.toml"
 
 [tasks."run:bin:analyzer"]
 description = "Build and run the analyzer"
 depends = ["build:bin:analyzer"]
 run = "./build/bins/analyzer/analyzer"
+
+[tasks.visualize]
+description = "Visualize field.h5 with the quiver plot tool"
+run = "uv run tools/visualize.py field.h5"
 
 [tasks.format]
 description = "Format all source files in place"
@@ -79,14 +83,24 @@ run = "find bins libs -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i"
 description = "Check formatting without modifying files"
 run = "find bins libs -name '*.cpp' -o -name '*.hpp' | xargs clang-format --dry-run --Werror"
 
+[tasks."ascii-check"]
+description = "Fail if any project source file contains non-ASCII characters"
+run = """
+if grep -rn --include='*.cpp' --include='*.hpp' --include='*.toml' --include='*.cmake' --include='*.txt' -P '[\x80-\xFF]' bins libs cmake docs CMakeLists.txt .clang-tidy .clang-format; then
+    echo "Non-ASCII characters found in project files."
+    exit 1
+fi
+echo "All project files are ASCII-only."
+"""
+
 [tasks.lint]
 description = "Run clang-tidy on all source files"
 depends = ["configure"]
 run = "find bins libs -name '*.cpp' | xargs clang-tidy -p build --config-file=.clang-tidy --warnings-as-errors=*"
 
 [tasks.ci]
-description = "Run full CI pipeline: format check, build, test, lint"
-depends = ["format:check", "build"]
+description = "Run full CI pipeline: format check, build, test, lint, ascii-check"
+depends = ["format:check", "build", "ascii-check"]
 run = [
     "ctest --test-dir build --output-on-failure",
     "find bins libs -name '*.cpp' | xargs clang-tidy -p build --config-file=.clang-tidy --warnings-as-errors=*",
