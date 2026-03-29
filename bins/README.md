@@ -3,9 +3,9 @@
 Each binary has its own source, docs, tests, and build target.
 
 | Binary | Description |
-|---|---|
-| [`analyzer`](analyzer) | Reads `field.h5`, constructs a `VectorField`, and traces streamlines via `flowFromVector` |
-| [`simulator`](simulator) | Generates a 64x64 vortex field and writes it to `field.h5` |
+|--------|-------------|
+| [`analyzer`](analyzer) | Reads `field.h5`, constructs a `FieldGrid` per time step, and traces streamlines via `traceStreamlineStep` |
+| [`simulator`](simulator) | Generates configurable vector fields from a TOML config and writes them to `field.h5` |
 
 ## Running
 

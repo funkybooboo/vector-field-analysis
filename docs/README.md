@@ -8,3 +8,7 @@ Project-level documentation spanning all libraries and binaries.
 - **Research notes** -> background theory and scientific context behind the vector field analysis
 - **Development guide** -> how to build, test, format, lint, and contribute
 - **Roadmap** -> planned features and future direction
+
+## Visualization
+
+Simulator output (`.h5` files) can be visualized with `tools/visualize.py`. See [`tools/README.md`](../tools/README.md).

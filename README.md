@@ -17,6 +17,12 @@ A C++17 research tool for generating and analyzing 2D vector fields. The simulat
 | [`bins/analyzer`](bins/analyzer) | Reads vector field data from HDF5 and computes streamlines |
 | [`bins/simulator`](bins/simulator) | Generates procedural vector fields and writes them to HDF5 |
 
+**Tools** (`tools/`)
+
+| Tool | Description |
+|---|---|
+| [`tools/visualize.py`](tools/README.md) | Animate or plot simulator `.h5` output as a quiver (arrow) plot |
+
 ## Quick Start
 
 ```sh
@@ -36,9 +42,11 @@ mise run test    # run all tests
 | `mise run format` | Format all source files in place |
 | `mise run format:check` | Check formatting without modifying files |
 | `mise run lint` | Run clang-tidy on all source files |
-| `mise run ci` | Full pipeline: format check, build, test, lint |
-| `mise run run:bin:simulator` | Build and run the simulator (writes `field.h5`) |
+| `mise run ascii-check` | Fail if any project source file contains non-ASCII characters |
+| `mise run ci` | Full pipeline: format check, build, test, lint, ascii-check |
+| `mise run run:bin:simulator` | Build and run the simulator with `karman_street.toml` (writes `field.h5`) |
 | `mise run run:bin:analyzer` | Build and run the analyzer (reads `field.h5`) |
+| `mise run visualize` | Animate `field.h5` as a quiver plot |
 | `mise run clean` | Remove build artifacts |
 
 Individual targets:
@@ -71,7 +79,7 @@ Individual targets:
 
 ## CI
 
-GitHub Actions runs four jobs on every push and pull request to `main`:
+GitHub Actions runs five jobs on every push and pull request to `main`:
 
 | Job | What it checks |
 |---|---|
@@ -79,3 +87,4 @@ GitHub Actions runs four jobs on every push and pull request to `main`:
 | Test | Runs all CTest cases |
 | Format | `clang-format --dry-run --Werror` |
 | Lint | `clang-tidy --warnings-as-errors=*` |
+| ASCII Check | No non-ASCII characters in project source files |
