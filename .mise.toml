@@ -158,6 +158,7 @@ run = """
 cppcheck --enable=all --error-exitcode=1 \
   --suppress=missingIncludeSystem \
   --suppress=missingInclude \
+  --suppress=unmatchedSuppression \
   bins/ libs/
 """
 
