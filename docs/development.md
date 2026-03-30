@@ -6,7 +6,7 @@ Install [mise](https://mise.jdx.dev/) then run:
 
 ```sh
 mise install        # install pinned tools (cmake, ninja, uv, clang-format, clang-tidy, lychee)
-mise run deps       # install system dependencies via pacman (HDF5, lcov, cppcheck, iwyu)
+mise run deps       # install system dependencies via pacman (HDF5, cppcheck)
 ```
 
 CMake dependencies (Eigen, HighFive, Catch2, toml++, exprtk, stb_perlin) are fetched

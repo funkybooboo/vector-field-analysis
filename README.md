@@ -27,7 +27,7 @@ A C++17 research tool for generating and analyzing 2D vector fields. The simulat
 
 ```sh
 mise install     # install pinned tools (cmake, ninja, uv, clang-format, clang-tidy, lychee)
-mise run deps    # install system dependencies (HDF5, lcov, cppcheck, iwyu)
+mise run deps    # install system dependencies (HDF5, cppcheck)
 mise run build   # configure and build everything
 mise run test    # run all tests
 ```
