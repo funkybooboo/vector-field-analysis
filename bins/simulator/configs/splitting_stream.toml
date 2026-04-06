@@ -1,0 +1,39 @@
+# splitting_stream.toml
+# A single source on the left feeds two sinks on the right.
+# Flow enters from the left as a unified stream, then bifurcates --
+# half goes to the upper-right sink, half to the lower-right sink.
+#
+# Run: simulator bins/simulator/configs/splitting_stream.toml
+
+[simulation]
+steps     = 100
+dt        = 0.05
+viscosity = 0.01
+output    = "field.h5"
+width     = 128
+height    = 128
+xmin      = -2.0
+xmax      =  2.0
+ymin      = -2.0
+ymax      =  2.0
+
+# Single source on the left
+[[layers]]
+type     = "source"
+center_x = -1.5
+center_y =  0.0
+strength =  1.5
+
+# Upper sink
+[[layers]]
+type     = "sink"
+center_x =  1.5
+center_y =  1.0
+strength =  1.0
+
+# Lower sink
+[[layers]]
+type     = "sink"
+center_x =  1.5
+center_y = -1.0
+strength =  1.0

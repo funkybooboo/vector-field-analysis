@@ -44,6 +44,8 @@
 build/
 bins/*/build/
 libs/*/build/
+build-coverage/
+build-sanitize/
 
 # Generated output
 *.h5

@@ -4,8 +4,8 @@ Core vector types and math utilities shared across binaries and libraries.
 
 ## Contents
 
-- **Vector** -> 2D vector type with magnitude, unit vector, and dot product operations
-- **StreamLine** -> represents a path traced through a vector field as a sequence of coordinates
+- **Vec2** -> 2D vector type with magnitude, unit vector, and dot product operations
+- **Streamline** -> represents a path traced through a vector field as a sequence of coordinates
 
 ## Usage
 

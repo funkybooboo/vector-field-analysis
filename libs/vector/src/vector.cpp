@@ -1,23 +1,31 @@
 #include "vector.hpp"
 
+#include <cmath>
+
 namespace Vector {
-float Vector::magnitude() const {
+
+float Vec2::magnitude() const {
     return std::sqrt((x * x) + (y * y));
 }
 
-Vector Vector::unitVector() const {
-    const float mag = Vector::magnitude();
+Vec2 Vec2::unitVector() const {
+    const float mag = magnitude();
+    // A zero-magnitude vector has no direction; returning zero avoids
+    // division by zero and prevents NaN from propagating into the field.
+    if (mag == 0.0f) {
+        return {0.0f, 0.0f};
+    }
     return {x / mag, y / mag};
 }
 
-float dotProduct(const Vector& a, const Vector& b) {
+float dotProduct(const Vec2& a, const Vec2& b) {
     return (a.x * b.x) + (a.y * b.y);
 }
 
-bool almostParrallel(Vector& a, Vector& b) {
-    float x_diff = std::abs(a.x - b.x);
-    float y_diff = std::abs(a.y - b.y);
+bool almostParallel(const Vec2& a, const Vec2& b) {
+    const float xDifference = std::abs(a.x - b.x);
+    const float yDifference = std::abs(a.y - b.y);
+    return xDifference + yDifference <= kParallelThreshold;
+}
 
-    return x_diff + y_diff <= PARRALEL_THRESHOLD;
-};
 } // namespace Vector

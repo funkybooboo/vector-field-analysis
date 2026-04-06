@@ -46,3 +46,34 @@ FetchContent_Declare(
     GIT_SHALLOW    TRUE
 )
 FetchContent_MakeAvailable(Catch2)
+
+# toml++ -> TOML config file parsing
+FetchContent_Declare(
+    tomlplusplus
+    GIT_REPOSITORY https://github.com/marzer/tomlplusplus.git
+    GIT_TAG        v3.4.0
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(tomlplusplus)
+
+# exprtk -> math expression parsing for custom fields
+FetchContent_Declare(
+    exprtk
+    GIT_REPOSITORY https://github.com/ArashPartow/exprtk.git
+    GIT_TAG        0.0.3
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(exprtk)
+add_library(exprtk INTERFACE)
+target_include_directories(exprtk INTERFACE ${exprtk_SOURCE_DIR})
+
+# stb_perlin -> Perlin noise for noise field type
+FetchContent_Declare(
+    stb_perlin
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_TAG        master
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(stb_perlin)
+add_library(stb_perlin INTERFACE)
+target_include_directories(stb_perlin INTERFACE ${stb_perlin_SOURCE_DIR})

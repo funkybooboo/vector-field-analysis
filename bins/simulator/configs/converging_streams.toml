@@ -1,0 +1,39 @@
+# converging_streams.toml
+# Two sources -- one upper-left, one lower-left -- both feeding a single
+# sink on the right. The two flows approach from different angles and
+# merge into one converging stream as they reach the sink.
+#
+# Run: simulator bins/simulator/configs/converging_streams.toml
+
+[simulation]
+steps     = 100
+dt        = 0.05
+viscosity = 0.01
+output    = "field.h5"
+width     = 128
+height    = 128
+xmin      = -2.0
+xmax      =  2.0
+ymin      = -2.0
+ymax      =  2.0
+
+# Upper-left source
+[[layers]]
+type     = "source"
+center_x = -1.5
+center_y =  1.0
+strength =  1.0
+
+# Lower-left source
+[[layers]]
+type     = "source"
+center_x = -1.5
+center_y = -1.0
+strength =  1.0
+
+# Single sink on the right
+[[layers]]
+type     = "sink"
+center_x =  1.5
+center_y =  0.0
+strength =  2.0

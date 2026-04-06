@@ -1,6 +1,6 @@
 add_library(vector STATIC
     src/vector.cpp
-    src/streamLine.cpp
+    src/streamline.cpp
 )
 
 target_include_directories(vector PUBLIC
