@@ -41,7 +41,7 @@ Eigen::Vector2f evalVortex(float px, float py, const FieldLayerConfig& layer) {
 
 Eigen::Vector2f evalUniform(const FieldLayerConfig& layer) {
     const float radians = layer.angle * (static_cast<float>(M_PI) / 180.0f);
-    return {layer.magnitude * std::cos(radians), layer.magnitude * std::sin(radians)};
+    return {std::cos(radians), std::sin(radians)};
 }
 
 Eigen::Vector2f evalSource(float px, float py, const FieldLayerConfig& layer) {
@@ -221,7 +221,7 @@ FieldTimeSeries generateTimeSeries(const SimulatorConfig& config) {
                         break;
                     }
 
-                    sum += layer.strength * contribution;
+                    sum += layer.strength * (layer.magnitude * contribution);
                 }
 
                 output.vx[static_cast<std::size_t>(step)][static_cast<std::size_t>(row)]

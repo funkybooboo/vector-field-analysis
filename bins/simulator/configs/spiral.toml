@@ -20,3 +20,4 @@ ymax      =  1.0
 type       = "spiral"
 sink_blend = 0.7     # 0.0 = pure vortex, 1.0 = pure sink
 strength   = 1.0
+magnitude  = 1.0     # vector length scale; 1.0 = unit length (default)

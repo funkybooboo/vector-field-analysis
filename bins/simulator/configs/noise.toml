@@ -18,7 +18,8 @@ ymin      = -1.0
 ymax      =  1.0
 
 [[layers]]
-type     = "noise"
-scale    = 2.5     # higher = more turbulent
-seed     = 7
-strength = 1.0
+type      = "noise"
+scale     = 2.5     # higher = more turbulent
+seed      = 7
+strength  = 1.0
+magnitude = 1.0     # vector length scale; 1.0 = unit length (default)

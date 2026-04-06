@@ -15,9 +15,10 @@ enum class FieldType : std::uint8_t {
 };
 
 // Configuration for one layer in a superposed vector field.
-// All types support: strength, centerX, centerY.
+// All types support: strength, centerX, centerY, magnitude (default 1.0 = unit length).
+//   magnitude scales the output vector length before strength is applied.
 // Type-specific parameters:
-//   Uniform -> angle (degrees from positive x-axis), magnitude
+//   Uniform -> angle (degrees from positive x-axis)
 //   Spiral  -> sinkBlend (0 = pure vortex rotation, 1 = pure sink attraction)
 //   Noise   -> scale (spatial frequency multiplier), seed (integer offset)
 //   Custom  -> xExpression, yExpression (exprtk math strings, variables: x, y, t)
