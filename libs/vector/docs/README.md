@@ -46,8 +46,8 @@ Holds a complete multi-step field simulation result.
 | `magnitude() const` | Euclidean length: `sqrt(x^2 + y^2)` |
 | `unitVector() const` | Returns a new `Vec2` with the same direction and magnitude 1 |
 | `operator-() const` | Unary negation; returns `Vec2{-x, -y}` |
-| `operator+(Vec2) const` | Component-wise addition; returns a new `Vec2` |
-| `operator+=(Vec2)` | Component-wise addition in place; returns `*this` |
+| `operator+(const Vec2&) const` | Component-wise addition; returns a new `Vec2` |
+| `operator+=(const Vec2&)` | Component-wise addition in place; returns `*this` |
 | `operator*(float) const` | Scalar multiplication; returns a new `Vec2` |
 
 ### Free functions

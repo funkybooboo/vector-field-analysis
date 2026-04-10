@@ -67,3 +67,36 @@ TEST_CASE("dotProduct with zero vector", "[vector]") {
     REQUIRE_THAT(Vector::dotProduct(unit, zero), WithinAbs(0.0f, 1e-5f));
     REQUIRE_THAT(Vector::dotProduct(zero, zero), WithinAbs(0.0f, 1e-5f));
 }
+
+TEST_CASE("Vec2 unary negation", "[vector]") {
+    Vector::Vec2 v(3.0f, -4.0f);
+    auto neg = -v;
+    REQUIRE_THAT(neg.x, WithinAbs(-3.0f, 1e-5f));
+    REQUIRE_THAT(neg.y, WithinAbs( 4.0f, 1e-5f));
+}
+
+TEST_CASE("Vec2 operator+", "[vector]") {
+    Vector::Vec2 a(1.0f, 2.0f);
+    Vector::Vec2 b(3.0f, 4.0f);
+    auto c = a + b;
+    REQUIRE_THAT(c.x, WithinAbs(4.0f, 1e-5f));
+    REQUIRE_THAT(c.y, WithinAbs(6.0f, 1e-5f));
+}
+
+TEST_CASE("Vec2 operator+=", "[vector]") {
+    Vector::Vec2 a(1.0f, 2.0f);
+    a += Vector::Vec2(3.0f, 4.0f);
+    REQUIRE_THAT(a.x, WithinAbs(4.0f, 1e-5f));
+    REQUIRE_THAT(a.y, WithinAbs(6.0f, 1e-5f));
+}
+
+TEST_CASE("Vec2 scalar multiply and float*Vec2 overload", "[vector]") {
+    Vector::Vec2 v(1.0f, 2.0f);
+    auto r1 = v * 3.0f;
+    REQUIRE_THAT(r1.x, WithinAbs(3.0f, 1e-5f));
+    REQUIRE_THAT(r1.y, WithinAbs(6.0f, 1e-5f));
+
+    auto r2 = 3.0f * v;
+    REQUIRE_THAT(r2.x, WithinAbs(3.0f, 1e-5f));
+    REQUIRE_THAT(r2.y, WithinAbs(6.0f, 1e-5f));
+}
