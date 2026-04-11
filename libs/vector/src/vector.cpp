@@ -18,6 +18,28 @@ Vec2 Vec2::unitVector() const {
     return {x / mag, y / mag};
 }
 
+Vec2 Vec2::operator-() const {
+    return {-x, -y};
+}
+
+Vec2 Vec2::operator+(const Vec2& other) const {
+    return {x + other.x, y + other.y};
+}
+
+Vec2& Vec2::operator+=(const Vec2& other) {
+    x += other.x;
+    y += other.y;
+    return *this;
+}
+
+Vec2 Vec2::operator*(float scalar) const {
+    return {x * scalar, y * scalar};
+}
+
+Vec2 operator*(float scalar, const Vec2& v) {
+    return v * scalar;
+}
+
 float dotProduct(const Vec2& a, const Vec2& b) {
     return (a.x * b.x) + (a.y * b.y);
 }

@@ -38,11 +38,11 @@ void FieldGrid::joinStreamlines(const std::shared_ptr<Vector::Streamline>& start
         return;
     }
 
-    // Absorb end's path into start and redirect all field vectors at those positions
+    // Absorb end's path into start and redirect all stream entries at those positions
     for (const auto& point : end->path) {
         start->path.push_back(point);
-        field[static_cast<std::size_t>(point.first)][static_cast<std::size_t>(point.second)]
-            .stream = start;
+        streams_[static_cast<std::size_t>(point.first)][static_cast<std::size_t>(point.second)]
+            = start;
     }
 }
 
@@ -50,25 +50,25 @@ void FieldGrid::joinStreamlines(const std::shared_ptr<Vector::Streamline>& start
 // its vector points toward. Either extends the current streamline if that cell
 // is unclaimed, or merges with the existing streamline if two paths converge there.
 void FieldGrid::traceStreamlineStep(std::pair<int, int> startCoords) {
-    Vector::Vec2& sourceVec = field[static_cast<std::size_t>(startCoords.first)]
-                                   [static_cast<std::size_t>(startCoords.second)];
+    auto& srcStream = streams_[static_cast<std::size_t>(startCoords.first)]
+                               [static_cast<std::size_t>(startCoords.second)];
 
-    if (sourceVec.stream == nullptr) {
-        sourceVec.stream = std::make_shared<Vector::Streamline>(startCoords);
+    if (srcStream == nullptr) {
+        srcStream = std::make_shared<Vector::Streamline>(startCoords);
     }
 
     const std::pair<int, int> destCoords = neighborInVectorDirection(startCoords);
-    Vector::Vec2& destination = field[static_cast<std::size_t>(destCoords.first)]
-                                     [static_cast<std::size_t>(destCoords.second)];
+    auto& destStream = streams_[static_cast<std::size_t>(destCoords.first)]
+                                [static_cast<std::size_t>(destCoords.second)];
 
-    if (destination.stream == nullptr) {
+    if (destStream == nullptr) {
         // Destination is unclaimed: extend the source's streamline into it.
-        destination.stream = sourceVec.stream;
-        sourceVec.stream->path.push_back(destCoords);
+        destStream = srcStream;
+        srcStream->path.push_back(destCoords);
     } else {
         // Destination already belongs to another streamline: the two lines
         // converge here, so merge them into one.
-        joinStreamlines(destination.stream, sourceVec.stream);
+        joinStreamlines(destStream, srcStream);
     }
 }
 

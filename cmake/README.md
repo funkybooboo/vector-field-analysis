@@ -10,7 +10,6 @@ CMake modules for the project.
 
 | Library | Version | Purpose |
 |---------|---------|---------|
-| [Eigen](https://eigen.tuxfamily.org) | 3.4.0 | Linear algebra (simulator) |
 | [HighFive](https://github.com/BlueBrain/HighFive) | v2.10.0 | HDF5 C++ wrapper (simulator + analyzer) |
 | [Catch2](https://github.com/catchorg/Catch2) | v3.5.3 | Unit testing framework |
 | [toml++](https://github.com/marzer/tomlplusplus) | v3.4.0 | TOML config parsing (simulator) |

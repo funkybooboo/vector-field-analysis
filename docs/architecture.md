@@ -43,13 +43,12 @@ A shared library providing the core vector types used by both binaries.
 
 | Type / Function | Purpose |
 |-----------------|---------|
-| `Vec2` | 2D float vector with `x`, `y`, and an optional `Streamline` reference |
+| `Vec2` | 2D float vector with `x` and `y` components and arithmetic operators |
 | `Streamline` | Ordered list of grid-index pairs tracing a path through the field |
+| `FieldSlice` | Type alias for one time step's field: `vector<vector<Vec2>>` indexed `[row][col]` |
+| `FieldTimeSeries` | Struct holding `steps` (vector of `FieldSlice`) plus grid boundary floats |
 | `dotProduct` | Scalar dot product of two `Vec2`s |
 | `almostParallel` | L1-distance test on near-unit vectors |
-
-`Vec2` holds a `shared_ptr<Streamline>` so that multiple grid cells can reference the
-same streamline after a merge without duplicating the path data.
 
 The library is intentionally small -- it defines data structures and math primitives only,
 with no I/O or field-generation logic.
@@ -84,7 +83,6 @@ See [`pipeline.md`](pipeline.md) for a detailed walkthrough.
 
 | Library | Purpose |
 |---------|---------|
-| Eigen 3.4.0 | 2D vector arithmetic in field evaluation functions |
 | toml++ v3.4.0 | TOML config file parsing |
 | exprtk 0.0.3 | Runtime evaluation of user-supplied math expressions |
 | stb_perlin (master) | Perlin noise for the `noise` field type |
@@ -101,7 +99,7 @@ Reads the HDF5 output and traces streamlines through each time step's field.
 | Source file | Role |
 |-------------|------|
 | `main.cpp` | Entry point; loads data, traces from the origin cell each step |
-| `fieldReader.hpp/.cpp` | Reads the HDF5 `field` group into `FieldTimeSeries` |
+| `fieldReader.hpp/.cpp` | Reads the HDF5 `field` group into `Vector::FieldTimeSeries` |
 | `vectorField.hpp/.cpp` | `FieldGrid`: owns one step's field and drives streamline tracing |
 
 The current implementation is a prototype -- it traces a single streamline step from
@@ -112,8 +110,9 @@ grid cell `(0, 0)` in each time step. A full analysis would seed every cell in t
 Each `traceStreamlineStep` call advances one cell forward in the vector direction and
 either extends the current streamline (if the destination is unclaimed) or merges with the
 existing streamline at that cell (if the two paths converge). Merging is done by absorbing
-the shorter path's cells into the longer path's `Streamline` object and redirecting all
-field vector references to the surviving object.
+the shorter path's cells into the longer path's `Streamline` object. Streamline associations
+are tracked in a separate `streams_` grid (parallel to the field grid), so `Vec2` values do
+not hold streamline pointers.
 
 **Third-party dependency:**
 
@@ -145,7 +144,6 @@ Both scripts expect the same HDF5 schema written by the simulator and preserved 
 | Dependency | Managed by | Used by |
 |------------|-----------|---------|
 | HDF5 (system) | `mise run deps` | simulator, analyzer |
-| Eigen 3.4.0 | CMake FetchContent | simulator |
 | HighFive v2.10.0 | CMake FetchContent | simulator, analyzer |
 | Catch2 v3.5.3 | CMake FetchContent | all tests |
 | toml++ v3.4.0 | CMake FetchContent | simulator |

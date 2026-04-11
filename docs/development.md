@@ -9,7 +9,7 @@ mise install        # install pinned tools (cmake, ninja, uv, clang-format, clan
 mise run deps       # install system dependencies via pacman (HDF5, cppcheck)
 ```
 
-CMake dependencies (Eigen, HighFive, Catch2, toml++, exprtk, stb_perlin) are fetched
+CMake dependencies (HighFive, Catch2, toml++, exprtk, stb_perlin) are fetched
 automatically by `FetchContent` at configure time -- no manual installation needed.
 
 ---
@@ -143,13 +143,15 @@ GitHub Actions runs this pipeline on every push and pull request to `main`.
 
 1. **`simulatorConfig.hpp`** -- add the new value to the `FieldType` enum.
 
-2. **`fieldGenerator.cpp`** -- write an `eval*` function that returns an `Eigen::Vector2f`
+2. **`fieldGenerator.cpp`** -- write an `eval*` function that returns a `Vector::Vec2`
    for a given `(px, py, layer)`. Add a `case` to the `switch` in `generateTimeSeries`.
 
-3. **`configParser.cpp`** -- add a `{"name", FieldType::NewType}` entry to `typeMap` in
-   `parseFieldType`.
+3. **`configParser.cpp`** -- add an `else if` branch for `"name"` in the if-else chain
+   inside `parseFieldType`, returning `FieldType::NewType`.
 
-4. **`fieldWriter.cpp`** -- add a `case` returning the string name in `fieldTypeName`.
+4. **`simulatorConfig.hpp`** -- add a `case` returning the string name in `toString(FieldType)`.
+   (`fieldTypeName()` in `fieldWriter.cpp` was removed; `toString()` in `simulatorConfig.hpp`
+   is now the canonical `FieldType`-to-string conversion.)
 
 5. **`simulatorConfig.hpp`** (doc comment) -- document the new type's active parameters in
    the `FieldLayerConfig` comment block.

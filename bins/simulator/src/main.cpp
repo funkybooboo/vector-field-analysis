@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
     try {
         const std::string configPath = argv[1];
         const SimulatorConfig config = ConfigParser::parseFile(configPath);
-        const FieldGenerator::FieldTimeSeries field = FieldGenerator::generateTimeSeries(config);
+        const Vector::FieldTimeSeries field = FieldGenerator::generateTimeSeries(config);
         FieldWriter::write(field, config);
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << "\n";

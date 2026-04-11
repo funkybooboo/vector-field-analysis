@@ -60,8 +60,9 @@ SimulatorConfig
 
 **Source:** `fieldGenerator.hpp`, `fieldGenerator.cpp`
 
-Takes a `SimulatorConfig` and produces a `FieldTimeSeries` -- two 3-D float arrays
-`vx[steps][height][width]` and `vy[steps][height][width]`.
+Takes a `SimulatorConfig` and produces a `Vector::FieldTimeSeries` -- a `steps` vector of
+`FieldSlice` grids, where each slice is indexed `[row][col]` and holds a `Vector::Vec2`.
+The HDF5 writer splits the Vec2 components into separate `vx` and `vy` datasets on output.
 
 ### Setup (runs once before the main loop)
 

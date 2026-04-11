@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 enum class FieldType : std::uint8_t {
@@ -13,6 +14,25 @@ enum class FieldType : std::uint8_t {
     Noise,
     Custom
 };
+
+inline std::string_view toString(FieldType type) {
+    switch (type) {
+    case FieldType::Vortex:  return "vortex";
+    case FieldType::Uniform: return "uniform";
+    case FieldType::Source:  return "source";
+    case FieldType::Sink:    return "sink";
+    case FieldType::Saddle:  return "saddle";
+    case FieldType::Spiral:  return "spiral";
+    case FieldType::Noise:   return "noise";
+    case FieldType::Custom:  return "custom";
+    }
+    return "unknown";
+}
+
+// Maps grid index i (0..n-1) linearly onto [lo, hi]. Precondition: n >= 2.
+inline float gridToWorld(int i, int n, float lo, float hi) {
+    return lo + ((hi - lo) * static_cast<float>(i) / static_cast<float>(n - 1));
+}
 
 // Configuration for one layer in a superposed vector field.
 // All types support: strength, centerX, centerY, magnitude (default 1.0 = unit length).

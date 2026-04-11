@@ -3,7 +3,6 @@
 #include "fieldWriter.hpp"
 #include "simulatorConfig.hpp"
 
-#include <Eigen/Dense>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <cmath>
@@ -34,48 +33,47 @@ static SimulatorConfig makeConfig(FieldLayerConfig layer, int steps = 1) {
     return config;
 }
 
-// World coordinate for grid index i across [xMin, xMax] with W points
-static float worldX(int i, int width, float xMin, float xMax) {
-    return xMin + ((xMax - xMin) * static_cast<float>(i) / static_cast<float>(width - 1));
-}
-
-static float worldY(int j, int height, float yMin, float yMax) {
-    return yMin + ((yMax - yMin) * static_cast<float>(j) / static_cast<float>(height - 1));
-}
-
 // ---------------------------------------------------------------------------
-// Legacy vortex tests (unchanged - test the physics directly)
+// Vortex physics tests via generateTimeSeries()
 // ---------------------------------------------------------------------------
-
-static Eigen::Vector2f vortex(float x, float y) {
-    float r = std::sqrt((x * x) + (y * y));
-    if (r < 1e-6f) {
-        return Eigen::Vector2f::Zero();
-    }
-    return {-y / r, x / r};
-}
 
 TEST_CASE("Vortex field produces unit vectors", "[simulator]") {
-    for (auto [x, y] : std::initializer_list<std::pair<float, float>>{
-             {1.0f, 0.0f}, {0.0f, 1.0f}, {-1.0f, 0.0f}, {0.5f, 0.5f}}) {
-        float mag = vortex(x, y).norm();
-        REQUIRE_THAT(mag, WithinAbs(1.0f, 1e-5f));
+    FieldLayerConfig layer;
+    layer.type = FieldType::Vortex;
+    const auto out = generateTimeSeries(makeConfig(layer));
+    // Check several off-center cells: each should have unit magnitude
+    for (auto [i, j] : std::initializer_list<std::pair<int, int>>{
+             {24, 16}, {8, 16}, {16, 24}, {20, 20}}) {
+        REQUIRE_THAT(out.steps[0][j][i].magnitude(), WithinAbs(1.0f, 1e-5f));
     }
 }
 
 TEST_CASE("Vortex field is perpendicular to radius", "[simulator]") {
-    auto v = vortex(1.0f, 0.0f);
-    REQUIRE_THAT(v.x(), WithinAbs(0.0f, 1e-5f));
-    REQUIRE_THAT(v.y(), WithinAbs(1.0f, 1e-5f));
+    FieldLayerConfig layer;
+    layer.type = FieldType::Vortex;
+    const auto config = makeConfig(layer);
+    const auto out = generateTimeSeries(config);
 
-    v = vortex(0.0f, 1.0f);
-    REQUIRE_THAT(v.x(), WithinAbs(-1.0f, 1e-5f));
-    REQUIRE_THAT(v.y(), WithinAbs(0.0f, 1e-5f));
+    // Perpendicularity: dot product of vortex vector and position vector must be ~0
+    for (auto [i, j] : std::initializer_list<std::pair<int, int>>{
+             {24, 16}, {8, 24}, {20, 8}}) {
+        const float px = gridToWorld(i, config.width, config.xMin, config.xMax);
+        const float py = gridToWorld(j, config.height, config.yMin, config.yMax);
+        const auto& v = out.steps[0][j][i];
+        // dot(v, pos) = vx*px + vy*py must be zero for a pure vortex
+        REQUIRE_THAT((v.x * px) + (v.y * py), WithinAbs(0.0f, 1e-4f));
+    }
 }
 
 TEST_CASE("Vortex field is zero at origin", "[simulator]") {
-    auto v = vortex(0.0f, 0.0f);
-    REQUIRE_THAT(v.norm(), WithinAbs(0.0f, 1e-5f));
+    FieldLayerConfig layer;
+    layer.type = FieldType::Vortex;
+    // Use a 3x3 grid so that the center cell (1,1) lands exactly at (0,0)
+    SimulatorConfig config = makeConfig(layer);
+    config.width = 3;
+    config.height = 3;
+    const auto out = generateTimeSeries(config);
+    REQUIRE_THAT(out.steps[0][1][1].magnitude(), WithinAbs(0.0f, 1e-5f));
 }
 
 // ---------------------------------------------------------------------------
@@ -88,10 +86,9 @@ TEST_CASE("generateTimeSeries() returns correct 3D dimensions", "[simulator][gen
     SimulatorConfig config = makeConfig(layer, 5);
     auto out = generateTimeSeries(config);
 
-    REQUIRE(static_cast<int>(out.vx.size()) == config.steps);
-    REQUIRE(static_cast<int>(out.vx[0].size()) == config.height);
-    REQUIRE(static_cast<int>(out.vx[0][0].size()) == config.width);
-    REQUIRE(static_cast<int>(out.vy.size()) == config.steps);
+    REQUIRE(static_cast<int>(out.steps.size()) == config.steps);
+    REQUIRE(static_cast<int>(out.steps[0].size()) == config.height);
+    REQUIRE(static_cast<int>(out.steps[0][0].size()) == config.width);
 }
 
 // ---------------------------------------------------------------------------
@@ -106,9 +103,7 @@ TEST_CASE("Vortex generateTimeSeries() produces unit magnitude away from origin"
     // Check a cell not near the origin: grid center-right
     const int i = 24;
     const int j = 16;
-    const float vx = out.vx[0][j][i];
-    const float vy = out.vy[0][j][i];
-    REQUIRE_THAT(std::sqrt((vx * vx) + (vy * vy)), WithinAbs(1.0f, 1e-4f));
+    REQUIRE_THAT(out.steps[0][j][i].magnitude(), WithinAbs(1.0f, 1e-4f));
 }
 
 // ---------------------------------------------------------------------------
@@ -121,8 +116,8 @@ TEST_CASE("Uniform field at angle=0 points right", "[simulator][generate]") {
     layer.angle = 0.0f;
     layer.magnitude = 2.0f;
     auto out = generateTimeSeries(makeConfig(layer));
-    REQUIRE_THAT(out.vx[0][16][16], WithinAbs(2.0f, 1e-4f));
-    REQUIRE_THAT(out.vy[0][16][16], WithinAbs(0.0f, 1e-4f));
+    REQUIRE_THAT(out.steps[0][16][16].x, WithinAbs(2.0f, 1e-4f));
+    REQUIRE_THAT(out.steps[0][16][16].y, WithinAbs(0.0f, 1e-4f));
 }
 
 TEST_CASE("Uniform field at angle=90 points up", "[simulator][generate]") {
@@ -131,8 +126,8 @@ TEST_CASE("Uniform field at angle=90 points up", "[simulator][generate]") {
     layer.angle = 90.0f;
     layer.magnitude = 1.0f;
     auto out = generateTimeSeries(makeConfig(layer));
-    REQUIRE_THAT(out.vx[0][16][16], WithinAbs(0.0f, 1e-4f));
-    REQUIRE_THAT(out.vy[0][16][16], WithinAbs(1.0f, 1e-4f));
+    REQUIRE_THAT(out.steps[0][16][16].x, WithinAbs(0.0f, 1e-4f));
+    REQUIRE_THAT(out.steps[0][16][16].y, WithinAbs(1.0f, 1e-4f));
 }
 
 // ---------------------------------------------------------------------------
@@ -149,11 +144,11 @@ TEST_CASE("Source field points away from center", "[simulator][generate]") {
     // Cell to the right of center: vx should be positive, vy near zero
     const int i = 24;
     const int j = 16;
-    REQUIRE(out.vx[0][j][i] > 0.0f);
-    const float px = worldX(i, config.width, config.xMin, config.xMax);
-    const float py = worldY(j, config.height, config.yMin, config.yMax);
+    REQUIRE(out.steps[0][j][i].x > 0.0f);
+    const float px = gridToWorld(i, config.width, config.xMin, config.xMax);
+    const float py = gridToWorld(j, config.height, config.yMin, config.yMax);
     // Angle from center should match vector direction
-    const float angle = std::atan2(out.vy[0][j][i], out.vx[0][j][i]);
+    const float angle = std::atan2(out.steps[0][j][i].y, out.steps[0][j][i].x);
     const float expected = std::atan2(py, px);
     REQUIRE_THAT(angle, WithinAbs(expected, 1e-4f));
 }
@@ -168,7 +163,7 @@ TEST_CASE("Sink field points toward center", "[simulator][generate]") {
     const int i = 24;
     const int j = 16;
     // To the right of center, vx should be negative (pointing toward origin)
-    REQUIRE(out.vx[0][j][i] < 0.0f);
+    REQUIRE(out.steps[0][j][i].x < 0.0f);
 }
 
 // ---------------------------------------------------------------------------
@@ -186,8 +181,8 @@ TEST_CASE("Saddle field has opposite signs in x and y relative to center",
     // Point at (+x, +y) quadrant: vx > 0, vy < 0
     const int i = 24;
     const int j = 24;
-    REQUIRE(out.vx[0][j][i] > 0.0f);
-    REQUIRE(out.vy[0][j][i] < 0.0f);
+    REQUIRE(out.steps[0][j][i].x > 0.0f);
+    REQUIRE(out.steps[0][j][i].y < 0.0f);
 }
 
 // ---------------------------------------------------------------------------
@@ -209,10 +204,10 @@ TEST_CASE("Spiral field is between vortex and sink", "[simulator][generate]") {
 
     const int i = 24;
     const int j = 8;
-    const float expectedVx = (0.5f * outVortex.vx[0][j][i]) + (0.5f * outSink.vx[0][j][i]);
-    const float expectedVy = (0.5f * outVortex.vy[0][j][i]) + (0.5f * outSink.vy[0][j][i]);
-    REQUIRE_THAT(outSpiral.vx[0][j][i], WithinAbs(expectedVx, 1e-4f));
-    REQUIRE_THAT(outSpiral.vy[0][j][i], WithinAbs(expectedVy, 1e-4f));
+    const float expectedVx = (0.5f * outVortex.steps[0][j][i].x) + (0.5f * outSink.steps[0][j][i].x);
+    const float expectedVy = (0.5f * outVortex.steps[0][j][i].y) + (0.5f * outSink.steps[0][j][i].y);
+    REQUIRE_THAT(outSpiral.steps[0][j][i].x, WithinAbs(expectedVx, 1e-4f));
+    REQUIRE_THAT(outSpiral.steps[0][j][i].y, WithinAbs(expectedVy, 1e-4f));
 }
 
 // ---------------------------------------------------------------------------
@@ -228,11 +223,7 @@ TEST_CASE("Viscous decay reduces magnitude over steps", "[simulator][generate]")
 
     const int i = 24;
     const int j = 16;
-    const float mag0 =
-        std::sqrt((out.vx[0][j][i] * out.vx[0][j][i]) + (out.vy[0][j][i] * out.vy[0][j][i]));
-    const float mag49 =
-        std::sqrt((out.vx[49][j][i] * out.vx[49][j][i]) + (out.vy[49][j][i] * out.vy[49][j][i]));
-    REQUIRE(mag0 > mag49);
+    REQUIRE(out.steps[0][j][i].magnitude() > out.steps[49][j][i].magnitude());
 }
 
 // ---------------------------------------------------------------------------
@@ -249,9 +240,9 @@ TEST_CASE("Custom x_expression = \"x\" evaluates to world x-coordinate", "[simul
 
     const int i = 20;
     const int j = 16;
-    const float px = worldX(i, config.width, config.xMin, config.xMax);
-    REQUIRE_THAT(out.vx[0][j][i], WithinAbs(px, 1e-4f));
-    REQUIRE_THAT(out.vy[0][j][i], WithinAbs(0.0f, 1e-4f));
+    const float px = gridToWorld(i, config.width, config.xMin, config.xMax);
+    REQUIRE_THAT(out.steps[0][j][i].x, WithinAbs(px, 1e-4f));
+    REQUIRE_THAT(out.steps[0][j][i].y, WithinAbs(0.0f, 1e-4f));
 }
 
 // ---------------------------------------------------------------------------
@@ -276,8 +267,8 @@ TEST_CASE("Superposition sums field contributions", "[simulator][generate]") {
     auto out = generateTimeSeries(config);
 
     // vx = 1.0 + 0.0 = 1.0, vy = 0.0 + 1.0 = 1.0
-    REQUIRE_THAT(out.vx[0][16][16], WithinAbs(1.0f, 1e-4f));
-    REQUIRE_THAT(out.vy[0][16][16], WithinAbs(1.0f, 1e-4f));
+    REQUIRE_THAT(out.steps[0][16][16].x, WithinAbs(1.0f, 1e-4f));
+    REQUIRE_THAT(out.steps[0][16][16].y, WithinAbs(1.0f, 1e-4f));
 }
 
 // ---------------------------------------------------------------------------
@@ -425,7 +416,7 @@ TEST_CASE("Noise field is non-constant spatially", "[simulator][generate]") {
     layer.scale = 2.5f;
     layer.seed = 7;
     const auto out = generateTimeSeries(makeConfig(layer, 1));
-    REQUIRE(std::abs(out.vx[0][0][0] - out.vx[0][16][24]) > 1e-4f);
+    REQUIRE(std::abs(out.steps[0][0][0].x - out.steps[0][16][24].x) > 1e-4f);
 }
 
 TEST_CASE("Noise field is reproducible with the same seed", "[simulator][generate]") {
@@ -435,8 +426,8 @@ TEST_CASE("Noise field is reproducible with the same seed", "[simulator][generat
     layer.seed = 7;
     const auto out1 = generateTimeSeries(makeConfig(layer, 1));
     const auto out2 = generateTimeSeries(makeConfig(layer, 1));
-    REQUIRE_THAT(out1.vx[0][8][8], WithinAbs(out2.vx[0][8][8], 1e-6f));
-    REQUIRE_THAT(out1.vy[0][8][8], WithinAbs(out2.vy[0][8][8], 1e-6f));
+    REQUIRE_THAT(out1.steps[0][8][8].x, WithinAbs(out2.steps[0][8][8].x, 1e-6f));
+    REQUIRE_THAT(out1.steps[0][8][8].y, WithinAbs(out2.steps[0][8][8].y, 1e-6f));
 }
 
 TEST_CASE("Noise field differs between seeds", "[simulator][generate]") {
@@ -447,7 +438,7 @@ TEST_CASE("Noise field differs between seeds", "[simulator][generate]") {
     const auto out0 = generateTimeSeries(makeConfig(layer, 1));
     layer.seed = 42;
     const auto out42 = generateTimeSeries(makeConfig(layer, 1));
-    REQUIRE(std::abs(out0.vx[0][8][8] - out42.vx[0][8][8]) > 1e-4f);
+    REQUIRE(std::abs(out0.steps[0][8][8].x - out42.steps[0][8][8].x) > 1e-4f);
 }
 
 TEST_CASE("Spiral at sinkBlend=0 matches pure vortex", "[simulator][generate]") {
@@ -461,8 +452,8 @@ TEST_CASE("Spiral at sinkBlend=0 matches pure vortex", "[simulator][generate]") 
     const auto outSpiral = generateTimeSeries(makeConfig(spiralLayer));
     const auto outVortex = generateTimeSeries(makeConfig(vortexLayer));
 
-    REQUIRE_THAT(outSpiral.vx[0][8][24], WithinAbs(outVortex.vx[0][8][24], 1e-5f));
-    REQUIRE_THAT(outSpiral.vy[0][8][24], WithinAbs(outVortex.vy[0][8][24], 1e-5f));
+    REQUIRE_THAT(outSpiral.steps[0][8][24].x, WithinAbs(outVortex.steps[0][8][24].x, 1e-5f));
+    REQUIRE_THAT(outSpiral.steps[0][8][24].y, WithinAbs(outVortex.steps[0][8][24].y, 1e-5f));
 }
 
 TEST_CASE("Spiral at sinkBlend=1 matches pure sink", "[simulator][generate]") {
@@ -476,8 +467,8 @@ TEST_CASE("Spiral at sinkBlend=1 matches pure sink", "[simulator][generate]") {
     const auto outSpiral = generateTimeSeries(makeConfig(spiralLayer));
     const auto outSink = generateTimeSeries(makeConfig(sinkLayer));
 
-    REQUIRE_THAT(outSpiral.vx[0][8][24], WithinAbs(outSink.vx[0][8][24], 1e-5f));
-    REQUIRE_THAT(outSpiral.vy[0][8][24], WithinAbs(outSink.vy[0][8][24], 1e-5f));
+    REQUIRE_THAT(outSpiral.steps[0][8][24].x, WithinAbs(outSink.steps[0][8][24].x, 1e-5f));
+    REQUIRE_THAT(outSpiral.steps[0][8][24].y, WithinAbs(outSink.steps[0][8][24].y, 1e-5f));
 }
 
 TEST_CASE("Custom y_expression = \"y\" evaluates to world y-coordinate", "[simulator][generate]") {
@@ -489,9 +480,9 @@ TEST_CASE("Custom y_expression = \"y\" evaluates to world y-coordinate", "[simul
     const auto out = generateTimeSeries(config);
 
     const int row = 20;
-    const float py = worldY(row, config.height, config.yMin, config.yMax);
-    REQUIRE_THAT(out.vy[0][row][8], WithinAbs(py, 1e-4f));
-    REQUIRE_THAT(out.vx[0][row][8], WithinAbs(0.0f, 1e-4f));
+    const float py = gridToWorld(row, config.height, config.yMin, config.yMax);
+    REQUIRE_THAT(out.steps[0][row][8].y, WithinAbs(py, 1e-4f));
+    REQUIRE_THAT(out.steps[0][row][8].x, WithinAbs(0.0f, 1e-4f));
 }
 
 TEST_CASE("Custom t expression evaluates to step*dt", "[simulator][generate]") {
@@ -502,9 +493,9 @@ TEST_CASE("Custom t expression evaluates to step*dt", "[simulator][generate]") {
     SimulatorConfig config = makeConfig(layer, 5);
     const auto out = generateTimeSeries(config);
 
-    REQUIRE_THAT(out.vx[0][16][16], WithinAbs(0.0f, 1e-5f));
+    REQUIRE_THAT(out.steps[0][16][16].x, WithinAbs(0.0f, 1e-5f));
     const float expectedT3 = 3.0f * config.dt;
-    REQUIRE_THAT(out.vx[3][16][16], WithinAbs(expectedT3, 1e-5f));
+    REQUIRE_THAT(out.steps[3][16][16].x, WithinAbs(expectedT3, 1e-5f));
 }
 
 TEST_CASE("Invalid custom expression throws", "[simulator][generate]") {
@@ -523,8 +514,8 @@ TEST_CASE("Empty layers produces all-zero output", "[simulator][generate]") {
     config.layers = {};
     const auto out = generateTimeSeries(config);
 
-    REQUIRE_THAT(out.vx[0][0][0], WithinAbs(0.0f, 1e-6f));
-    REQUIRE_THAT(out.vy[0][2][3], WithinAbs(0.0f, 1e-6f));
+    REQUIRE_THAT(out.steps[0][0][0].x, WithinAbs(0.0f, 1e-6f));
+    REQUIRE_THAT(out.steps[0][2][3].y, WithinAbs(0.0f, 1e-6f));
 }
 
 TEST_CASE("Layer strength multiplies contribution", "[simulator][generate]") {
@@ -540,8 +531,8 @@ TEST_CASE("Layer strength multiplies contribution", "[simulator][generate]") {
     const auto out1 = generateTimeSeries(makeConfig(layer));
     const auto out2 = generateTimeSeries(makeConfig(layerDouble));
 
-    REQUIRE_THAT(out2.vx[0][16][16], WithinAbs(2.0f * out1.vx[0][16][16], 1e-5f));
-    REQUIRE_THAT(out2.vy[0][16][16], WithinAbs(2.0f * out1.vy[0][16][16], 1e-5f));
+    REQUIRE_THAT(out2.steps[0][16][16].x, WithinAbs(2.0f * out1.steps[0][16][16].x, 1e-5f));
+    REQUIRE_THAT(out2.steps[0][16][16].y, WithinAbs(2.0f * out1.steps[0][16][16].y, 1e-5f));
 }
 
 // ---------------------------------------------------------------------------
@@ -634,8 +625,8 @@ TEST_CASE("FieldWriter::write() vx/vy values match generateTimeSeries() output",
     group.getDataSet("vx").read(vxRead);
     group.getDataSet("vy").read(vyRead);
 
-    REQUIRE_THAT(vxRead[0][8][24], WithinAbs(field.vx[0][8][24], 1e-6f));
-    REQUIRE_THAT(vyRead[0][8][24], WithinAbs(field.vy[0][8][24], 1e-6f));
+    REQUIRE_THAT(vxRead[0][8][24], WithinAbs(field.steps[0][8][24].x, 1e-6f));
+    REQUIRE_THAT(vyRead[0][8][24], WithinAbs(field.steps[0][8][24].y, 1e-6f));
 
     std::error_code ec;
     std::filesystem::remove(tmpPath, ec);

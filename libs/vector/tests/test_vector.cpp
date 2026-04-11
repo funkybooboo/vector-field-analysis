@@ -8,7 +8,7 @@ using Catch::Matchers::WithinAbs;
 TEST_CASE("Vector magnitude", "[vector]") {
     REQUIRE_THAT(Vector::Vec2(3.0f, 4.0f).magnitude(), WithinAbs(5.0f, 1e-5f));
     REQUIRE_THAT(Vector::Vec2(1.0f, 0.0f).magnitude(), WithinAbs(1.0f, 1e-5f));
-    REQUIRE_THAT(Vector::Vec2(0.0f, 0.0f).magnitude(), WithinAbs(0.0f, 1e-5f));
+    REQUIRE_THAT(Vector::Vec2{}.magnitude(), WithinAbs(0.0f, 1e-5f));
 }
 
 TEST_CASE("Vector unitVector has magnitude 1", "[vector]") {
@@ -44,7 +44,7 @@ TEST_CASE("almostParallel", "[vector]") {
 }
 
 TEST_CASE("Vec2 unitVector for zero vector returns zero vector", "[vector]") {
-    Vector::Vec2 zero(0.0f, 0.0f);
+    Vector::Vec2 zero{};
     auto result = zero.unitVector();
     REQUIRE_THAT(result.x, WithinAbs(0.0f, 1e-5f));
     REQUIRE_THAT(result.y, WithinAbs(0.0f, 1e-5f));
@@ -63,7 +63,40 @@ TEST_CASE("almostParallel threshold boundary", "[vector]") {
 
 TEST_CASE("dotProduct with zero vector", "[vector]") {
     Vector::Vec2 unit(1.0f, 0.0f);
-    Vector::Vec2 zero(0.0f, 0.0f);
+    Vector::Vec2 zero{};
     REQUIRE_THAT(Vector::dotProduct(unit, zero), WithinAbs(0.0f, 1e-5f));
     REQUIRE_THAT(Vector::dotProduct(zero, zero), WithinAbs(0.0f, 1e-5f));
+}
+
+TEST_CASE("Vec2 unary negation", "[vector]") {
+    Vector::Vec2 v(3.0f, -4.0f);
+    auto neg = -v;
+    REQUIRE_THAT(neg.x, WithinAbs(-3.0f, 1e-5f));
+    REQUIRE_THAT(neg.y, WithinAbs( 4.0f, 1e-5f));
+}
+
+TEST_CASE("Vec2 operator+", "[vector]") {
+    Vector::Vec2 a(1.0f, 2.0f);
+    Vector::Vec2 b(3.0f, 4.0f);
+    auto c = a + b;
+    REQUIRE_THAT(c.x, WithinAbs(4.0f, 1e-5f));
+    REQUIRE_THAT(c.y, WithinAbs(6.0f, 1e-5f));
+}
+
+TEST_CASE("Vec2 operator+=", "[vector]") {
+    Vector::Vec2 a(1.0f, 2.0f);
+    a += Vector::Vec2(3.0f, 4.0f);
+    REQUIRE_THAT(a.x, WithinAbs(4.0f, 1e-5f));
+    REQUIRE_THAT(a.y, WithinAbs(6.0f, 1e-5f));
+}
+
+TEST_CASE("Vec2 scalar multiply and float*Vec2 overload", "[vector]") {
+    Vector::Vec2 v(1.0f, 2.0f);
+    auto r1 = v * 3.0f;
+    REQUIRE_THAT(r1.x, WithinAbs(3.0f, 1e-5f));
+    REQUIRE_THAT(r1.y, WithinAbs(6.0f, 1e-5f));
+
+    auto r2 = 3.0f * v;
+    REQUIRE_THAT(r2.x, WithinAbs(3.0f, 1e-5f));
+    REQUIRE_THAT(r2.y, WithinAbs(6.0f, 1e-5f));
 }

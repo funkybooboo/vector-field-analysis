@@ -10,7 +10,7 @@ viscous decay to all vectors.
 
 ## Field Generation Algorithms
 
-All types return a 2D Eigen vector for a given physical coordinate `(px, py)` and time `t`.
+All types return a `Vector::Vec2` for a given physical coordinate `(px, py)` and time `t`.
 Contributions from all layers are summed, then multiplied by the viscous decay scalar.
 
 ### Vortex

@@ -7,7 +7,7 @@
 
 namespace FieldReader {
 
-FieldTimeSeries read(const std::string& path) {
+Vector::FieldTimeSeries read(const std::string& path) {
     HighFive::File file(path, HighFive::File::ReadOnly);
     const auto group = file.getGroup("field");
 
@@ -21,7 +21,7 @@ FieldTimeSeries read(const std::string& path) {
         throw std::runtime_error("Field dataset is empty in: " + path);
     }
 
-    FieldTimeSeries result;
+    Vector::FieldTimeSeries result;
     group.getAttribute("xMin").read(result.xMin);
     group.getAttribute("xMax").read(result.xMax);
     group.getAttribute("yMin").read(result.yMin);
@@ -35,7 +35,7 @@ FieldTimeSeries read(const std::string& path) {
     for (std::size_t step = 0; step < numSteps; ++step) {
         result.steps[step].resize(height);
         for (std::size_t row = 0; row < height; ++row) {
-            result.steps[step][row].resize(width, Vector::Vec2(0.0f, 0.0f));
+            result.steps[step][row].resize(width, Vector::Vec2{});
             for (std::size_t col = 0; col < width; ++col) {
                 result.steps[step][row][col] =
                     Vector::Vec2(vx3d[step][row][col], vy3d[step][row][col]);

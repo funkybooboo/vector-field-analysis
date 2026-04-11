@@ -2,7 +2,6 @@
 
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
 
 // NOLINTBEGIN(misc-include-cleaner)
 #define TOML_EXCEPTIONS 1
@@ -13,36 +12,51 @@ namespace ConfigParser {
 
 namespace {
 
+// Struct defaults in simulatorConfig.hpp are the single source of truth.
+// The parser only assigns a field when the key is explicitly present in the TOML.
+
 FieldType parseFieldType(const std::string& typeName) {
-    static const std::unordered_map<std::string, FieldType> typeMap = {
-        {"vortex", FieldType::Vortex}, {"uniform", FieldType::Uniform},
-        {"source", FieldType::Source}, {"sink", FieldType::Sink},
-        {"saddle", FieldType::Saddle}, {"spiral", FieldType::Spiral},
-        {"noise", FieldType::Noise},   {"custom", FieldType::Custom},
-    };
-    const auto it = typeMap.find(typeName);
-    if (it == typeMap.end()) {
-        throw std::runtime_error("Unknown field type: \"" + typeName + "\"");
-    }
-    return it->second;
+    // toString() in simulatorConfig.hpp handles the reverse direction (enum→string).
+    if (typeName == "vortex")  { return FieldType::Vortex; }
+    if (typeName == "uniform") { return FieldType::Uniform; }
+    if (typeName == "source")  { return FieldType::Source; }
+    if (typeName == "sink")    { return FieldType::Sink; }
+    if (typeName == "saddle")  { return FieldType::Saddle; }
+    if (typeName == "spiral")  { return FieldType::Spiral; }
+    if (typeName == "noise")   { return FieldType::Noise; }
+    if (typeName == "custom")  { return FieldType::Custom; }
+    throw std::runtime_error("Unknown field type: \"" + typeName + "\"");
 }
 
 FieldLayerConfig parseLayerConfig(const toml::table& table) {
     FieldLayerConfig layer;
-    if (const auto value = table["type"].value<std::string>()) {
-        layer.type = parseFieldType(*value);
-    }
-    layer.strength = static_cast<float>(table["strength"].value_or(1.0));
-    layer.centerX = static_cast<float>(table["center_x"].value_or(0.0));
-    layer.centerY = static_cast<float>(table["center_y"].value_or(0.0));
-    layer.angle = static_cast<float>(table["angle"].value_or(0.0));
-    layer.magnitude = static_cast<float>(table["magnitude"].value_or(1.0));
-    layer.sinkBlend = static_cast<float>(table["sink_blend"].value_or(0.5));
-    layer.scale = static_cast<float>(table["scale"].value_or(1.0));
-    layer.seed = static_cast<int>(table["seed"].value_or(int64_t{0}));
-    layer.xExpression = table["x_expression"].value_or(std::string{});
-    layer.yExpression = table["y_expression"].value_or(std::string{});
+    if (const auto v = table["type"].value<std::string>())         { layer.type        = parseFieldType(*v); }
+    if (const auto v = table["strength"].value<double>())          { layer.strength    = static_cast<float>(*v); }
+    if (const auto v = table["center_x"].value<double>())          { layer.centerX     = static_cast<float>(*v); }
+    if (const auto v = table["center_y"].value<double>())          { layer.centerY     = static_cast<float>(*v); }
+    if (const auto v = table["angle"].value<double>())             { layer.angle       = static_cast<float>(*v); }
+    if (const auto v = table["magnitude"].value<double>())         { layer.magnitude   = static_cast<float>(*v); }
+    if (const auto v = table["sink_blend"].value<double>())        { layer.sinkBlend   = static_cast<float>(*v); }
+    if (const auto v = table["scale"].value<double>())             { layer.scale       = static_cast<float>(*v); }
+    if (const auto v = table["seed"].value<int64_t>())             { layer.seed        = static_cast<int>(*v); }
+    if (const auto v = table["x_expression"].value<std::string>()) { layer.xExpression = *v; }
+    if (const auto v = table["y_expression"].value<std::string>()) { layer.yExpression = *v; }
     return layer;
+}
+
+SimulatorConfig parseSimulationSection(const toml::table& simulation) {
+    SimulatorConfig config;
+    if (const auto v = simulation["steps"].value<int64_t>())      { config.steps     = static_cast<int>(*v); }
+    if (const auto v = simulation["dt"].value<double>())          { config.dt        = static_cast<float>(*v); }
+    if (const auto v = simulation["viscosity"].value<double>())   { config.viscosity = static_cast<float>(*v); }
+    if (const auto v = simulation["output"].value<std::string>()) { config.output    = *v; }
+    if (const auto v = simulation["width"].value<int64_t>())      { config.width     = static_cast<int>(*v); }
+    if (const auto v = simulation["height"].value<int64_t>())     { config.height    = static_cast<int>(*v); }
+    if (const auto v = simulation["xmin"].value<double>())        { config.xMin      = static_cast<float>(*v); }
+    if (const auto v = simulation["xmax"].value<double>())        { config.xMax      = static_cast<float>(*v); }
+    if (const auto v = simulation["ymin"].value<double>())        { config.yMin      = static_cast<float>(*v); }
+    if (const auto v = simulation["ymax"].value<double>())        { config.yMax      = static_cast<float>(*v); }
+    return config;
 }
 
 } // namespace
@@ -52,16 +66,7 @@ SimulatorConfig parseFile(const std::string& path) {
     SimulatorConfig config;
 
     if (const auto* simulation = table["simulation"].as_table()) {
-        config.steps = static_cast<int>((*simulation)["steps"].value_or(int64_t{100}));
-        config.dt = static_cast<float>((*simulation)["dt"].value_or(0.01));
-        config.viscosity = static_cast<float>((*simulation)["viscosity"].value_or(0.0));
-        config.output = (*simulation)["output"].value_or(std::string{"field.h5"});
-        config.width = static_cast<int>((*simulation)["width"].value_or(int64_t{64}));
-        config.height = static_cast<int>((*simulation)["height"].value_or(int64_t{64}));
-        config.xMin = static_cast<float>((*simulation)["xmin"].value_or(-1.0));
-        config.xMax = static_cast<float>((*simulation)["xmax"].value_or(1.0));
-        config.yMin = static_cast<float>((*simulation)["ymin"].value_or(-1.0));
-        config.yMax = static_cast<float>((*simulation)["ymax"].value_or(1.0));
+        config = parseSimulationSection(*simulation);
     }
 
     if (const auto* layersArray = table["layers"].as_array()) {

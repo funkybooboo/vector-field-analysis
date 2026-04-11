@@ -1,9 +1,9 @@
 #pragma once
-#include "fieldGenerator.hpp"
 #include "simulatorConfig.hpp"
+#include "vector.hpp"
 
 namespace FieldWriter {
 
-void write(const FieldGenerator::FieldTimeSeries& field, const SimulatorConfig& config);
+void write(const Vector::FieldTimeSeries& field, const SimulatorConfig& config);
 
 } // namespace FieldWriter

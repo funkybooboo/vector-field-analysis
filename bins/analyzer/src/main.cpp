@@ -7,7 +7,7 @@
 int main(int argc, char* argv[]) {
     try {
         const std::string inPath = argc > 1 ? argv[1] : "field.h5";
-        const FieldReader::FieldTimeSeries data = FieldReader::read(inPath);
+        const Vector::FieldTimeSeries data = FieldReader::read(inPath);
 
         const int numSteps = static_cast<int>(data.steps.size());
         const int height = static_cast<int>(data.steps[0].size());

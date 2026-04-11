@@ -9,7 +9,7 @@ target_include_directories(simulator_lib PUBLIC
 )
 
 target_link_libraries(simulator_lib PUBLIC
-    Eigen3::Eigen
+    vector
     exprtk
     stb_perlin
     HighFive

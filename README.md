@@ -89,7 +89,6 @@ Individual targets:
 
 | Dependency | Version | Notes |
 |---|---|---|
-| Eigen | 3.4.0 | Linear algebra |
 | HighFive | v2.10.0 | HDF5 C++ wrapper |
 | Catch2 | v3.5.3 | Testing framework |
 | toml++ | v3.4.0 | TOML config file parsing |

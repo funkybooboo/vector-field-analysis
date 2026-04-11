@@ -1,4 +1,5 @@
 #pragma once
+#include "streamline.hpp"
 #include "vector.hpp"
 
 #include <memory>
@@ -8,18 +9,25 @@ namespace VectorField {
 
 // Owns a single-step vector field grid and drives the streamline tracing
 // algorithm over it. Row index corresponds to the y-axis, col index to x.
+// Stream associations are tracked in a parallel grid (streams_) rather than
+// inside Vec2, keeping the generic math type free of domain state.
 class FieldGrid {
     const float xMin, xMax, yMin, yMax;
-    std::vector<std::vector<Vector::Vec2>> field;
+    Vector::FieldSlice field;
+    std::vector<std::vector<std::shared_ptr<Vector::Streamline>>> streams_;
 
   public:
     FieldGrid(float xMin, float xMax, float yMin, float yMax,
-              std::vector<std::vector<Vector::Vec2>> field)
+              Vector::FieldSlice field)
         : xMin(xMin),
           xMax(xMax),
           yMin(yMin),
           yMax(yMax),
-          field(std::move(field)) {}
+          field(std::move(field)) {
+        const std::size_t rows = this->field.size();
+        const std::size_t cols = rows > 0 ? this->field[0].size() : 0;
+        streams_.assign(rows, std::vector<std::shared_ptr<Vector::Streamline>>(cols, nullptr));
+    }
 
     // Returns the grid cell (row, col) that the vector at (row, col) points toward
     std::pair<int, int> neighborInVectorDirection(int row, int col);

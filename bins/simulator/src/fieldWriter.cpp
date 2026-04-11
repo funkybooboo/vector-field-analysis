@@ -3,43 +3,32 @@
 #include <highfive/highfive.hpp>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace FieldWriter {
 
-namespace {
-
-// Produces a human-readable label for the "type" HDF5 attribute.
-// Not a general enum serializer -- output is informational only.
-std::string fieldTypeName(FieldType type) {
-    switch (type) {
-    case FieldType::Vortex:
-        return "vortex";
-    case FieldType::Uniform:
-        return "uniform";
-    case FieldType::Source:
-        return "source";
-    case FieldType::Sink:
-        return "sink";
-    case FieldType::Saddle:
-        return "saddle";
-    case FieldType::Spiral:
-        return "spiral";
-    case FieldType::Noise:
-        return "noise";
-    case FieldType::Custom:
-        return "custom";
-    }
-    return "unknown";
-}
-
-} // namespace
-
-void write(const FieldGenerator::FieldTimeSeries& field, const SimulatorConfig& config) {
+void write(const Vector::FieldTimeSeries& field, const SimulatorConfig& config) {
     HighFive::File file(config.output, HighFive::File::Overwrite);
     auto group = file.createGroup("field");
 
-    group.createDataSet("vx", field.vx);
-    group.createDataSet("vy", field.vy);
+    // HDF5 requires flat numeric arrays; extract x/y components from Vec2.
+    const std::size_t numSteps = field.steps.size();
+    const std::size_t height = static_cast<std::size_t>(config.height);
+    const std::size_t width = static_cast<std::size_t>(config.width);
+    std::vector<std::vector<std::vector<float>>> vx(
+        numSteps, std::vector<std::vector<float>>(height, std::vector<float>(width)));
+    std::vector<std::vector<std::vector<float>>> vy(
+        numSteps, std::vector<std::vector<float>>(height, std::vector<float>(width)));
+    for (std::size_t s = 0; s < numSteps; ++s) {
+        for (std::size_t r = 0; r < height; ++r) {
+            for (std::size_t c = 0; c < width; ++c) {
+                vx[s][r][c] = field.steps[s][r][c].x;
+                vy[s][r][c] = field.steps[s][r][c].y;
+            }
+        }
+    }
+    group.createDataSet("vx", vx);
+    group.createDataSet("vy", vy);
 
     // Store grid geometry and simulation parameters as HDF5 attributes alongside
     // the data so the file is self-contained -- readers don't need the config file.
@@ -52,7 +41,7 @@ void write(const FieldGenerator::FieldTimeSeries& field, const SimulatorConfig& 
         if (!typeLabel.empty()) {
             typeLabel += '+';
         }
-        typeLabel += fieldTypeName(fieldConfig.type);
+        typeLabel += toString(fieldConfig.type);
     }
 
     group.createAttribute("type", typeLabel);

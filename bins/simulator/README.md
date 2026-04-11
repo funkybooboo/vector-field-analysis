@@ -124,7 +124,6 @@ mise run run:bin:simulator     # run karman_street.toml (writes field.h5)
 ## Dependencies
 
 - [`libs/vector`](../../libs/vector) - `Vec2` and `Streamline` types
-- Eigen 3.4.0 - vector math
 - toml++ v3.4.0 - config parsing
 - exprtk 0.0.3 - custom field expression evaluation
 - stb_perlin (stb master) - Perlin noise
