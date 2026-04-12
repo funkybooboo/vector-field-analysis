@@ -13,12 +13,12 @@ namespace VectorField {
 // inside Vec2, keeping the generic math type free of domain state.
 class FieldGrid {
     const float xMin, xMax, yMin, yMax;
-    Vector::FieldSlice field;
     std::vector<std::vector<std::shared_ptr<Vector::Streamline>>> streams_;
 
   public:
-    FieldGrid(float xMin, float xMax, float yMin, float yMax,
-              Vector::FieldSlice field)
+    std::vector<std::vector<Vector::Vec2>> field;
+
+    FieldGrid(float xMin, float xMax, float yMin, float yMax, Vector::FieldSlice field)
         : xMin(xMin),
           xMax(xMax),
           yMin(yMin),
@@ -29,18 +29,22 @@ class FieldGrid {
         streams_.assign(rows, std::vector<std::shared_ptr<Vector::Streamline>>(cols, nullptr));
     }
 
-    // Returns the grid cell (row, col) that the vector at (row, col) points toward
+    // Returns the grid cell (row, col) that the vector at (row, col) points
+    // toward
     std::pair<int, int> neighborInVectorDirection(int row, int col);
     std::pair<int, int> neighborInVectorDirection(std::pair<int, int> coords);
 
-    // Merges end's streamline path into start's, redirecting all field vector references.
-    // Null or self-merge arguments are silently ignored -- they represent degenerate
-    // cases (uninitialized cell, vector pointing back to itself) that produce no path.
+    // Merges end's streamline path into start's, redirecting all field vector
+    // references. Null or self-merge arguments are silently ignored -- they
+    // represent degenerate cases (uninitialized cell, vector pointing back to
+    // itself) that produce no path.
     void joinStreamlines(const std::shared_ptr<Vector::Streamline>& start,
                          const std::shared_ptr<Vector::Streamline>& end);
 
-    // Follows the vector at startCoords one step and connects it to the destination streamline
+    // Follows the vector at startCoords one step and connects it to the
+    // destination streamline
     void traceStreamlineStep(std::pair<int, int> startCoords);
+    void traceStreamlineStep(int row, int col) { traceStreamlineStep(std::make_pair(row, col)); }
 };
 
 } // namespace VectorField

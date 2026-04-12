@@ -72,7 +72,7 @@ TEST_CASE("Vec2 unary negation", "[vector]") {
     Vector::Vec2 v(3.0f, -4.0f);
     auto neg = -v;
     REQUIRE_THAT(neg.x, WithinAbs(-3.0f, 1e-5f));
-    REQUIRE_THAT(neg.y, WithinAbs( 4.0f, 1e-5f));
+    REQUIRE_THAT(neg.y, WithinAbs(4.0f, 1e-5f));
 }
 
 TEST_CASE("Vec2 operator+", "[vector]") {

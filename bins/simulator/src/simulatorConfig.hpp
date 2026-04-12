@@ -17,14 +17,22 @@ enum class FieldType : std::uint8_t {
 
 inline std::string_view toString(FieldType type) {
     switch (type) {
-    case FieldType::Vortex:  return "vortex";
-    case FieldType::Uniform: return "uniform";
-    case FieldType::Source:  return "source";
-    case FieldType::Sink:    return "sink";
-    case FieldType::Saddle:  return "saddle";
-    case FieldType::Spiral:  return "spiral";
-    case FieldType::Noise:   return "noise";
-    case FieldType::Custom:  return "custom";
+    case FieldType::Vortex:
+        return "vortex";
+    case FieldType::Uniform:
+        return "uniform";
+    case FieldType::Source:
+        return "source";
+    case FieldType::Sink:
+        return "sink";
+    case FieldType::Saddle:
+        return "saddle";
+    case FieldType::Spiral:
+        return "spiral";
+    case FieldType::Noise:
+        return "noise";
+    case FieldType::Custom:
+        return "custom";
     }
     return "unknown";
 }

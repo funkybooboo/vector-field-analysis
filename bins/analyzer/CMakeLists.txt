@@ -1,6 +1,9 @@
 add_library(analyzer_lib STATIC
     src/vectorField.cpp
     src/fieldReader.cpp
+    src/openMP.cpp
+    src/pthreads.cpp
+    src/sequentialCPU.cpp
 )
 
 target_include_directories(analyzer_lib PUBLIC

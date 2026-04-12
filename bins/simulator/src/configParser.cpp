@@ -17,45 +17,103 @@ namespace {
 
 FieldType parseFieldType(const std::string& typeName) {
     // toString() in simulatorConfig.hpp handles the reverse direction (enum→string).
-    if (typeName == "vortex")  { return FieldType::Vortex; }
-    if (typeName == "uniform") { return FieldType::Uniform; }
-    if (typeName == "source")  { return FieldType::Source; }
-    if (typeName == "sink")    { return FieldType::Sink; }
-    if (typeName == "saddle")  { return FieldType::Saddle; }
-    if (typeName == "spiral")  { return FieldType::Spiral; }
-    if (typeName == "noise")   { return FieldType::Noise; }
-    if (typeName == "custom")  { return FieldType::Custom; }
+    if (typeName == "vortex") {
+        return FieldType::Vortex;
+    }
+    if (typeName == "uniform") {
+        return FieldType::Uniform;
+    }
+    if (typeName == "source") {
+        return FieldType::Source;
+    }
+    if (typeName == "sink") {
+        return FieldType::Sink;
+    }
+    if (typeName == "saddle") {
+        return FieldType::Saddle;
+    }
+    if (typeName == "spiral") {
+        return FieldType::Spiral;
+    }
+    if (typeName == "noise") {
+        return FieldType::Noise;
+    }
+    if (typeName == "custom") {
+        return FieldType::Custom;
+    }
     throw std::runtime_error("Unknown field type: \"" + typeName + "\"");
 }
 
 FieldLayerConfig parseLayerConfig(const toml::table& table) {
     FieldLayerConfig layer;
-    if (const auto v = table["type"].value<std::string>())         { layer.type        = parseFieldType(*v); }
-    if (const auto v = table["strength"].value<double>())          { layer.strength    = static_cast<float>(*v); }
-    if (const auto v = table["center_x"].value<double>())          { layer.centerX     = static_cast<float>(*v); }
-    if (const auto v = table["center_y"].value<double>())          { layer.centerY     = static_cast<float>(*v); }
-    if (const auto v = table["angle"].value<double>())             { layer.angle       = static_cast<float>(*v); }
-    if (const auto v = table["magnitude"].value<double>())         { layer.magnitude   = static_cast<float>(*v); }
-    if (const auto v = table["sink_blend"].value<double>())        { layer.sinkBlend   = static_cast<float>(*v); }
-    if (const auto v = table["scale"].value<double>())             { layer.scale       = static_cast<float>(*v); }
-    if (const auto v = table["seed"].value<int64_t>())             { layer.seed        = static_cast<int>(*v); }
-    if (const auto v = table["x_expression"].value<std::string>()) { layer.xExpression = *v; }
-    if (const auto v = table["y_expression"].value<std::string>()) { layer.yExpression = *v; }
+    if (const auto v = table["type"].value<std::string>()) {
+        layer.type = parseFieldType(*v);
+    }
+    if (const auto v = table["strength"].value<double>()) {
+        layer.strength = static_cast<float>(*v);
+    }
+    if (const auto v = table["center_x"].value<double>()) {
+        layer.centerX = static_cast<float>(*v);
+    }
+    if (const auto v = table["center_y"].value<double>()) {
+        layer.centerY = static_cast<float>(*v);
+    }
+    if (const auto v = table["angle"].value<double>()) {
+        layer.angle = static_cast<float>(*v);
+    }
+    if (const auto v = table["magnitude"].value<double>()) {
+        layer.magnitude = static_cast<float>(*v);
+    }
+    if (const auto v = table["sink_blend"].value<double>()) {
+        layer.sinkBlend = static_cast<float>(*v);
+    }
+    if (const auto v = table["scale"].value<double>()) {
+        layer.scale = static_cast<float>(*v);
+    }
+    if (const auto v = table["seed"].value<int64_t>()) {
+        layer.seed = static_cast<int>(*v);
+    }
+    if (const auto v = table["x_expression"].value<std::string>()) {
+        layer.xExpression = *v;
+    }
+    if (const auto v = table["y_expression"].value<std::string>()) {
+        layer.yExpression = *v;
+    }
     return layer;
 }
 
 SimulatorConfig parseSimulationSection(const toml::table& simulation) {
     SimulatorConfig config;
-    if (const auto v = simulation["steps"].value<int64_t>())      { config.steps     = static_cast<int>(*v); }
-    if (const auto v = simulation["dt"].value<double>())          { config.dt        = static_cast<float>(*v); }
-    if (const auto v = simulation["viscosity"].value<double>())   { config.viscosity = static_cast<float>(*v); }
-    if (const auto v = simulation["output"].value<std::string>()) { config.output    = *v; }
-    if (const auto v = simulation["width"].value<int64_t>())      { config.width     = static_cast<int>(*v); }
-    if (const auto v = simulation["height"].value<int64_t>())     { config.height    = static_cast<int>(*v); }
-    if (const auto v = simulation["xmin"].value<double>())        { config.xMin      = static_cast<float>(*v); }
-    if (const auto v = simulation["xmax"].value<double>())        { config.xMax      = static_cast<float>(*v); }
-    if (const auto v = simulation["ymin"].value<double>())        { config.yMin      = static_cast<float>(*v); }
-    if (const auto v = simulation["ymax"].value<double>())        { config.yMax      = static_cast<float>(*v); }
+    if (const auto v = simulation["steps"].value<int64_t>()) {
+        config.steps = static_cast<int>(*v);
+    }
+    if (const auto v = simulation["dt"].value<double>()) {
+        config.dt = static_cast<float>(*v);
+    }
+    if (const auto v = simulation["viscosity"].value<double>()) {
+        config.viscosity = static_cast<float>(*v);
+    }
+    if (const auto v = simulation["output"].value<std::string>()) {
+        config.output = *v;
+    }
+    if (const auto v = simulation["width"].value<int64_t>()) {
+        config.width = static_cast<int>(*v);
+    }
+    if (const auto v = simulation["height"].value<int64_t>()) {
+        config.height = static_cast<int>(*v);
+    }
+    if (const auto v = simulation["xmin"].value<double>()) {
+        config.xMin = static_cast<float>(*v);
+    }
+    if (const auto v = simulation["xmax"].value<double>()) {
+        config.xMax = static_cast<float>(*v);
+    }
+    if (const auto v = simulation["ymin"].value<double>()) {
+        config.yMin = static_cast<float>(*v);
+    }
+    if (const auto v = simulation["ymax"].value<double>()) {
+        config.yMax = static_cast<float>(*v);
+    }
     return config;
 }
 
