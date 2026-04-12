@@ -102,10 +102,9 @@ void computeTimeStep(VectorField::FieldGrid& field, const unsigned int threadCou
     // traceStreamlineStep writes to streams_ and is not thread-safe.
     for (std::size_t row = 0; row < rowCount; row++) {
         for (int col = 0; col < colCount; col++) {
-            field.traceStreamlineStep(
-                {static_cast<int>(row), col},
-                neighbors[row * static_cast<std::size_t>(colCount) +
-                          static_cast<std::size_t>(col)]);
+            field.traceStreamlineStep({static_cast<int>(row), col},
+                                      neighbors[row * static_cast<std::size_t>(colCount) +
+                                                static_cast<std::size_t>(col)]);
         }
     }
 }

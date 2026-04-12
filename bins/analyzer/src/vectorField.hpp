@@ -53,9 +53,7 @@ class FieldGrid {
     void traceStreamlineStep(std::pair<int, int> startCoords) {
         traceStreamlineStep(startCoords, neighborInVectorDirection(startCoords));
     }
-    void traceStreamlineStep(int row, int col) {
-        traceStreamlineStep(std::make_pair(row, col));
-    }
+    void traceStreamlineStep(int row, int col) { traceStreamlineStep(std::make_pair(row, col)); }
 };
 
 } // namespace VectorField
