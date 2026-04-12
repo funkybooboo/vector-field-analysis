@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_set>
 #include <utility>
 
 namespace VectorField {
@@ -67,6 +68,19 @@ void FieldGrid::traceStreamlineStep(std::pair<int, int> src, std::pair<int, int>
         // converge here, so merge them into one.
         joinStreamlines(destStream, srcStream);
     }
+}
+
+std::vector<std::vector<std::pair<int, int>>> FieldGrid::getStreamlines() const {
+    std::unordered_set<Vector::Streamline*> seen;
+    std::vector<std::vector<std::pair<int, int>>> result;
+    for (const auto& row : streams_) {
+        for (const auto& cell : row) {
+            if (cell && seen.insert(cell.get()).second) {
+                result.push_back(cell->path);
+            }
+        }
+    }
+    return result;
 }
 
 } // namespace VectorField

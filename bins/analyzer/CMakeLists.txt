@@ -4,6 +4,7 @@ add_library(analyzer_lib STATIC
     src/openMP.cpp
     src/pthreads.cpp
     src/sequentialCPU.cpp
+    src/streamWriter.cpp
 )
 
 target_include_directories(analyzer_lib PUBLIC

@@ -54,6 +54,11 @@ class FieldGrid {
         traceStreamlineStep(startCoords, neighborInVectorDirection(startCoords));
     }
     void traceStreamlineStep(int row, int col) { traceStreamlineStep(std::make_pair(row, col)); }
+
+    // Returns the unique streamlines found after tracing. Each streamline is an
+    // ordered list of (row, col) grid indices. Collected in row-major iteration
+    // order of streams_ — deterministic for a given trace run.
+    [[nodiscard]] std::vector<std::vector<std::pair<int, int>>> getStreamlines() const;
 };
 
 } // namespace VectorField

@@ -2,6 +2,7 @@ add_executable(analyzer_tests
     test_vectorfield.cpp
     test_fieldReader.cpp
     test_implementations.cpp
+    test_streamWriter.cpp
 )
 
 target_link_libraries(analyzer_tests PRIVATE analyzer_lib Catch2::Catch2WithMain)
