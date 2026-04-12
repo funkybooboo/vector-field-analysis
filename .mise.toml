@@ -71,9 +71,9 @@ depends = ["build:bin:simulator"]
 run = "./build/bins/simulator/simulator bins/simulator/configs/karman_street.toml"
 
 [tasks."run:bin:analyzer"]
-description = "Build and run the analyzer"
-depends = ["build:bin:analyzer"]
-run = "./build/bins/analyzer/analyzer"
+description = "Generate field data via simulator then benchmark all analyzer impls"
+depends = ["build:bin:analyzer", "run:bin:simulator"]
+run = "./build/bins/analyzer/analyzer field.h5"
 
 [tasks.visualize]
 description = "Visualize field.h5 with the quiver plot tool"
