@@ -3,7 +3,6 @@
 #include "vector.hpp"
 
 #include <memory>
-#include <mutex>
 #include <vector>
 
 namespace VectorField {
@@ -16,11 +15,6 @@ class FieldGrid {
     const float xMin, xMax, yMin, yMax;
     Vector::FieldSlice field_;
     std::vector<std::vector<std::shared_ptr<Vector::Streamline>>> streams_;
-    // Serializes traceStreamlineStep across threads. The current algorithm
-    // accesses arbitrary destination cells, so a coarse lock is required for
-    // correctness. A finer-grained or redesigned algorithm could improve
-    // parallel throughput.
-    mutable std::mutex mtx_;
 
   public:
     FieldGrid(float xMin, float xMax, float yMin, float yMax, Vector::FieldSlice field)
@@ -38,9 +32,9 @@ class FieldGrid {
     std::size_t cols() const { return field_.empty() ? 0 : field_[0].size(); }
 
     // Returns the grid cell (row, col) that the vector at (row, col) points
-    // toward
-    std::pair<int, int> neighborInVectorDirection(int row, int col);
-    std::pair<int, int> neighborInVectorDirection(std::pair<int, int> coords);
+    // toward. Read-only; safe to call from multiple threads simultaneously.
+    std::pair<int, int> neighborInVectorDirection(int row, int col) const;
+    std::pair<int, int> neighborInVectorDirection(std::pair<int, int> coords) const;
 
     // Merges end's streamline path into start's, redirecting all field vector
     // references. Null or self-merge arguments are silently ignored -- they
@@ -49,10 +43,19 @@ class FieldGrid {
     void joinStreamlines(const std::shared_ptr<Vector::Streamline>& start,
                          const std::shared_ptr<Vector::Streamline>& end);
 
-    // Follows the vector at startCoords one step and connects it to the
-    // destination streamline. Thread-safe via internal mutex.
-    void traceStreamlineStep(std::pair<int, int> startCoords);
-    void traceStreamlineStep(int row, int col) { traceStreamlineStep(std::make_pair(row, col)); }
+    // Applies one streamline step: src extends toward dest (or merges if dest
+    // is already claimed). NOT thread-safe -- call from one thread at a time.
+    // Parallel callers should gather all (src,dest) pairs via
+    // neighborInVectorDirection first, then apply sequentially.
+    void traceStreamlineStep(std::pair<int, int> src, std::pair<int, int> dest);
+
+    // Convenience: computes dest and applies in one call. Not thread-safe.
+    void traceStreamlineStep(std::pair<int, int> startCoords) {
+        traceStreamlineStep(startCoords, neighborInVectorDirection(startCoords));
+    }
+    void traceStreamlineStep(int row, int col) {
+        traceStreamlineStep(std::make_pair(row, col));
+    }
 };
 
 } // namespace VectorField
