@@ -42,8 +42,8 @@ TEST_CASE("Vortex field produces unit vectors", "[simulator]") {
     layer.type = FieldType::Vortex;
     const auto out = generateTimeSeries(makeConfig(layer));
     // Check several off-center cells: each should have unit magnitude
-    for (auto [i, j] : std::initializer_list<std::pair<int, int>>{
-             {24, 16}, {8, 16}, {16, 24}, {20, 20}}) {
+    for (auto [i, j] :
+         std::initializer_list<std::pair<int, int>>{{24, 16}, {8, 16}, {16, 24}, {20, 20}}) {
         REQUIRE_THAT(out.steps[0][j][i].magnitude(), WithinAbs(1.0f, 1e-5f));
     }
 }
@@ -55,8 +55,7 @@ TEST_CASE("Vortex field is perpendicular to radius", "[simulator]") {
     const auto out = generateTimeSeries(config);
 
     // Perpendicularity: dot product of vortex vector and position vector must be ~0
-    for (auto [i, j] : std::initializer_list<std::pair<int, int>>{
-             {24, 16}, {8, 24}, {20, 8}}) {
+    for (auto [i, j] : std::initializer_list<std::pair<int, int>>{{24, 16}, {8, 24}, {20, 8}}) {
         const float px = gridToWorld(i, config.width, config.xMin, config.xMax);
         const float py = gridToWorld(j, config.height, config.yMin, config.yMax);
         const auto& v = out.steps[0][j][i];
@@ -204,8 +203,10 @@ TEST_CASE("Spiral field is between vortex and sink", "[simulator][generate]") {
 
     const int i = 24;
     const int j = 8;
-    const float expectedVx = (0.5f * outVortex.steps[0][j][i].x) + (0.5f * outSink.steps[0][j][i].x);
-    const float expectedVy = (0.5f * outVortex.steps[0][j][i].y) + (0.5f * outSink.steps[0][j][i].y);
+    const float expectedVx =
+        (0.5f * outVortex.steps[0][j][i].x) + (0.5f * outSink.steps[0][j][i].x);
+    const float expectedVy =
+        (0.5f * outVortex.steps[0][j][i].y) + (0.5f * outSink.steps[0][j][i].y);
     REQUIRE_THAT(outSpiral.steps[0][j][i].x, WithinAbs(expectedVx, 1e-4f));
     REQUIRE_THAT(outSpiral.steps[0][j][i].y, WithinAbs(expectedVy, 1e-4f));
 }

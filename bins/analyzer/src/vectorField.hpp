@@ -13,34 +13,47 @@ namespace VectorField {
 // inside Vec2, keeping the generic math type free of domain state.
 class FieldGrid {
     const float xMin, xMax, yMin, yMax;
-    Vector::FieldSlice field;
+    Vector::FieldSlice field_;
     std::vector<std::vector<std::shared_ptr<Vector::Streamline>>> streams_;
 
   public:
-    FieldGrid(float xMin, float xMax, float yMin, float yMax,
-              Vector::FieldSlice field)
+    FieldGrid(float xMin, float xMax, float yMin, float yMax, Vector::FieldSlice field)
         : xMin(xMin),
           xMax(xMax),
           yMin(yMin),
           yMax(yMax),
-          field(std::move(field)) {
-        const std::size_t rows = this->field.size();
-        const std::size_t cols = rows > 0 ? this->field[0].size() : 0;
-        streams_.assign(rows, std::vector<std::shared_ptr<Vector::Streamline>>(cols, nullptr));
+          field_(std::move(field)) {
+        const std::size_t r = field_.size();
+        const std::size_t c = r > 0 ? field_[0].size() : 0;
+        streams_.assign(r, std::vector<std::shared_ptr<Vector::Streamline>>(c, nullptr));
     }
 
-    // Returns the grid cell (row, col) that the vector at (row, col) points toward
-    std::pair<int, int> neighborInVectorDirection(int row, int col);
-    std::pair<int, int> neighborInVectorDirection(std::pair<int, int> coords);
+    [[nodiscard]] std::size_t rows() const { return field_.size(); }
+    [[nodiscard]] std::size_t cols() const { return field_.empty() ? 0 : field_[0].size(); }
 
-    // Merges end's streamline path into start's, redirecting all field vector references.
-    // Null or self-merge arguments are silently ignored -- they represent degenerate
-    // cases (uninitialized cell, vector pointing back to itself) that produce no path.
+    // Returns the grid cell (row, col) that the vector at (row, col) points
+    // toward. Read-only; safe to call from multiple threads simultaneously.
+    [[nodiscard]] std::pair<int, int> neighborInVectorDirection(int row, int col) const;
+    [[nodiscard]] std::pair<int, int> neighborInVectorDirection(std::pair<int, int> coords) const;
+
+    // Merges end's streamline path into start's, redirecting all field vector
+    // references. Null or self-merge arguments are silently ignored -- they
+    // represent degenerate cases (uninitialized cell, vector pointing back to
+    // itself) that produce no path.
     void joinStreamlines(const std::shared_ptr<Vector::Streamline>& start,
                          const std::shared_ptr<Vector::Streamline>& end);
 
-    // Follows the vector at startCoords one step and connects it to the destination streamline
-    void traceStreamlineStep(std::pair<int, int> startCoords);
+    // Applies one streamline step: src extends toward dest (or merges if dest
+    // is already claimed). NOT thread-safe -- call from one thread at a time.
+    // Parallel callers should gather all (src,dest) pairs via
+    // neighborInVectorDirection first, then apply sequentially.
+    void traceStreamlineStep(std::pair<int, int> src, std::pair<int, int> dest);
+
+    // Convenience: computes dest and applies in one call. Not thread-safe.
+    void traceStreamlineStep(std::pair<int, int> startCoords) {
+        traceStreamlineStep(startCoords, neighborInVectorDirection(startCoords));
+    }
+    void traceStreamlineStep(int row, int col) { traceStreamlineStep(std::make_pair(row, col)); }
 };
 
 } // namespace VectorField

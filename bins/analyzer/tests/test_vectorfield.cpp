@@ -4,8 +4,7 @@
 
 // Uniform-fill 3x3 grid
 static VectorField::FieldGrid makeField(Vector::Vec2 fill = {}) {
-    return {0.0f, 2.0f, 0.0f, 2.0f,
-            Vector::FieldSlice(3, std::vector<Vector::Vec2>(3, fill))};
+    return {0.0f, 2.0f, 0.0f, 2.0f, Vector::FieldSlice(3, std::vector<Vector::Vec2>(3, fill))};
 }
 
 // Zero 3x3 grid with one cell overridden

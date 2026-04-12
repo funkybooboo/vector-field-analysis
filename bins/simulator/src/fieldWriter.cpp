@@ -13,8 +13,8 @@ void write(const Vector::FieldTimeSeries& field, const SimulatorConfig& config) 
 
     // HDF5 requires flat numeric arrays; extract x/y components from Vec2.
     const std::size_t numSteps = field.steps.size();
-    const std::size_t height = static_cast<std::size_t>(config.height);
-    const std::size_t width = static_cast<std::size_t>(config.width);
+    const auto height = static_cast<std::size_t>(config.height);
+    const auto width = static_cast<std::size_t>(config.width);
     std::vector<std::vector<std::vector<float>>> vx(
         numSteps, std::vector<std::vector<float>>(height, std::vector<float>(width)));
     std::vector<std::vector<std::vector<float>>> vy(
