@@ -9,10 +9,10 @@ namespace pthreads {
 void* computeRows(void* arg) {
     auto* data = static_cast<ThreadData*>(arg);
     VectorField::FieldGrid& timeStep = *data->field;
-    unsigned long numCol = timeStep.field[0].size();
+    const std::size_t numCol = timeStep.field[0].size();
 
-    for (unsigned long row = data->startRow; row < data->endRow; row++) {
-        for (unsigned long col = 0; col < numCol; col++) {
+    for (std::size_t row = data->startRow; row < data->endRow; row++) {
+        for (std::size_t col = 0; col < numCol; col++) {
             timeStep.traceStreamlineStep(static_cast<int>(row), static_cast<int>(col));
         }
     }
@@ -20,25 +20,27 @@ void* computeRows(void* arg) {
 }
 
 void computeTimeStep(VectorField::FieldGrid& field, const unsigned int threadCount) {
+    if (threadCount == 0) {
+        return;
+    }
 
     auto splits = utils::calculateRowSplit(field.field.size(), threadCount);
-    const unsigned long rowsPerThread = splits.first;
-    const unsigned long leftOverRows = splits.second;
+    const std::size_t rowsPerThread = splits.first;
+    const std::size_t leftOverRows = splits.second;
 
     std::vector<pthread_t> threads(threadCount);
     std::vector<ThreadData> threadData(threadCount);
 
     // assign rows
-    unsigned long currentRow = 0;
+    std::size_t currentRow = 0;
     for (unsigned int id = 0; id < threadCount; id++) {
         threadData[id].field = &field;
         threadData[id].startRow = currentRow;
 
-        // Last thread receives left overs
+        // Last thread receives leftover rows
         if (id == threadCount - 1) {
             threadData[id].endRow = currentRow + rowsPerThread + leftOverRows;
         } else {
-
             threadData[id].endRow = currentRow + rowsPerThread;
         }
         currentRow += rowsPerThread;

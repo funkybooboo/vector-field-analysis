@@ -2,8 +2,6 @@
 
 #include "sequentialCPU.hpp"
 
-#include <iostream>
-
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -12,7 +10,13 @@ namespace openMP {
 void computeTimeStep(VectorField::FieldGrid& field) {
 #ifdef _OPENMP
     const int rowCount = static_cast<int>(field.field.size());
+    if (rowCount == 0) {
+        return;
+    }
     const int colCount = static_cast<int>(field.field[0].size());
+    if (colCount == 0) {
+        return;
+    }
 
 #pragma omp parallel for schedule(dynamic) collapse(2)
     for (int row = 0; row < rowCount; row++) {
@@ -21,7 +25,6 @@ void computeTimeStep(VectorField::FieldGrid& field) {
         }
     }
 #else
-    std::cout << "_OPENMP not included in compiler. Using single threaded implementation.\n";
     sequentialCPU::computeTimeStep(field);
 #endif
 }
