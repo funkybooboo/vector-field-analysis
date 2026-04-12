@@ -161,11 +161,14 @@ cppcheck --enable=all --error-exitcode=1 \
   --suppress=missingIncludeSystem \
   --suppress=missingInclude \
   --suppress=unmatchedSuppression \
+  --suppress=normalCheckLevelMaxBranches \
   "--suppress=unusedStructMember:bins/simulator/src/fieldGenerator.cpp" \
   bins/ libs/
 # unusedStructMember suppression: cppcheck 2.7 false positive -- RadialComponents members
 # (dx, dy, radius) are all used via std::optional<RadialComponents>::operator->, but
 # cppcheck 2.7 does not track member access through std::optional.
+# normalCheckLevelMaxBranches: informational only; pthreads.cpp two-pass design exceeds
+# default branch analysis limit. Not an error.
 """
 
 [tasks.links]
