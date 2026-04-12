@@ -28,13 +28,13 @@ class FieldGrid {
         streams_.assign(r, std::vector<std::shared_ptr<Vector::Streamline>>(c, nullptr));
     }
 
-    std::size_t rows() const { return field_.size(); }
-    std::size_t cols() const { return field_.empty() ? 0 : field_[0].size(); }
+    [[nodiscard]] std::size_t rows() const { return field_.size(); }
+    [[nodiscard]] std::size_t cols() const { return field_.empty() ? 0 : field_[0].size(); }
 
     // Returns the grid cell (row, col) that the vector at (row, col) points
     // toward. Read-only; safe to call from multiple threads simultaneously.
-    std::pair<int, int> neighborInVectorDirection(int row, int col) const;
-    std::pair<int, int> neighborInVectorDirection(std::pair<int, int> coords) const;
+    [[nodiscard]] std::pair<int, int> neighborInVectorDirection(int row, int col) const;
+    [[nodiscard]] std::pair<int, int> neighborInVectorDirection(std::pair<int, int> coords) const;
 
     // Merges end's streamline path into start's, redirecting all field vector
     // references. Null or self-merge arguments are silently ignored -- they

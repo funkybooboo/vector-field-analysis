@@ -31,7 +31,7 @@ void* computeNeighbors(void* arg) {
     auto* data = static_cast<ThreadData*>(arg);
     for (std::size_t row = data->startRow; row < data->endRow; row++) {
         for (int col = 0; col < data->colCount; col++) {
-            data->neighbors[row * static_cast<std::size_t>(data->colCount) +
+            data->neighbors[(row * static_cast<std::size_t>(data->colCount)) +
                             static_cast<std::size_t>(col)] =
                 data->field->neighborInVectorDirection(static_cast<int>(row), col);
         }
@@ -103,7 +103,7 @@ void computeTimeStep(VectorField::FieldGrid& field, const unsigned int threadCou
     for (std::size_t row = 0; row < rowCount; row++) {
         for (int col = 0; col < colCount; col++) {
             field.traceStreamlineStep({static_cast<int>(row), col},
-                                      neighbors[row * static_cast<std::size_t>(colCount) +
+                                      neighbors[(row * static_cast<std::size_t>(colCount)) +
                                                 static_cast<std::size_t>(col)]);
         }
     }
