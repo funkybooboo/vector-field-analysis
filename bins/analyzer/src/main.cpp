@@ -177,7 +177,7 @@ static void runAll(const Vector::FieldTimeSeries& field, unsigned int threadCoun
     }
 
     // MPI solver: all ranks must participate (collective calls inside).
-    // Skip when running single-rank — it falls back to sequential and adds no signal.
+    // Skip when running single-rank -- it falls back to sequential and adds no signal.
     RunResult mpiResult{};
     const bool runMpi = mpiSize > 1;
     if (runMpi) {
@@ -206,7 +206,7 @@ static void runAll(const Vector::FieldTimeSeries& field, unsigned int threadCoun
                       << "  (" << (mpiResult.ms > 0 ? seqResult.ms / mpiResult.ms : 0.0)
                       << "x vs sequential)\n";
         } else {
-            std::cout << "(mpi skipped — rerun with mpirun -n N for a multi-rank comparison)\n";
+            std::cout << "(mpi skipped -- rerun with mpirun -n N for a multi-rank comparison)\n";
         }
 
         verify(seqResult.streams, ompResult.streams, "openmp");
@@ -303,8 +303,8 @@ int main(int argc, char* argv[]) {
             const int numSteps = static_cast<int>(field.steps.size());
             const auto [width, height] = field.gridSize();
             std::cout << "Field:   " << config.inputPath << "\n"
-                      << "Grid:    " << width << " x " << height
-                      << "  |  x [" << field.bounds.xMin << ", " << field.bounds.xMax << "]"
+                      << "Grid:    " << width << " x " << height << "  |  x [" << field.bounds.xMin
+                      << ", " << field.bounds.xMax << "]"
                       << "  y [" << field.bounds.yMin << ", " << field.bounds.yMax << "]\n"
                       << "Steps:   " << numSteps << "\n\n";
         }

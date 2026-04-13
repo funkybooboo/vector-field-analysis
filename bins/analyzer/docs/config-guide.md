@@ -46,10 +46,10 @@ The `mpi` solver requires all ranks to call `computeTimeStep` together.
 Run with `mpirun` (local) or `srun` (CHPC/Slurm):
 
 ```bash
-# Local — MPI solver only
+# Local -- MPI solver only
 mpirun -n 4 analyzer bins/analyzer/configs/mpi.toml
 
-# Local — all solvers with fair comparison (thread count adapts to rank count)
+# Local -- all solvers with fair comparison (thread count adapts to rank count)
 mpirun -n 4 analyzer bins/analyzer/configs/all.toml
 
 # CHPC via Slurm

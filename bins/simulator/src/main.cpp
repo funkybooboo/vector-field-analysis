@@ -41,18 +41,18 @@ int main(int argc, char* argv[]) {
         const SimulatorConfig config = ConfigParser::parseFile(configPath);
 
         std::cout << "Config:  " << configPath << "\n"
-                  << "Grid:    " << config.grid.width << " x " << config.grid.height
-                  << "  |  x [" << config.bounds.xMin << ", " << config.bounds.xMax << "]"
+                  << "Grid:    " << config.grid.width << " x " << config.grid.height << "  |  x ["
+                  << config.bounds.xMin << ", " << config.bounds.xMax << "]"
                   << "  y [" << config.bounds.yMin << ", " << config.bounds.yMax << "]\n"
-                  << "Steps:   " << config.steps
-                  << "  (dt=" << config.dt << ", viscosity=" << config.viscosity << ")\n"
+                  << "Steps:   " << config.steps << "  (dt=" << config.dt
+                  << ", viscosity=" << config.viscosity << ")\n"
                   << "Layers:  ";
         for (std::size_t i = 0; i < config.layers.size(); ++i) {
             if (i > 0) {
                 std::cout << "  ";
             }
-            std::cout << toString(config.layers[i].type)
-                      << "(s=" << config.layers[i].strength << ")";
+            std::cout << toString(config.layers[i].type) << "(s=" << config.layers[i].strength
+                      << ")";
         }
         std::cout << "\n\n";
 

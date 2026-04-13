@@ -56,7 +56,7 @@ void MpiCPU::computeTimeStep(VectorField::FieldGrid& grid) {
     // downstreamCell is const and reads no mutable state -- concurrent
     // calls across disjoint row ranges are race-free.
     // Guard size_t overflow before computing localCount.
-    // colCount == 0 → localCount == 0, no overflow possible; guard avoids division by zero
+    // colCount == 0 -> localCount == 0, no overflow possible; guard avoids division by zero
     // in the overflow formula below.
     if (colCount > 0 &&
         static_cast<std::size_t>(localRows) > std::numeric_limits<std::size_t>::max() / kTupleSize /

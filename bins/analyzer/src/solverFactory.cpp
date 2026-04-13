@@ -12,7 +12,7 @@
 #include <string_view>
 
 // "all" is handled by main.cpp before makeSolver is called.
-static_assert(kValidSolvers.size() == 5, "kValidSolvers changed — update makeSolver() to match");
+static_assert(kValidSolvers.size() == 5, "kValidSolvers changed -- update makeSolver() to match");
 
 std::unique_ptr<StreamlineSolver> makeSolver(std::string_view name, unsigned int threadCount) {
     if (name == "sequential") {

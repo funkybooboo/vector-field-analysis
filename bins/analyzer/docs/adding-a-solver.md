@@ -32,8 +32,8 @@ class StreamlineSolver {
 
 All existing solvers use a **two-pass design** to exploit this split:
 
-- **Pass 1 (parallel)** — call `downstreamCell()` for every cell, collecting `(src, dest)` pairs
-- **Pass 2 (sequential)** — iterate the pairs and call `traceStreamlineStep()` on each
+- **Pass 1 (parallel)** -- call `downstreamCell()` for every cell, collecting `(src, dest)` pairs
+- **Pass 2 (sequential)** -- iterate the pairs and call `traceStreamlineStep()` on each
 
 ---
 
@@ -113,7 +113,7 @@ inline constexpr std::array<std::string_view, 6> kValidSolvers = {   // was 5
 };
 ```
 
-The config parser validates against `kValidSolvers` automatically — no parser changes needed.
+The config parser validates against `kValidSolvers` automatically -- no parser changes needed.
 
 ### 4. Wire the Factory
 
@@ -128,7 +128,7 @@ if (name == "mysolver") {
 
 // update the guard:
 static_assert(kValidSolvers.size() == 6,   // was 5
-              "kValidSolvers changed — update makeSolver() to match");
+              "kValidSolvers changed -- update makeSolver() to match");
 ```
 
 ### 5. CMake
@@ -193,7 +193,7 @@ Thread count is controlled by the `ANALYZER_THREADS` env var (see `.env.example`
 1. Add it to the `runAll()` function in `main.cpp` following the pattern of the existing solvers.
 2. Call `verify()` against the sequential reference result to confirm correctness.
 
-If your solver is MPI-aware (collective calls required), it must participate across all ranks — see `MpiCPU` as the reference.
+If your solver is MPI-aware (collective calls required), it must participate across all ranks -- see `MpiCPU` as the reference.
 
 ---
 

@@ -16,7 +16,7 @@ namespace {
 // The parser only assigns a field when the key is explicitly present in the TOML.
 
 FieldType parseFieldType(const std::string& typeName) {
-    // toString() in simulatorConfig.hpp handles the reverse direction (enum→string).
+    // toString() in simulatorConfig.hpp handles the reverse direction (enum->string).
     if (typeName == "vortex") {
         return FieldType::Vortex;
     }

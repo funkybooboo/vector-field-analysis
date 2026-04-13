@@ -30,7 +30,7 @@ void OpenMP::computeTimeStep(VectorField::FieldGrid& grid) {
     }
     const int colCount = static_cast<int>(grid.cols());
 
-    // Pass 1: parallel — each cell reads its neighbor direction from field_ (read-only).
+    // Pass 1: parallel -- each cell reads its neighbor direction from field_ (read-only).
     // downstreamCell is const and touches no shared mutable state.
     std::vector<Vector::GridCell> neighbors(static_cast<std::size_t>(rowCount) *
                                             static_cast<std::size_t>(colCount));
@@ -43,7 +43,7 @@ void OpenMP::computeTimeStep(VectorField::FieldGrid& grid) {
         }
     }
 
-    // Pass 2: sequential — apply streamline merges using the precomputed pairs.
+    // Pass 2: sequential -- apply streamline merges using the precomputed pairs.
     // traceStreamlineStep writes to streams_ and is not thread-safe.
     for (int row = 0; row < rowCount; row++) {
         for (int col = 0; col < colCount; col++) {

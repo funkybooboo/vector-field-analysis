@@ -65,11 +65,11 @@ For each time step:
 2. The selected `StreamlineSolver` calls `computeTimeStep(grid)`.
 3. Two-pass design shared by all implementations:
 
-   **Pass 1 (parallelisable)** — each cell calls `neighborInVectorDirection(row, col)`,
+   **Pass 1 (parallelisable)** -- each cell calls `neighborInVectorDirection(row, col)`,
    which returns the grid index of the nearest cell in the direction the vector points.
    This method is `const` and reads no mutable state, so it is safe to call concurrently.
 
-   **Pass 2 (sequential)** — `traceStreamlineStep(src, dest)` is called for each
+   **Pass 2 (sequential)** -- `traceStreamlineStep(src, dest)` is called for each
    `(src, dest)` pair. It writes to `streams_` (shared mutable state) and is not
    thread-safe.
 
@@ -123,11 +123,11 @@ Single loop over all `(row, col)` pairs; both passes merged into one sequential 
 When `solver = "all"`, `main.cpp` runs every implementation and prints timings side-by-side.
 To keep the comparison apples-to-apples:
 
-- **Thread adaptation** — if MPI is active (`mpiSize > 1`), `threadCount` is set to `mpiSize`
+- **Thread adaptation** -- if MPI is active (`mpiSize > 1`), `threadCount` is set to `mpiSize`
   before any solver runs. This ensures openmp, pthreads, and mpi all use the same number of
   workers regardless of what the config's `threads` key says.
 
-- **MPI skip** — if the binary is invoked without `mpirun` (single-rank), the MPI solver is
+- **MPI skip** -- if the binary is invoked without `mpirun` (single-rank), the MPI solver is
   skipped and a hint is printed. A single-rank MPI run falls back internally to sequential,
   so including it would just duplicate the sequential result and mislead.
 
@@ -144,7 +144,7 @@ To keep the comparison apples-to-apples:
 | `analyzerConfig.hpp` | `AnalyzerConfig` struct definition |
 | `analyzerConfigParser.hpp/.cpp` | Parses TOML into `AnalyzerConfig` |
 | `streamlineSolver.hpp` | Abstract `StreamlineSolver` base class |
-| `solverFactory.hpp/.cpp` | Factory: name → `std::unique_ptr<StreamlineSolver>` |
+| `solverFactory.hpp/.cpp` | Factory: name -> `std::unique_ptr<StreamlineSolver>` |
 | `fieldReader.hpp/.cpp` | Reads HDF5 into `FieldTimeSeries` |
 | `vectorField.hpp/.cpp` | `FieldGrid` owns the streamline state |
 | `sequentialCPU.hpp/.cpp` | Single-threaded reference implementation |

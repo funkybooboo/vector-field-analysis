@@ -45,6 +45,6 @@ field/               (group)
 
 ## Contents
 
-- [pipeline.md](pipeline.md) — data flow, algorithm details, and source file map
-- [config-guide.md](config-guide.md) — all TOML config keys and examples
-- [adding-a-solver.md](adding-a-solver.md) — how to implement and register a new solver
+- [pipeline.md](pipeline.md) -- data flow, algorithm details, and source file map
+- [config-guide.md](config-guide.md) -- all TOML config keys and examples
+- [adding-a-solver.md](adding-a-solver.md) -- how to implement and register a new solver

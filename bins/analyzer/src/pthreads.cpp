@@ -53,7 +53,7 @@ void Pthreads::computeTimeStep(VectorField::FieldGrid& grid) {
     }
     const int colCount = static_cast<int>(grid.cols());
 
-    // Pass 1: parallel — compute all (src, dest) neighbor pairs.
+    // Pass 1: parallel -- compute all (src, dest) neighbor pairs.
     std::vector<Vector::GridCell> neighbors(rowCount * static_cast<std::size_t>(colCount));
 
     auto rowSplit = calculateRowSplit(rowCount, threadCount_);
@@ -97,7 +97,7 @@ void Pthreads::computeTimeStep(VectorField::FieldGrid& grid) {
         }
     }
 
-    // Pass 2: sequential — apply streamline merges using the precomputed pairs.
+    // Pass 2: sequential -- apply streamline merges using the precomputed pairs.
     // traceStreamlineStep writes to streams_ and is not thread-safe.
     for (std::size_t row = 0; row < rowCount; row++) {
         for (int col = 0; col < colCount; col++) {
