@@ -4,6 +4,7 @@
 
 #ifdef USE_MPI
 #include <algorithm>
+#include <cstdint>
 #include <iostream>
 #include <limits>
 #include <mpi.h>
@@ -55,15 +56,17 @@ void MpiCPU::computeTimeStep(VectorField::FieldGrid& grid) {
     // calls across disjoint row ranges are race-free.
     // Guard size_t overflow before computing localCount.
     if (colCount > 0 &&
-        static_cast<std::size_t>(localRows) >
-            std::numeric_limits<std::size_t>::max() / kTupleSize / static_cast<std::size_t>(colCount)) {
-        std::cerr << "rank " << rank << ": fatal: grid too large for MPI gather (size_t overflow)\n";
+        static_cast<std::size_t>(localRows) > std::numeric_limits<std::size_t>::max() / kTupleSize /
+                                                  static_cast<std::size_t>(colCount)) {
+        std::cerr << "rank " << rank
+                  << ": fatal: grid too large for MPI gather (size_t overflow)\n";
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
     const auto localCount =
         static_cast<std::size_t>(localRows) * static_cast<std::size_t>(colCount) * kTupleSize;
     if (localCount > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
-        std::cerr << "rank " << rank << ": fatal: localCount exceeds INT_MAX; grid too large for MPI gather\n";
+        std::cerr << "rank " << rank
+                  << ": fatal: localCount exceeds INT_MAX; grid too large for MPI gather\n";
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
     const int localCountInt = static_cast<int>(localCount);
@@ -87,8 +90,7 @@ void MpiCPU::computeTimeStep(VectorField::FieldGrid& grid) {
     // implementations warn or assert on null recvbuf even when the argument is
     // formally ignored on non-root.
     std::vector<int> recvCounts(static_cast<std::size_t>(size), 0);
-    MPI_Gather(&localCountInt, 1, MPI_INT,
-               recvCounts.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gather(&localCountInt, 1, MPI_INT, recvCounts.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     // Build displacements and receive buffer.
     // Root allocates real buffers; non-root gets 1-element dummies so .data()
@@ -96,19 +98,27 @@ void MpiCPU::computeTimeStep(VectorField::FieldGrid& grid) {
     std::vector<int> displs(rank == 0 ? static_cast<std::size_t>(size) : 1, 0);
     std::vector<int> allData(1);
     if (rank == 0) {
+        int64_t runningDispl = 0;
         for (int i = 1; i < size; i++) {
-            displs[static_cast<std::size_t>(i)] = displs[static_cast<std::size_t>(i - 1)] +
-                                                  recvCounts[static_cast<std::size_t>(i - 1)];
+            runningDispl += recvCounts[static_cast<std::size_t>(i - 1)];
+            if (runningDispl > std::numeric_limits<int>::max()) {
+                std::cerr << "rank 0: fatal: total gather size exceeds INT_MAX\n";
+                MPI_Abort(MPI_COMM_WORLD, 1);
+            }
+            displs[static_cast<std::size_t>(i)] = static_cast<int>(runningDispl);
         }
-        const int totalCount = displs[static_cast<std::size_t>(size - 1)] +
-                               recvCounts[static_cast<std::size_t>(size - 1)];
-        allData.resize(static_cast<std::size_t>(totalCount));
+        const int64_t totalCount64 = runningDispl + recvCounts[static_cast<std::size_t>(size - 1)];
+        if (totalCount64 > std::numeric_limits<int>::max()) {
+            std::cerr << "rank 0: fatal: total gather size exceeds INT_MAX\n";
+            MPI_Abort(MPI_COMM_WORLD, 1);
+        }
+        allData.resize(static_cast<std::size_t>(totalCount64));
     }
 
     // Gather all neighbor pairs to rank 0.
     // recvcounts/displs/recvbuf are significant only at root per MPI spec.
-    MPI_Gatherv(localData.data(), localCountInt, MPI_INT,
-                allData.data(), recvCounts.data(), displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gatherv(localData.data(), localCountInt, MPI_INT, allData.data(), recvCounts.data(),
+                displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
 
     // Pass 2 (sequential on rank 0): apply all (src, dest) pairs to build streamlines.
     // traceStreamlineStep writes to streams_ and is not thread-safe, so this must be

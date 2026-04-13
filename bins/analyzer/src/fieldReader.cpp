@@ -11,7 +11,7 @@ Vector::FieldTimeSeries read(const std::string& path) {
     HighFive::File file(path, HighFive::File::ReadOnly);
     const auto group = file.getGroup("field");
 
-    using RawFieldData = std::vector<std::vector<std::vector<float>>>;  // [step][row][col]
+    using RawFieldData = std::vector<std::vector<std::vector<float>>>; // [step][row][col]
     RawFieldData vxRaw;
     RawFieldData vyRaw;
     group.getDataSet("vx").read(vxRaw);

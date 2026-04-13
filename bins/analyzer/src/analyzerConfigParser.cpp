@@ -1,5 +1,6 @@
 #include "analyzerConfigParser.hpp"
 
+#include <algorithm>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -14,10 +15,9 @@ namespace AnalyzerConfigParser {
 namespace {
 
 void validateSolver(const std::string& name) {
-    for (const auto solverName : kValidSolvers) {
-        if (name == solverName) {
-            return;
-        }
+    if (std::any_of(kValidSolvers.begin(), kValidSolvers.end(),
+                    [&name](std::string_view s) { return name == s; })) {
+        return;
     }
     throw std::runtime_error("Unknown solver: \"" + name +
                              "\". Must be sequential, openmp, pthreads, mpi, or all.");

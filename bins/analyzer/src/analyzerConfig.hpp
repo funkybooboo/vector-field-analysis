@@ -7,9 +7,8 @@
 // Defaults match single-process benchmark-all behaviour.
 // Single source of truth for valid solver names.
 // analyzerConfigParser.cpp and solverFactory.cpp both reference this.
-inline constexpr std::array<std::string_view, 5> kValidSolvers = {
-    "sequential", "openmp", "pthreads", "mpi", "all"
-};
+inline constexpr std::array<std::string_view, 5> kValidSolvers = {"sequential", "openmp",
+                                                                  "pthreads", "mpi", "all"};
 
 struct AnalyzerConfig {
     std::string inputPath = "field.h5";

@@ -4,7 +4,8 @@
 
 // Uniform-fill 3x3 grid
 static VectorField::FieldGrid makeField(Vector::Vec2 fill = {}) {
-    return {Vector::FieldBounds{0.0f, 2.0f, 0.0f, 2.0f}, Vector::FieldSlice(3, std::vector<Vector::Vec2>(3, fill))};
+    return {Vector::FieldBounds{0.0f, 2.0f, 0.0f, 2.0f},
+            Vector::FieldSlice(3, std::vector<Vector::Vec2>(3, fill))};
 }
 
 // Zero 3x3 grid with one cell overridden
@@ -185,8 +186,8 @@ TEST_CASE("getStreamlines path contents match expected for uniform right-pointin
 TEST_CASE("getStreamlines returns 1 streamline when paths converge via merge",
           "[vectorfield][streamlines]") {
     Vector::FieldSlice f(3, std::vector<Vector::Vec2>(3));
-    f[0][0] = Vector::Vec2(1.0f, 0.0f);   // dest (0,1)
-    f[0][2] = Vector::Vec2(-1.0f, 0.0f);  // dest (0,1)
+    f[0][0] = Vector::Vec2(1.0f, 0.0f);  // dest (0,1)
+    f[0][2] = Vector::Vec2(-1.0f, 0.0f); // dest (0,1)
     VectorField::FieldGrid grid(Vector::FieldBounds{0.0f, 2.0f, 0.0f, 2.0f}, std::move(f));
     grid.traceStreamlineStep({0, 0}, {0, 1});
     grid.traceStreamlineStep({0, 2}, {0, 1});

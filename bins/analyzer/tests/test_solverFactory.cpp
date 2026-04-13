@@ -1,9 +1,8 @@
-#include "solverFactory.hpp"
-
 #include "mpiCPU.hpp"
 #include "openMP.hpp"
 #include "pthreads.hpp"
 #include "sequentialCPU.hpp"
+#include "solverFactory.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <stdexcept>

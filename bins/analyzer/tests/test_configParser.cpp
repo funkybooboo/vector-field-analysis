@@ -11,8 +11,8 @@
 // Guarantees cleanup even when the test body throws.
 struct TmpFile {
     std::string path;
-    explicit TmpFile(const std::string& content) {
-        path = "/tmp/analyzer_test_XXXXXX";
+    explicit TmpFile(const std::string& content)
+        : path("/tmp/analyzer_test_XXXXXX") {
         // std::string::data() is non-const in C++17, serving as the mutable buffer mkstemp needs.
         int fd = mkstemp(path.data());
         if (fd == -1) {
@@ -25,6 +25,8 @@ struct TmpFile {
     ~TmpFile() { std::remove(path.c_str()); }
     TmpFile(const TmpFile&) = delete;
     TmpFile& operator=(const TmpFile&) = delete;
+    TmpFile(TmpFile&&) = delete;
+    TmpFile& operator=(TmpFile&&) = delete;
 };
 
 // ---------------------------------------------------------------------------

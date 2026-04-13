@@ -1,6 +1,9 @@
 #include "streamWriter.hpp"
 
+#include <cstdint>
 #include <highfive/highfive.hpp>
+#include <limits>
+#include <stdexcept>
 #include <vector>
 
 namespace StreamWriter {
@@ -30,7 +33,13 @@ void write(const std::string& outPath, const std::vector<StepStreamlines>& strea
         std::vector<int> offsets(numStreams + 1);
         offsets[0] = 0;
         for (std::size_t i = 0; i < numStreams; ++i) {
-            offsets[i + 1] = offsets[i] + static_cast<int>(stepStreamlines[i].size());
+            const int64_t next =
+                static_cast<int64_t>(offsets[i]) + static_cast<int64_t>(stepStreamlines[i].size());
+            if (next > std::numeric_limits<int>::max()) {
+                throw std::runtime_error("streamline data exceeds INT_MAX points in step " +
+                                         std::to_string(s));
+            }
+            offsets[i + 1] = static_cast<int>(next);
         }
 
         const auto totalPoints = static_cast<std::size_t>(offsets[numStreams]);

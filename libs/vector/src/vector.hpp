@@ -46,9 +46,7 @@ struct GridCell {
     int row = 0;
     int col = 0;
 
-    bool operator==(const GridCell& other) const {
-        return row == other.row && col == other.col;
-    }
+    bool operator==(const GridCell& other) const { return row == other.row && col == other.col; }
     bool operator!=(const GridCell& other) const { return !(*this == other); }
     bool operator<(const GridCell& other) const {
         return row != other.row ? row < other.row : col < other.col;
@@ -68,7 +66,7 @@ struct FieldBounds {
 
 // Integer dimensions of a 2D grid (width = columns, height = rows).
 struct GridSize {
-    int width  = 0;
+    int width = 0;
     int height = 0;
 };
 
@@ -87,8 +85,7 @@ struct FieldTimeSeries {
         if (steps.empty() || steps[0].empty()) {
             return {};
         }
-        return {static_cast<int>(steps[0][0].size()),
-                static_cast<int>(steps[0].size())};
+        return {static_cast<int>(steps[0][0].size()), static_cast<int>(steps[0].size())};
     }
 };
 

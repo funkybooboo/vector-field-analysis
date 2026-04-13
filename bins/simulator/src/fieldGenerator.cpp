@@ -159,12 +159,12 @@ Vector::FieldTimeSeries generateTimeSeries(const SimulatorConfig& config) {
     std::vector<float> xCoords(width);
     std::vector<float> yCoords(height);
     for (std::size_t col = 0; col < width; ++col) {
-        xCoords[col] = gridToWorld(static_cast<int>(col), config.grid.width,
-                                   config.bounds.xMin, config.bounds.xMax);
+        xCoords[col] = gridToWorld(static_cast<int>(col), config.grid.width, config.bounds.xMin,
+                                   config.bounds.xMax);
     }
     for (std::size_t row = 0; row < height; ++row) {
-        yCoords[row] = gridToWorld(static_cast<int>(row), config.grid.height,
-                                   config.bounds.yMin, config.bounds.yMax);
+        yCoords[row] = gridToWorld(static_cast<int>(row), config.grid.height, config.bounds.yMin,
+                                   config.bounds.yMax);
     }
 
     // Pre-compile custom field expressions - one evaluator per layer, nullptr for non-custom

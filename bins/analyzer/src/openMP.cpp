@@ -18,13 +18,14 @@ void OpenMP::computeTimeStep(VectorField::FieldGrid& grid) {
 
     // Pass 1: parallel — each cell reads its neighbor direction from field_ (read-only).
     // downstreamCell is const and touches no shared mutable state.
-    std::vector<Vector::GridCell> neighbors(static_cast<std::size_t>(rowCount * colCount));
+    std::vector<Vector::GridCell> neighbors(static_cast<std::size_t>(rowCount) *
+                                            static_cast<std::size_t>(colCount));
 
 #pragma omp parallel for schedule(static) collapse(2)
     for (int row = 0; row < rowCount; row++) {
         for (int col = 0; col < colCount; col++) {
-            neighbors[static_cast<std::size_t>(row * colCount + col)] =
-                grid.downstreamCell(row, col);
+            neighbors[static_cast<std::size_t>(row) * static_cast<std::size_t>(colCount) +
+                      static_cast<std::size_t>(col)] = grid.downstreamCell(row, col);
         }
     }
 
@@ -32,8 +33,10 @@ void OpenMP::computeTimeStep(VectorField::FieldGrid& grid) {
     // traceStreamlineStep writes to streams_ and is not thread-safe.
     for (int row = 0; row < rowCount; row++) {
         for (int col = 0; col < colCount; col++) {
-            grid.traceStreamlineStep({row, col},
-                                     neighbors[static_cast<std::size_t>(row * colCount + col)]);
+            grid.traceStreamlineStep(
+                {row, col},
+                neighbors[static_cast<std::size_t>(row) * static_cast<std::size_t>(colCount) +
+                          static_cast<std::size_t>(col)]);
         }
     }
 #else

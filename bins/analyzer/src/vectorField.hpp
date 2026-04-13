@@ -22,7 +22,8 @@ class FieldGrid {
           field_(std::move(field)) {
         const std::size_t numRows = field_.size();
         const std::size_t numCols = numRows > 0 ? field_[0].size() : 0;
-        streams_.assign(numRows, std::vector<std::shared_ptr<Vector::Streamline>>(numCols, nullptr));
+        streams_.assign(numRows,
+                        std::vector<std::shared_ptr<Vector::Streamline>>(numCols, nullptr));
     }
 
     [[nodiscard]] std::size_t rows() const { return field_.size(); }
@@ -50,9 +51,7 @@ class FieldGrid {
     void traceStreamlineStep(Vector::GridCell startCoords) {
         traceStreamlineStep(startCoords, downstreamCell(startCoords));
     }
-    void traceStreamlineStep(int row, int col) {
-        traceStreamlineStep(Vector::GridCell{row, col});
-    }
+    void traceStreamlineStep(int row, int col) { traceStreamlineStep(Vector::GridCell{row, col}); }
 
     // Returns the unique streamlines found after tracing. Each streamline is an
     // ordered list of (row, col) grid indices. Collected in row-major iteration

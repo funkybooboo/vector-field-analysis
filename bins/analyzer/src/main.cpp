@@ -2,8 +2,8 @@
 #include "analyzerConfigParser.hpp"
 #include "fieldReader.hpp"
 #include "solverFactory.hpp"
-#include "streamlineSolver.hpp"
 #include "streamWriter.hpp"
+#include "streamlineSolver.hpp"
 #include "vectorField.hpp"
 
 #ifdef USE_MPI
@@ -16,6 +16,7 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <thread>
 
 // One step's worth of streamlines: [streamline][point] = (row, col)
@@ -36,7 +37,8 @@ static RunResult runSolver(StreamlineSolver& solver, const Vector::FieldTimeSeri
         solver.computeTimeStep(grid);
         result.streams.push_back(grid.getStreamlines());
     }
-    result.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    result.ms =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
     return result;
 }
 
@@ -119,30 +121,33 @@ static void runAll(const Vector::FieldTimeSeries& field, unsigned int threadCoun
     if (mpiRank == 0) {
         auto seq = makeSolver("sequential", threadCount);
         auto omp = makeSolver("openmp", threadCount);
-        auto pt  = makeSolver("pthreads", threadCount);
+        auto pt = makeSolver("pthreads", threadCount);
         seqResult = runSolver(*seq, field);
         ompResult = runSolver(*omp, field);
-        ptResult  = runSolver(*pt, field);
+        ptResult = runSolver(*pt, field);
     }
     // MPI solver: all ranks must participate (collective calls inside).
     auto mpi = makeSolver("mpi", threadCount);
     const auto mpiResult = runSolver(*mpi, field);
 
     if (mpiRank == 0) {
-        const std::string seqLabel = "sequential";
-        const std::string ompLabel = "openmp";
-        const std::string ptLabel  = "pthreads (" + std::to_string(threadCount) + " thr)";
+        const std::string_view seqLabel = "sequential";
+        const std::string_view ompLabel = "openmp";
+        const std::string ptLabel = "pthreads (" + std::to_string(threadCount) + " thr)";
         const std::string mpiLabel = "mpi (" + std::to_string(mpiSize) + " rank(s))";
-        const int labelWidth = static_cast<int>(
-            std::max({seqLabel.size(), ompLabel.size(), ptLabel.size(), mpiLabel.size()})) + 2;
-        std::cout << std::left
-                  << std::setw(labelWidth) << seqLabel << seqResult.ms << " ms\n"
+        const int labelWidth = static_cast<int>(std::max({seqLabel.size(), ompLabel.size(),
+                                                          ptLabel.size(), mpiLabel.size()})) +
+                               2;
+        std::cout << std::left << std::setw(labelWidth) << seqLabel << seqResult.ms << " ms\n"
                   << std::setw(labelWidth) << ompLabel << ompResult.ms << " ms"
-                  << "  (" << (ompResult.ms > 0 ? seqResult.ms / ompResult.ms : 0.0) << "x vs sequential)\n"
-                  << std::setw(labelWidth) << ptLabel  << ptResult.ms  << " ms"
-                  << "  (" << (ptResult.ms  > 0 ? seqResult.ms / ptResult.ms  : 0.0) << "x vs sequential)\n"
+                  << "  (" << (ompResult.ms > 0 ? seqResult.ms / ompResult.ms : 0.0)
+                  << "x vs sequential)\n"
+                  << std::setw(labelWidth) << ptLabel << ptResult.ms << " ms"
+                  << "  (" << (ptResult.ms > 0 ? seqResult.ms / ptResult.ms : 0.0)
+                  << "x vs sequential)\n"
                   << std::setw(labelWidth) << mpiLabel << mpiResult.ms << " ms"
-                  << "  (" << (mpiResult.ms > 0 ? seqResult.ms / mpiResult.ms : 0.0) << "x vs sequential)\n";
+                  << "  (" << (mpiResult.ms > 0 ? seqResult.ms / mpiResult.ms : 0.0)
+                  << "x vs sequential)\n";
 
         verify(seqResult.streams, ompResult.streams, "openmp");
         verify(seqResult.streams, ptResult.streams, "pthreads");
@@ -155,8 +160,7 @@ static void runAll(const Vector::FieldTimeSeries& field, unsigned int threadCoun
 }
 
 static void runOne(const std::string& solverName, const Vector::FieldTimeSeries& field,
-                   unsigned int threadCount, int mpiRank, int mpiSize,
-                   const std::string& inPath) {
+                   unsigned int threadCount, int mpiRank, int mpiSize, const std::string& inPath) {
     RunResult result{};
     if (solverName == "mpi") {
         auto solver = makeSolver(solverName, threadCount);
@@ -164,6 +168,8 @@ static void runOne(const std::string& solverName, const Vector::FieldTimeSeries&
     } else if (mpiRank == 0) {
         auto solver = makeSolver(solverName, threadCount);
         result = runSolver(*solver, field);
+    } else {
+        return;
     }
 
     if (mpiRank == 0) {
@@ -189,7 +195,6 @@ int main(int argc, char* argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpiSize);
 #else
-    // Non-const avoids cppcheck knownConditionTrueFalse on the mpiRank == 0 guards below.
     int mpiRank = 0;
     int mpiSize = 1;
 #endif
