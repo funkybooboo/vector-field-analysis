@@ -20,6 +20,7 @@ SOURCES=(
   "$PROJECT_DIR/bins/analyzer/src/pthreads.cpp"
   "$PROJECT_DIR/bins/analyzer/src/sequentialCPU.cpp"
   "$PROJECT_DIR/bins/analyzer/src/solverFactory.cpp"
+  "$PROJECT_DIR/bins/analyzer/src/streamWriter.cpp"
   "$PROJECT_DIR/bins/simulator/src/main.cpp"
   "$PROJECT_DIR/bins/simulator/src/configParser.cpp"
   "$PROJECT_DIR/bins/simulator/src/fieldGenerator.cpp"
@@ -39,9 +40,8 @@ done
 [[ $fmt_failed -eq 0 ]] || exit 1
 
 echo "==> lint"
-for f in "${SOURCES[@]}"; do
-  clang-tidy --warnings-as-errors='*' "$f" -- -std=c++17
-done
+clang-tidy -p "$PROJECT_DIR/build" --config-file="$PROJECT_DIR/.clang-tidy" \
+  --warnings-as-errors='*' "${SOURCES[@]}"
 
 echo "==> build"
 cmake --build build --parallel

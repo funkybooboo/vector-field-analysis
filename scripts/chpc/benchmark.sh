@@ -75,7 +75,7 @@ fi
 # --- Build via CMake ---
 # Use the project's normal CMake build so all include paths, definitions, and
 # link flags (HighFive/HDF5, toml++, MPI, etc.) are applied correctly.
-cmake_bin="$PROJECT_DIR/build/bins/analyzer/$JOB_BIN"
+cmake_bin="$PROJECT_DIR/build/bins/$JOB_BIN/$JOB_BIN"
 
 echo "==> Building $JOB_BIN via CMake"
 if [[ ! -d "$PROJECT_DIR/build" ]]; then

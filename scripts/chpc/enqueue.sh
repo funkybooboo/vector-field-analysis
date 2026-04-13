@@ -22,7 +22,7 @@ GPU_LABEL="${CHPC_GPU%%:*}"
 SM_ARCH="$CUDA_ARCH"
 LOG_DIR="$PROJECT_DIR/logs/$GPU_LABEL"
 bin="$PROJECT_DIR/${JOB_BIN}_${SM_ARCH}"
-cmake_bin="$PROJECT_DIR/build/bins/analyzer/$JOB_BIN"
+cmake_bin="$PROJECT_DIR/build/bins/$JOB_BIN/$JOB_BIN"
 
 cd "$PROJECT_DIR"
 
