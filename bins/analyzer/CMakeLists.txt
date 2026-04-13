@@ -6,6 +6,7 @@ add_library(analyzer_lib STATIC
     src/pthreads.cpp
     src/sequentialCPU.cpp
     src/solverFactory.cpp
+    src/streamWriter.cpp
     src/vectorField.cpp
 )
 
