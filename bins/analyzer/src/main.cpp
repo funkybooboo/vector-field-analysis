@@ -13,8 +13,10 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -80,6 +82,45 @@ static void verify(const AllStepStreamlines& reference, const AllStepStreamlines
             std::exit(1);
         }
     }
+}
+
+static std::string formatBytes(std::uintmax_t bytes) {
+    const auto d = static_cast<double>(bytes);
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(1);
+    if (bytes >= 1024ULL * 1024 * 1024) {
+        oss << (d / (1024.0 * 1024 * 1024)) << " GB";
+    } else if (bytes >= 1024ULL * 1024) {
+        oss << (d / (1024.0 * 1024)) << " MB";
+    } else if (bytes >= 1024ULL) {
+        oss << (d / 1024.0) << " KB";
+    } else {
+        oss << std::defaultfloat << bytes << " B";
+    }
+    return oss.str();
+}
+
+static void writeAndReport(const std::string& outPath, const AllStepStreamlines& streams,
+                           const Vector::FieldBounds& bounds, const Vector::GridSize& grid) {
+    std::size_t total = 0;
+    for (const auto& step : streams) {
+        total += step.size();
+    }
+    const std::size_t numSteps = streams.size();
+    const double avgPerStep =
+        numSteps > 0 ? static_cast<double>(total) / static_cast<double>(numSteps) : 0.0;
+    std::cout << "\nPrecomputed " << total << " streamlines across " << numSteps << " steps"
+              << "  (" << std::fixed << std::setprecision(1) << avgPerStep << "/step avg)\n";
+
+    StreamWriter::write(outPath, streams, bounds, grid);
+
+    std::error_code ec;
+    const auto fileBytes = std::filesystem::file_size(outPath, ec);
+    std::cout << "Streamlines written to " << outPath;
+    if (!ec) {
+        std::cout << "  (" << formatBytes(fileBytes) << ")";
+    }
+    std::cout << "\n";
 }
 
 // Derive output path: strip trailing .h5 (if present) and append .streams.h5
@@ -174,8 +215,7 @@ static void runAll(const Vector::FieldTimeSeries& field, unsigned int threadCoun
             verify(seqResult.streams, mpiResult.streams, "mpi");
         }
 
-        StreamWriter::write(outPath, seqResult.streams, field.bounds, field.gridSize());
-        std::cout << "\nStreamlines written to " << outPath << "\n";
+        writeAndReport(outPath, seqResult.streams, field.bounds, field.gridSize());
     }
 }
 
@@ -202,8 +242,7 @@ static void runOne(const std::string& solverName, const Vector::FieldTimeSeries&
         }
         std::cout << label << "  " << result.ms << " ms\n";
 
-        StreamWriter::write(outPath, result.streams, field.bounds, field.gridSize());
-        std::cout << "\nStreamlines written to " << outPath << "\n";
+        writeAndReport(outPath, result.streams, field.bounds, field.gridSize());
     }
 }
 
@@ -263,8 +302,11 @@ int main(int argc, char* argv[]) {
         if (mpiRank == 0) {
             const int numSteps = static_cast<int>(field.steps.size());
             const auto [width, height] = field.gridSize();
-            std::cout << "Field: " << config.inputPath << "  " << width << "x" << height << "  "
-                      << numSteps << " step(s)\n\n";
+            std::cout << "Field:   " << config.inputPath << "\n"
+                      << "Grid:    " << width << " x " << height
+                      << "  |  x [" << field.bounds.xMin << ", " << field.bounds.xMax << "]"
+                      << "  y [" << field.bounds.yMin << ", " << field.bounds.yMax << "]\n"
+                      << "Steps:   " << numSteps << "\n\n";
         }
 
         if (config.solver == "all") {

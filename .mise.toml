@@ -80,6 +80,18 @@ description = "Run MPI analyzer (NRANKS defaults to 4)"
 depends = ["build:analyzer", "run:simulator"]
 run = "mpirun -n ${MPI_RANKS:-4} --oversubscribe ./build/bins/analyzer/analyzer bins/analyzer/configs/mpi.toml"
 
+[tasks.stats]
+description = "Print stats for field.h5 and field.streams.h5"
+run = "uv run tools/stats.py field.h5 field.streams.h5"
+
+[tasks."stats:field"]
+description = "Print stats for field.h5"
+run = "uv run tools/stats.py field.h5"
+
+[tasks."stats:streams"]
+description = "Print stats for field.streams.h5"
+run = "uv run tools/stats.py field.streams.h5"
+
 [tasks.visualize]
 description = "Visualize field.h5 with quiver plot"
 run = "uv run tools/visualize.py field.h5"

@@ -1,7 +1,7 @@
 #include "fieldWriter.hpp"
 
 #include <highfive/highfive.hpp>
-#include <iostream>
+
 #include <string>
 #include <vector>
 
@@ -54,8 +54,7 @@ void write(const Vector::FieldTimeSeries& field, const SimulatorConfig& config) 
     group.createAttribute("yMin", config.bounds.yMin);
     group.createAttribute("yMax", config.bounds.yMax);
 
-    std::cout << "Wrote " << config.output << " (" << config.grid.width << "x" << config.grid.height
-              << ", " << config.steps << " steps, type=" << typeLabel << ")\n";
+
 }
 
 } // namespace FieldWriter

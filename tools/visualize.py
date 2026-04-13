@@ -226,8 +226,12 @@ def precompute_stream_curves(streamlines_by_step, vx, vy, attrs, workers=None,
             s = futures[fut]
             results[s] = fut.result()
             completed += 1
-            print(f"\r  {completed}/{num_steps}", end="", flush=True)
-    print()
+            if sys.stdout.isatty():
+                print(f"\r  {completed}/{num_steps}", end="", flush=True)
+            else:
+                print(f"  {completed}/{num_steps}", flush=True)
+    if sys.stdout.isatty():
+        print()
 
     all_curves = [r[0] for r in results]
     all_arrows = [r[1] for r in results]
@@ -364,8 +368,20 @@ def main():
     parser.add_argument("--stride", type=int, default=4, help="Arrow subsampling (default: 4)")
     parser.add_argument("--save", metavar="FILE", help="Save animation to gif/mp4")
     parser.add_argument("--streams", metavar="FILE", help="Overlay streamlines from .streams.h5")
-    parser.add_argument("--workers", type=int, default=None,
-                        help="Parallel workers for streamline pre-computation (default: cpu count)")
+    _default_workers = 4
+    _env_val = os.environ.get("VISUALIZER_THREADS")
+    if _env_val:
+        try:
+            _parsed = int(_env_val)
+            if _parsed > 0:
+                _default_workers = _parsed
+        except ValueError:
+            pass
+    parser.add_argument(
+        "--workers", type=int, default=_default_workers,
+        help="Parallel workers for streamline pre-computation "
+             "(default: $VISUALIZER_THREADS if set, else 4)",
+    )
     args = parser.parse_args()
 
     if args.stride < 1:
