@@ -9,7 +9,14 @@
 #include <vector>
 
 OpenMP::OpenMP(unsigned int threadCount)
-    : threadCount_(threadCount) {}
+#ifdef _OPENMP
+    : threadCount_(threadCount)
+#endif
+{
+#ifndef _OPENMP
+    (void)threadCount;
+#endif
+}
 
 void OpenMP::computeTimeStep(VectorField::FieldGrid& grid) {
 #ifdef _OPENMP

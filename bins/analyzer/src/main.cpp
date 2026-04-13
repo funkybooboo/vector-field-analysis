@@ -110,8 +110,9 @@ static unsigned int resolveThreadCount(unsigned int requested) {
         return requested;
     }
     if (const char* env = std::getenv("ANALYZER_THREADS")) {
-        const int val = std::atoi(env);
-        if (val > 0) {
+        char* end = nullptr;
+        const long val = std::strtol(env, &end, 10);
+        if (end != env && val > 0) {
             return static_cast<unsigned int>(val);
         }
     }
