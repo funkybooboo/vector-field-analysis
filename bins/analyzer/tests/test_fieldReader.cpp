@@ -58,10 +58,10 @@ TEST_CASE("FieldReader::read() populates xMin/xMax/yMin/yMax", "[fieldreader]") 
 
     const auto result = FieldReader::read(path.string());
 
-    REQUIRE_THAT(result.xMin, WithinAbs(-1.0f, 1e-6f));
-    REQUIRE_THAT(result.xMax, WithinAbs(1.0f, 1e-6f));
-    REQUIRE_THAT(result.yMin, WithinAbs(-0.5f, 1e-6f));
-    REQUIRE_THAT(result.yMax, WithinAbs(0.5f, 1e-6f));
+    REQUIRE_THAT(result.bounds.xMin, WithinAbs(-1.0f, 1e-6f));
+    REQUIRE_THAT(result.bounds.xMax, WithinAbs(1.0f, 1e-6f));
+    REQUIRE_THAT(result.bounds.yMin, WithinAbs(-0.5f, 1e-6f));
+    REQUIRE_THAT(result.bounds.yMax, WithinAbs(0.5f, 1e-6f));
 
     std::error_code ec;
     std::filesystem::remove(path, ec);

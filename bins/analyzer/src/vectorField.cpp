@@ -9,8 +9,8 @@ namespace VectorField {
 Vector::GridCell FieldGrid::downstreamCell(int row, int col) const {
     const Vector::Vec2 start = field_[static_cast<std::size_t>(row)][static_cast<std::size_t>(col)];
 
-    const float rowSpacing = (extents_.yMax - extents_.yMin) / static_cast<float>(field_.size() - 1);
-    const float colSpacing = (extents_.xMax - extents_.xMin) / static_cast<float>(field_[0].size() - 1);
+    const float rowSpacing = (bounds_.yMax - bounds_.yMin) / static_cast<float>(field_.size() - 1);
+    const float colSpacing = (bounds_.xMax - bounds_.xMin) / static_cast<float>(field_[0].size() - 1);
 
     // Advance one step in the vector direction, then snap to the nearest grid
     // index. Clamped to valid index bounds so boundary vectors don't reference

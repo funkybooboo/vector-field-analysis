@@ -49,10 +49,10 @@ void write(const Vector::FieldTimeSeries& field, const SimulatorConfig& config) 
     group.createAttribute("viscosity", config.viscosity);
     group.createAttribute("width", config.grid.width);
     group.createAttribute("height", config.grid.height);
-    group.createAttribute("xMin", config.extents.xMin);
-    group.createAttribute("xMax", config.extents.xMax);
-    group.createAttribute("yMin", config.extents.yMin);
-    group.createAttribute("yMax", config.extents.yMax);
+    group.createAttribute("xMin", config.bounds.xMin);
+    group.createAttribute("xMax", config.bounds.xMax);
+    group.createAttribute("yMin", config.bounds.yMin);
+    group.createAttribute("yMax", config.bounds.yMax);
 
     std::cout << "Wrote " << config.output << " (" << config.grid.width << "x"
               << config.grid.height << ", " << config.steps << " steps, type=" << typeLabel

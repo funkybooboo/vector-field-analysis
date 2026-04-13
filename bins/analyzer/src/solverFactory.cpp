@@ -1,5 +1,6 @@
 #include "solverFactory.hpp"
 
+#include "analyzerConfig.hpp"
 #include "mpiCPU.hpp"
 #include "openMP.hpp"
 #include "pthreads.hpp"
@@ -10,7 +11,10 @@
 #include <string>
 #include <string_view>
 
-// Valid names mirror kValidSolvers in analyzerConfig.hpp — keep in sync when adding solvers.
+// "all" is handled by main.cpp before makeSolver is called.
+static_assert(kValidSolvers.size() == 5,
+              "kValidSolvers changed — update makeSolver() to match");
+
 std::unique_ptr<StreamlineSolver> makeSolver(std::string_view name, unsigned int threadCount) {
     if (name == "sequential") {
         return std::make_unique<SequentialCPU>();

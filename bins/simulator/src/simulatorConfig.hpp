@@ -75,7 +75,7 @@ struct SimulatorConfig {
     float viscosity = 0.0f;
     std::string output = "field.h5";
     Vector::GridSize grid = {64, 64};
-    Vector::FieldBounds extents = {-1.0f, 1.0f, -1.0f, 1.0f};
+    Vector::FieldBounds bounds = {-1.0f, 1.0f, -1.0f, 1.0f};
     // Each layer's contribution is added together (linear superposition),
     // so layer order does not affect the result.
     std::vector<FieldLayerConfig> layers;

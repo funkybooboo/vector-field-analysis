@@ -32,7 +32,7 @@ static RunResult runSolver(StreamlineSolver& solver, const Vector::FieldTimeSeri
     RunResult result;
     auto t0 = std::chrono::steady_clock::now();
     for (const auto& step : data.steps) {
-        VectorField::FieldGrid grid(data.extents, step);
+        VectorField::FieldGrid grid(data.bounds, step);
         solver.computeTimeStep(grid);
         result.streams.push_back(grid.getStreamlines());
     }
@@ -149,7 +149,7 @@ static void runAll(const Vector::FieldTimeSeries& field, unsigned int threadCoun
         verify(seqResult.streams, mpiResult.streams, "mpi");
 
         const std::string outPath = makeOutPath(inPath);
-        StreamWriter::write(outPath, seqResult.streams, field.extents, field.gridSize());
+        StreamWriter::write(outPath, seqResult.streams, field.bounds, field.gridSize());
         std::cout << "\nStreamlines written to " << outPath << "\n";
     }
 }
@@ -157,8 +157,14 @@ static void runAll(const Vector::FieldTimeSeries& field, unsigned int threadCoun
 static void runOne(const std::string& solverName, const Vector::FieldTimeSeries& field,
                    unsigned int threadCount, int mpiRank, int mpiSize,
                    const std::string& inPath) {
-    auto solver = makeSolver(solverName, threadCount);
-    const auto result = runSolver(*solver, field);
+    RunResult result{};
+    if (solverName == "mpi") {
+        auto solver = makeSolver(solverName, threadCount);
+        result = runSolver(*solver, field);
+    } else if (mpiRank == 0) {
+        auto solver = makeSolver(solverName, threadCount);
+        result = runSolver(*solver, field);
+    }
 
     if (mpiRank == 0) {
         std::string label = solverName;
@@ -170,7 +176,7 @@ static void runOne(const std::string& solverName, const Vector::FieldTimeSeries&
         std::cout << label << "  " << result.ms << " ms\n";
 
         const std::string outPath = makeOutPath(inPath);
-        StreamWriter::write(outPath, result.streams, field.extents, field.gridSize());
+        StreamWriter::write(outPath, result.streams, field.bounds, field.gridSize());
         std::cout << "\nStreamlines written to " << outPath << "\n";
     }
 }

@@ -7,8 +7,6 @@
 #include <iostream>
 #include <limits>
 #include <mpi.h>
-#include <stdexcept>
-#include <utility>
 #include <vector>
 #endif
 
@@ -21,8 +19,6 @@ void MpiCPU::computeTimeStep(VectorField::FieldGrid& grid) {
     int mpiReady = 0;
     MPI_Initialized(&mpiReady);
     if (mpiReady == 0) {
-        std::cerr << "Warning: MpiCPU::computeTimeStep called without MPI_Init; "
-                     "falling back to sequential.\n";
         SequentialCPU fallback;
         fallback.computeTimeStep(grid);
         return;
@@ -61,12 +57,14 @@ void MpiCPU::computeTimeStep(VectorField::FieldGrid& grid) {
     if (colCount > 0 &&
         static_cast<std::size_t>(localRows) >
             std::numeric_limits<std::size_t>::max() / kTupleSize / static_cast<std::size_t>(colCount)) {
-        throw std::overflow_error("grid too large for MPI gather (size_t overflow)");
+        std::cerr << "rank " << rank << ": fatal: grid too large for MPI gather (size_t overflow)\n";
+        MPI_Abort(MPI_COMM_WORLD, 1);
     }
     const auto localCount =
         static_cast<std::size_t>(localRows) * static_cast<std::size_t>(colCount) * kTupleSize;
     if (localCount > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
-        throw std::overflow_error("localCount exceeds INT_MAX; grid too large for MPI gather");
+        std::cerr << "rank " << rank << ": fatal: localCount exceeds INT_MAX; grid too large for MPI gather\n";
+        MPI_Abort(MPI_COMM_WORLD, 1);
     }
     const int localCountInt = static_cast<int>(localCount);
     std::vector<int> localData(localCount);

@@ -6,15 +6,15 @@
 namespace StreamWriter {
 
 void write(const std::string& outPath, const std::vector<StepStreamlines>& streamlinesByStep,
-           const Vector::FieldBounds& extents, const Vector::GridSize& grid) {
+           const Vector::FieldBounds& bounds, const Vector::GridSize& grid) {
     // Truncate: overwrite any existing file so reruns don't require manual cleanup.
     HighFive::File file(outPath, HighFive::File::Truncate);
     auto streamsGroup = file.createGroup("streams");
 
-    streamsGroup.createAttribute("xMin", extents.xMin);
-    streamsGroup.createAttribute("xMax", extents.xMax);
-    streamsGroup.createAttribute("yMin", extents.yMin);
-    streamsGroup.createAttribute("yMax", extents.yMax);
+    streamsGroup.createAttribute("xMin", bounds.xMin);
+    streamsGroup.createAttribute("xMax", bounds.xMax);
+    streamsGroup.createAttribute("yMin", bounds.yMin);
+    streamsGroup.createAttribute("yMax", bounds.yMax);
     streamsGroup.createAttribute("width", grid.width);
     streamsGroup.createAttribute("height", grid.height);
     streamsGroup.createAttribute("num_steps", static_cast<int>(streamlinesByStep.size()));

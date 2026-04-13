@@ -63,7 +63,6 @@ void Pthreads::computeTimeStep(VectorField::FieldGrid& grid) {
     std::vector<pthread_t> threads(threadCount_);
     std::vector<ThreadData> threadData(threadCount_);
 
-    std::size_t threadsLaunched = 0;
     std::size_t currentRow = 0;
     for (unsigned int id = 0; id < threadCount_; id++) {
         threadData[id].grid = &grid;
@@ -83,13 +82,12 @@ void Pthreads::computeTimeStep(VectorField::FieldGrid& grid) {
         if (err != 0) {
             // Join all already-running threads before propagating the error so
             // they don't outlive threadData and neighbors.
-            for (std::size_t j = 0; j < threadsLaunched; j++) {
+            for (unsigned int j = 0; j < id; j++) {
                 pthread_join(threads[j], nullptr);
             }
             throw std::runtime_error("pthread_create failed with error code " +
                                      std::to_string(err));
         }
-        ++threadsLaunched;
     }
 
     for (unsigned int i = 0; i < threadCount_; i++) {

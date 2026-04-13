@@ -24,10 +24,10 @@ static SimulatorConfig makeConfig(FieldLayerConfig layer, int steps = 1) {
     config.dt = 0.01f;
     config.grid.width = 32;
     config.grid.height = 32;
-    config.extents.xMin = -1.0f;
-    config.extents.xMax = 1.0f;
-    config.extents.yMin = -1.0f;
-    config.extents.yMax = 1.0f;
+    config.bounds.xMin = -1.0f;
+    config.bounds.xMax = 1.0f;
+    config.bounds.yMin = -1.0f;
+    config.bounds.yMax = 1.0f;
     config.viscosity = 0.0f;
     config.layers = {std::move(layer)};
     return config;
@@ -56,8 +56,8 @@ TEST_CASE("Vortex field is perpendicular to radius", "[simulator]") {
 
     // Perpendicularity: dot product of vortex vector and position vector must be ~0
     for (auto [i, j] : std::initializer_list<std::pair<int, int>>{{24, 16}, {8, 24}, {20, 8}}) {
-        const float px = gridToWorld(i, config.grid.width, config.extents.xMin, config.extents.xMax);
-        const float py = gridToWorld(j, config.grid.height, config.extents.yMin, config.extents.yMax);
+        const float px = gridToWorld(i, config.grid.width, config.bounds.xMin, config.bounds.xMax);
+        const float py = gridToWorld(j, config.grid.height, config.bounds.yMin, config.bounds.yMax);
         const auto& v = out.steps[0][j][i];
         // dot(v, pos) = vx*px + vy*py must be zero for a pure vortex
         REQUIRE_THAT((v.x * px) + (v.y * py), WithinAbs(0.0f, 1e-4f));
@@ -144,8 +144,8 @@ TEST_CASE("Source field points away from center", "[simulator][generate]") {
     const int i = 24;
     const int j = 16;
     REQUIRE(out.steps[0][j][i].x > 0.0f);
-    const float px = gridToWorld(i, config.grid.width, config.extents.xMin, config.extents.xMax);
-    const float py = gridToWorld(j, config.grid.height, config.extents.yMin, config.extents.yMax);
+    const float px = gridToWorld(i, config.grid.width, config.bounds.xMin, config.bounds.xMax);
+    const float py = gridToWorld(j, config.grid.height, config.bounds.yMin, config.bounds.yMax);
     // Angle from center should match vector direction
     const float angle = std::atan2(out.steps[0][j][i].y, out.steps[0][j][i].x);
     const float expected = std::atan2(py, px);
@@ -241,7 +241,7 @@ TEST_CASE("Custom x_expression = \"x\" evaluates to world x-coordinate", "[simul
 
     const int i = 20;
     const int j = 16;
-    const float px = gridToWorld(i, config.grid.width, config.extents.xMin, config.extents.xMax);
+    const float px = gridToWorld(i, config.grid.width, config.bounds.xMin, config.bounds.xMax);
     REQUIRE_THAT(out.steps[0][j][i].x, WithinAbs(px, 1e-4f));
     REQUIRE_THAT(out.steps[0][j][i].y, WithinAbs(0.0f, 1e-4f));
 }
@@ -332,10 +332,10 @@ TEST_CASE("parseFile() reads [simulation] values correctly", "[simulator][config
     REQUIRE(config.output == std::string("out.h5"));
     REQUIRE(config.grid.width == 16);
     REQUIRE(config.grid.height == 8);
-    REQUIRE_THAT(config.extents.xMin, WithinAbs(-2.0f, 1e-6f));
-    REQUIRE_THAT(config.extents.xMax, WithinAbs(2.0f, 1e-6f));
-    REQUIRE_THAT(config.extents.yMin, WithinAbs(-0.5f, 1e-6f));
-    REQUIRE_THAT(config.extents.yMax, WithinAbs(0.5f, 1e-6f));
+    REQUIRE_THAT(config.bounds.xMin, WithinAbs(-2.0f, 1e-6f));
+    REQUIRE_THAT(config.bounds.xMax, WithinAbs(2.0f, 1e-6f));
+    REQUIRE_THAT(config.bounds.yMin, WithinAbs(-0.5f, 1e-6f));
+    REQUIRE_THAT(config.bounds.yMax, WithinAbs(0.5f, 1e-6f));
 }
 
 TEST_CASE("parseFile() defaults to one vortex layer when [[layers]] absent",
@@ -481,7 +481,7 @@ TEST_CASE("Custom y_expression = \"y\" evaluates to world y-coordinate", "[simul
     const auto out = generateTimeSeries(config);
 
     const int row = 20;
-    const float py = gridToWorld(row, config.grid.height, config.extents.yMin, config.extents.yMax);
+    const float py = gridToWorld(row, config.grid.height, config.bounds.yMin, config.bounds.yMax);
     REQUIRE_THAT(out.steps[0][row][8].y, WithinAbs(py, 1e-4f));
     REQUIRE_THAT(out.steps[0][row][8].x, WithinAbs(0.0f, 1e-4f));
 }

@@ -160,11 +160,11 @@ Vector::FieldTimeSeries generateTimeSeries(const SimulatorConfig& config) {
     std::vector<float> yCoords(height);
     for (std::size_t col = 0; col < width; ++col) {
         xCoords[col] = gridToWorld(static_cast<int>(col), config.grid.width,
-                                   config.extents.xMin, config.extents.xMax);
+                                   config.bounds.xMin, config.bounds.xMax);
     }
     for (std::size_t row = 0; row < height; ++row) {
         yCoords[row] = gridToWorld(static_cast<int>(row), config.grid.height,
-                                   config.extents.yMin, config.extents.yMax);
+                                   config.bounds.yMin, config.bounds.yMax);
     }
 
     // Pre-compile custom field expressions - one evaluator per layer, nullptr for non-custom
@@ -178,7 +178,7 @@ Vector::FieldTimeSeries generateTimeSeries(const SimulatorConfig& config) {
 
     // Allocate result: steps[steps][height][width]
     Vector::FieldTimeSeries result;
-    result.extents = config.extents;
+    result.bounds = config.bounds;
     result.steps.assign(numSteps, Vector::FieldSlice(height, std::vector<Vector::Vec2>(width)));
 
     // For each time step, sample every layer at every grid cell and sum their

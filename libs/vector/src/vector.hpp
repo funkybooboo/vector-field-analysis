@@ -79,7 +79,7 @@ using FieldSlice = std::vector<std::vector<Vec2>>;
 // Layout: steps[step][row][col].
 struct FieldTimeSeries {
     std::vector<FieldSlice> steps;
-    FieldBounds extents;
+    FieldBounds bounds;
 
     // Returns the grid dimensions derived from the first step.
     // Returns {0, 0} if the series is empty.

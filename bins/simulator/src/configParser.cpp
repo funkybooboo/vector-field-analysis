@@ -103,16 +103,16 @@ SimulatorConfig parseSimulationSection(const toml::table& simulation) {
         config.grid.height = static_cast<int>(*v);
     }
     if (const auto v = simulation["xmin"].value<double>()) {
-        config.extents.xMin = static_cast<float>(*v);
+        config.bounds.xMin = static_cast<float>(*v);
     }
     if (const auto v = simulation["xmax"].value<double>()) {
-        config.extents.xMax = static_cast<float>(*v);
+        config.bounds.xMax = static_cast<float>(*v);
     }
     if (const auto v = simulation["ymin"].value<double>()) {
-        config.extents.yMin = static_cast<float>(*v);
+        config.bounds.yMin = static_cast<float>(*v);
     }
     if (const auto v = simulation["ymax"].value<double>()) {
-        config.extents.yMax = static_cast<float>(*v);
+        config.bounds.yMax = static_cast<float>(*v);
     }
     return config;
 }

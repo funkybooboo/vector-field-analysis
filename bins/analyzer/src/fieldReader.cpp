@@ -23,10 +23,10 @@ Vector::FieldTimeSeries read(const std::string& path) {
     }
 
     Vector::FieldTimeSeries result;
-    group.getAttribute("xMin").read(result.extents.xMin);
-    group.getAttribute("xMax").read(result.extents.xMax);
-    group.getAttribute("yMin").read(result.extents.yMin);
-    group.getAttribute("yMax").read(result.extents.yMax);
+    group.getAttribute("xMin").read(result.bounds.xMin);
+    group.getAttribute("xMax").read(result.bounds.xMax);
+    group.getAttribute("yMin").read(result.bounds.yMin);
+    group.getAttribute("yMax").read(result.bounds.yMax);
 
     const std::size_t numSteps = vxRaw.size();
     const std::size_t height = vxRaw[0].size();

@@ -12,13 +12,13 @@ namespace VectorField {
 // Stream associations are tracked in a parallel grid (streams_) rather than
 // inside Vec2, keeping the generic math type free of domain state.
 class FieldGrid {
-    const Vector::FieldBounds extents_;
+    const Vector::FieldBounds bounds_;
     Vector::FieldSlice field_;
     std::vector<std::vector<std::shared_ptr<Vector::Streamline>>> streams_;
 
   public:
-    FieldGrid(Vector::FieldBounds extents, Vector::FieldSlice field)
-        : extents_(extents),
+    FieldGrid(Vector::FieldBounds bounds, Vector::FieldSlice field)
+        : bounds_(bounds),
           field_(std::move(field)) {
         const std::size_t numRows = field_.size();
         const std::size_t numCols = numRows > 0 ? field_[0].size() : 0;
