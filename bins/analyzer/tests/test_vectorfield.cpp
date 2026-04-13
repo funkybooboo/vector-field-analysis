@@ -136,3 +136,59 @@ TEST_CASE("tracing into an occupied cell triggers merge without crash", "[vector
     grid.traceStreamlineStep({0, 2}); // dest (0,1) already occupied -> merge
     SUCCEED();
 }
+
+// ---------------------------------------------------------------------------
+// getStreamlines
+// ---------------------------------------------------------------------------
+
+TEST_CASE("getStreamlines on untouched grid returns empty", "[vectorfield][streamlines]") {
+    auto grid = makeField(Vector::Vec2(1.0f, 0.0f));
+    REQUIRE(grid.getStreamlines().empty());
+}
+
+TEST_CASE("getStreamlines deduplicates cells sharing a streamline", "[vectorfield][streamlines]") {
+    auto grid = makeField(Vector::Vec2(1.0f, 0.0f));
+    grid.traceStreamlineStep({0, 0}, {0, 1});
+    const auto lines = grid.getStreamlines();
+    REQUIRE(lines.size() == 1);
+    REQUIRE(lines[0].size() == 2);
+    REQUIRE(lines[0][0] == std::make_pair(0, 0));
+    REQUIRE(lines[0][1] == std::make_pair(0, 1));
+}
+
+TEST_CASE("getStreamlines returns 3 streamlines after uniform right-pointing field trace",
+          "[vectorfield][streamlines]") {
+    auto grid = makeField(Vector::Vec2(1.0f, 0.0f));
+    for (int row = 0; row < 3; row++) {
+        for (int col = 0; col < 3; col++) {
+            grid.traceStreamlineStep(row, col);
+        }
+    }
+    REQUIRE(grid.getStreamlines().size() == 3);
+}
+
+TEST_CASE("getStreamlines path contents match expected for uniform right-pointing field",
+          "[vectorfield][streamlines]") {
+    auto grid = makeField(Vector::Vec2(1.0f, 0.0f));
+    for (int row = 0; row < 3; row++) {
+        for (int col = 0; col < 3; col++) {
+            grid.traceStreamlineStep(row, col);
+        }
+    }
+    const auto lines = grid.getStreamlines();
+    REQUIRE(lines.size() == 3);
+    REQUIRE(lines[0] == (std::vector<std::pair<int, int>>{{0, 0}, {0, 1}, {0, 2}}));
+    REQUIRE(lines[1] == (std::vector<std::pair<int, int>>{{1, 0}, {1, 1}, {1, 2}}));
+    REQUIRE(lines[2] == (std::vector<std::pair<int, int>>{{2, 0}, {2, 1}, {2, 2}}));
+}
+
+TEST_CASE("getStreamlines returns 1 streamline when paths converge via merge",
+          "[vectorfield][streamlines]") {
+    Vector::FieldSlice f(3, std::vector<Vector::Vec2>(3));
+    f[0][0] = Vector::Vec2(1.0f, 0.0f);   // dest (0,1)
+    f[0][2] = Vector::Vec2(-1.0f, 0.0f);  // dest (0,1)
+    VectorField::FieldGrid grid(0.0f, 2.0f, 0.0f, 2.0f, std::move(f));
+    grid.traceStreamlineStep({0, 0}, {0, 1});
+    grid.traceStreamlineStep({0, 2}, {0, 1});
+    REQUIRE(grid.getStreamlines().size() == 1);
+}

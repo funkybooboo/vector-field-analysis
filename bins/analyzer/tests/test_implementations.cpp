@@ -116,6 +116,82 @@ TEST_CASE("MpiCPU::computeTimeStep handles empty grid", "[impl][mpi]") {
 }
 
 // ---------------------------------------------------------------------------
+// Solver output: getStreamlines() correctness
+// ---------------------------------------------------------------------------
+
+TEST_CASE("SequentialCPU getStreamlines returns 3 streamlines on uniform 3x3 field",
+          "[impl][sequential][streamlines]") {
+    auto grid = makeGrid();
+    SequentialCPU{}.computeTimeStep(grid);
+    REQUIRE(grid.getStreamlines().size() == 3);
+}
+
+TEST_CASE("SequentialCPU getStreamlines path contents are correct for uniform 3x3 field",
+          "[impl][sequential][streamlines]") {
+    auto grid = makeGrid();
+    SequentialCPU{}.computeTimeStep(grid);
+    const auto lines = grid.getStreamlines();
+    REQUIRE(lines.size() == 3);
+    REQUIRE(lines[0] == (std::vector<std::pair<int, int>>{{0, 0}, {0, 1}, {0, 2}}));
+    REQUIRE(lines[1] == (std::vector<std::pair<int, int>>{{1, 0}, {1, 1}, {1, 2}}));
+    REQUIRE(lines[2] == (std::vector<std::pair<int, int>>{{2, 0}, {2, 1}, {2, 2}}));
+}
+
+TEST_CASE("OpenMP getStreamlines returns same count as sequential on uniform 3x3 field",
+          "[impl][openmp][streamlines]") {
+    auto seqGrid = makeGrid();
+    SequentialCPU{}.computeTimeStep(seqGrid);
+    const std::size_t expected = seqGrid.getStreamlines().size();
+    auto grid = makeGrid();
+    OpenMP{}.computeTimeStep(grid);
+    REQUIRE(grid.getStreamlines().size() == expected);
+}
+
+TEST_CASE("Pthreads getStreamlines returns same count as sequential on uniform 3x3 field",
+          "[impl][pthreads][streamlines]") {
+    auto seqGrid = makeGrid();
+    SequentialCPU{}.computeTimeStep(seqGrid);
+    const std::size_t expected = seqGrid.getStreamlines().size();
+    auto grid = makeGrid();
+    Pthreads{4}.computeTimeStep(grid);
+    REQUIRE(grid.getStreamlines().size() == expected);
+}
+
+TEST_CASE("MpiCPU getStreamlines returns same count as sequential on uniform 3x3 field",
+          "[impl][mpi][streamlines]") {
+    auto seqGrid = makeGrid();
+    SequentialCPU{}.computeTimeStep(seqGrid);
+    const std::size_t expected = seqGrid.getStreamlines().size();
+    auto grid = makeGrid();
+    MpiCPU{}.computeTimeStep(grid);
+    REQUIRE(grid.getStreamlines().size() == expected);
+}
+
+TEST_CASE("getStreamlines returns non-empty result after any impl on non-empty field",
+          "[impl][consistency][streamlines]") {
+    {
+        auto grid = makeGrid();
+        SequentialCPU{}.computeTimeStep(grid);
+        REQUIRE_FALSE(grid.getStreamlines().empty());
+    }
+    {
+        auto grid = makeGrid();
+        OpenMP{}.computeTimeStep(grid);
+        REQUIRE_FALSE(grid.getStreamlines().empty());
+    }
+    {
+        auto grid = makeGrid();
+        Pthreads{2}.computeTimeStep(grid);
+        REQUIRE_FALSE(grid.getStreamlines().empty());
+    }
+    {
+        auto grid = makeGrid();
+        MpiCPU{}.computeTimeStep(grid);
+        REQUIRE_FALSE(grid.getStreamlines().empty());
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Consistency: all impls agree on neighbor directions for uniform field
 // ---------------------------------------------------------------------------
 

@@ -55,8 +55,18 @@ void MpiCPU::computeTimeStep(VectorField::FieldGrid& grid) {
     // neighborInVectorDirection is const and reads no mutable state -- concurrent
     // calls across disjoint row ranges are race-free.
     const auto kTS = static_cast<std::size_t>(kTupleSize);
+    // Guard size_t overflow before computing localCount.
+    if (colCount > 0 &&
+        static_cast<std::size_t>(localRows) >
+            std::numeric_limits<std::size_t>::max() / kTS / static_cast<std::size_t>(colCount)) {
+        throw std::overflow_error("grid too large for MPI gather (size_t overflow)");
+    }
     const auto localCount =
         static_cast<std::size_t>(localRows) * static_cast<std::size_t>(colCount) * kTS;
+    if (localCount > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+        throw std::overflow_error("localCount exceeds INT_MAX; grid too large for MPI gather");
+    }
+    const int localCountInt = static_cast<int>(localCount);
     std::vector<int> localData(localCount);
     for (int row = startRow; row < endRow; row++) {
         for (int col = 0; col < colCount; col++) {
@@ -72,20 +82,21 @@ void MpiCPU::computeTimeStep(VectorField::FieldGrid& grid) {
         }
     }
 
-    // Gather per-rank element counts to root so it can allocate the receive buffer.
-    // recvCounts is populated on all ranks so the pointer is valid for MPI_Gatherv;
-    // non-root values are only meaningful on rank 0.
-    if (localCount > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
-        throw std::overflow_error("localCount exceeds INT_MAX; grid too large for MPI gather");
+    // Gather per-rank element counts to root.
+    // recvCounts/displs are only allocated on rank 0; non-root passes nullptr
+    // which is valid per MPI spec (recvbuf/recvcounts/displs ignored on non-root).
+    std::vector<int> recvCounts;
+    if (rank == 0) {
+        recvCounts.resize(static_cast<std::size_t>(size), 0);
     }
-    const int localCountInt = static_cast<int>(localCount);
-    std::vector<int> recvCounts(static_cast<std::size_t>(size), 0);
-    MPI_Gather(&localCountInt, 1, MPI_INT, recvCounts.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gather(&localCountInt, 1, MPI_INT,
+               rank == 0 ? recvCounts.data() : nullptr, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     // Build displacements and receive buffer on rank 0.
-    std::vector<int> displs(static_cast<std::size_t>(size), 0);
+    std::vector<int> displs;
     std::vector<int> allData;
     if (rank == 0) {
+        displs.resize(static_cast<std::size_t>(size), 0);
         for (int i = 1; i < size; i++) {
             displs[static_cast<std::size_t>(i)] = displs[static_cast<std::size_t>(i - 1)] +
                                                   recvCounts[static_cast<std::size_t>(i - 1)];
@@ -96,9 +107,10 @@ void MpiCPU::computeTimeStep(VectorField::FieldGrid& grid) {
     }
 
     // Gather all neighbor pairs to rank 0.
-    // MPI_Gatherv ignores recvcounts/displs/recvbuf on non-root ranks.
-    MPI_Gatherv(localData.data(), localCountInt, MPI_INT, allData.data(), recvCounts.data(),
-                displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
+    // MPI spec: recvcounts/displs/recvbuf are significant only at root.
+    // allData.data() and recvCounts.data() are nullptr on non-root (empty vectors) -- valid.
+    MPI_Gatherv(localData.data(), localCountInt, MPI_INT,
+                allData.data(), recvCounts.data(), displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
 
     // Pass 2 (sequential on rank 0): apply all (src, dest) pairs to build streamlines.
     // traceStreamlineStep writes to streams_ and is not thread-safe, so this must be

@@ -1,5 +1,6 @@
 #include "analyzerConfigParser.hpp"
 
+#include <limits>
 #include <stdexcept>
 #include <string>
 
@@ -42,8 +43,9 @@ AnalyzerConfig parseFile(const std::string& path) {
         config.solver = *v;
     }
     if (const auto v = (*analyzer)["threads"].value<int64_t>()) {
-        if (*v < 0) {
-            throw std::runtime_error("threads must be non-negative");
+        if (*v < 0 || *v > static_cast<int64_t>(std::numeric_limits<unsigned int>::max())) {
+            throw std::runtime_error("threads must be between 0 and " +
+                                     std::to_string(std::numeric_limits<unsigned int>::max()));
         }
         config.threadCount = static_cast<unsigned int>(*v);
     }

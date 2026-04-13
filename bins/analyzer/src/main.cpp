@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include <iomanip>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -111,23 +112,36 @@ static unsigned int resolveThreadCount(unsigned int requested) {
 
 static void runAll(const Vector::FieldTimeSeries& data, unsigned int threadCount, int mpiRank,
                    int mpiSize, const std::string& inPath) {
-    auto seq = makeSolver("sequential", threadCount);
-    auto omp = makeSolver("openmp", threadCount);
-    auto pt = makeSolver("pthreads", threadCount);
+    // Non-MPI solvers: only rank 0 needs their results; skip on other ranks.
+    RunResult seqR{};
+    RunResult ompR{};
+    RunResult ptR{};
+    if (mpiRank == 0) {
+        auto seq = makeSolver("sequential", threadCount);
+        auto omp = makeSolver("openmp", threadCount);
+        auto pt  = makeSolver("pthreads", threadCount);
+        seqR = runSolver(*seq, data);
+        ompR = runSolver(*omp, data);
+        ptR  = runSolver(*pt, data);
+    }
+    // MPI solver: all ranks must participate (collective calls inside).
     auto mpi = makeSolver("mpi", threadCount);
-
-    const auto seqR = runSolver(*seq, data);
-    const auto ompR = runSolver(*omp, data);
-    const auto ptR = runSolver(*pt, data);
     const auto mpiR = runSolver(*mpi, data);
 
     if (mpiRank == 0) {
-        std::cout << "sequential             " << seqR.ms << " ms\n"
-                  << "openmp                 " << ompR.ms << " ms"
+        const std::string seqLabel = "sequential";
+        const std::string ompLabel = "openmp";
+        const std::string ptLabel  = "pthreads (" + std::to_string(threadCount) + " thr)";
+        const std::string mpiLabel = "mpi (" + std::to_string(mpiSize) + " rank(s))";
+        const int w = static_cast<int>(
+            std::max({seqLabel.size(), ompLabel.size(), ptLabel.size(), mpiLabel.size()})) + 2;
+        std::cout << std::left
+                  << std::setw(w) << seqLabel << seqR.ms << " ms\n"
+                  << std::setw(w) << ompLabel << ompR.ms << " ms"
                   << "  (" << seqR.ms / ompR.ms << "x vs sequential)\n"
-                  << "pthreads (" << threadCount << " thr)    " << ptR.ms << " ms"
-                  << "  (" << seqR.ms / ptR.ms << "x vs sequential)\n"
-                  << "mpi (" << mpiSize << " rank(s))       " << mpiR.ms << " ms"
+                  << std::setw(w) << ptLabel  << ptR.ms  << " ms"
+                  << "  (" << seqR.ms / ptR.ms  << "x vs sequential)\n"
+                  << std::setw(w) << mpiLabel << mpiR.ms << " ms"
                   << "  (" << seqR.ms / mpiR.ms << "x vs sequential)\n";
 
         verify(seqR.streams, ompR.streams, "openMP");
