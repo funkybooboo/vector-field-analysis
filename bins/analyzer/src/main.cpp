@@ -144,7 +144,7 @@ static void runAll(const Vector::FieldTimeSeries& data, unsigned int threadCount
                   << std::setw(w) << mpiLabel << mpiR.ms << " ms"
                   << "  (" << seqR.ms / mpiR.ms << "x vs sequential)\n";
 
-        verify(seqR.streams, ompR.streams, "openMP");
+        verify(seqR.streams, ompR.streams, "openmp");
         verify(seqR.streams, ptR.streams, "pthreads");
         verify(seqR.streams, mpiR.streams, "mpi");
 

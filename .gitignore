@@ -49,6 +49,7 @@ build-sanitize/
 
 # Generated output
 *.h5
+*.vis_cache.pkl
 
 # IDE / tooling
 .cache/

@@ -73,11 +73,15 @@ run = "./build/bins/simulator/simulator bins/simulator/configs/karman_street.tom
 [tasks."run:bin:analyzer"]
 description = "Generate field data via simulator then benchmark all analyzer impls"
 depends = ["build:bin:analyzer", "run:bin:simulator"]
-run = "./build/bins/analyzer/analyzer field.h5"
+run = "./build/bins/analyzer/analyzer bins/analyzer/configs/default.toml"
 
 [tasks.visualize]
 description = "Visualize field.h5 with the quiver plot tool"
 run = "uv run tools/visualize.py field.h5"
+
+[tasks."visualize:streams"]
+description = "Visualize field.h5 with streamlines overlaid from field.streams.h5"
+run = "uv run tools/visualize.py field.h5 --streams field.streams.h5"
 
 [tasks.format]
 description = "Format all source files in place"

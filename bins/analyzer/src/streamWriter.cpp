@@ -7,8 +7,7 @@ namespace StreamWriter {
 
 void write(const std::string& outPath, const std::vector<StepStreamlines>& allSteps, float xMin,
            float xMax, float yMin, float yMax, int width, int height) {
-    HighFive::File file(outPath,
-                        HighFive::File::ReadWrite | HighFive::File::Create | HighFive::File::Excl);
+    HighFive::File file(outPath, HighFive::File::Truncate);
     auto grp = file.createGroup("streams");
 
     grp.createAttribute("xMin", xMin);
