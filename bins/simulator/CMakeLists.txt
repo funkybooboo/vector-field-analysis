@@ -1,7 +1,6 @@
 add_library(simulator_lib STATIC
     src/configParser.cpp
     src/fieldGenerator.cpp
-    src/fieldWriter.cpp
 )
 
 target_include_directories(simulator_lib PUBLIC
@@ -9,10 +8,11 @@ target_include_directories(simulator_lib PUBLIC
 )
 
 target_link_libraries(simulator_lib PUBLIC
-    vector
+    field
+    field_io
+    utils
     exprtk
     stb_perlin
-    HighFive
     tomlplusplus::tomlplusplus
 )
 

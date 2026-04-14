@@ -1,6 +1,4 @@
 add_executable(analyzer_tests
-    test_vectorfield.cpp
-    test_fieldReader.cpp
     test_implementations.cpp
     test_configParser.cpp
     test_solverFactory.cpp

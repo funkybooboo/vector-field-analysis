@@ -1,6 +1,6 @@
 #include "streamline.hpp"
 
-namespace Vector {
+namespace Field {
 
 Streamline::Streamline(GridCell startPoint) {
     // Seed the path immediately so it is never empty -- callers can always
@@ -8,4 +8,4 @@ Streamline::Streamline(GridCell startPoint) {
     path.push_back(startPoint);
 }
 
-} // namespace Vector
+} // namespace Field

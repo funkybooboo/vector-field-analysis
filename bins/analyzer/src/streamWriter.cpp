@@ -1,5 +1,7 @@
 #include "streamWriter.hpp"
 
+#include "fieldIOCommon.hpp"
+
 #include <cstdint>
 #include <highfive/highfive.hpp>
 #include <limits>
@@ -9,49 +11,44 @@
 namespace StreamWriter {
 
 void write(const std::string& outPath, const std::vector<StepStreamlines>& streamlinesByStep,
-           const Vector::FieldBounds& bounds, const Vector::GridSize& grid) {
+           const Field::Bounds& bounds, const Field::GridSize& grid) {
     // Truncate: overwrite any existing file so reruns don't require manual cleanup.
     HighFive::File file(outPath, HighFive::File::Truncate);
     auto streamsGroup = file.createGroup("streams");
 
-    streamsGroup.createAttribute("xMin", bounds.xMin);
-    streamsGroup.createAttribute("xMax", bounds.xMax);
-    streamsGroup.createAttribute("yMin", bounds.yMin);
-    streamsGroup.createAttribute("yMax", bounds.yMax);
-    streamsGroup.createAttribute("width", grid.width);
-    streamsGroup.createAttribute("height", grid.height);
+    writeGeometryAttributes(streamsGroup, bounds, grid);
     streamsGroup.createAttribute("num_steps", static_cast<int>(streamlinesByStep.size()));
 
-    for (std::size_t s = 0; s < streamlinesByStep.size(); ++s) {
-        const StepStreamlines& stepStreamlines = streamlinesByStep[s];
-        auto stepGroup = streamsGroup.createGroup("step_" + std::to_string(s));
+    for (std::size_t stepIndex = 0; stepIndex < streamlinesByStep.size(); ++stepIndex) {
+        const StepStreamlines& stepStreamlines = streamlinesByStep[stepIndex];
+        auto stepGroup = streamsGroup.createGroup("step_" + std::to_string(stepIndex));
 
         // Build CSR-style flat array and offsets.
-        // offsets[i] = start index in paths_flat for streamline i.
+        // offsets[streamlineIndex] = start index in paths_flat for that streamline.
         // offsets[S] = total number of points (sentinel).
         const auto numStreams = stepStreamlines.size();
         std::vector<int> offsets(numStreams + 1);
         offsets[0] = 0;
-        for (std::size_t i = 0; i < numStreams; ++i) {
-            const int64_t next =
-                static_cast<int64_t>(offsets[i]) + static_cast<int64_t>(stepStreamlines[i].size());
+        for (std::size_t streamlineIndex = 0; streamlineIndex < numStreams; ++streamlineIndex) {
+            const int64_t next = static_cast<int64_t>(offsets[streamlineIndex]) +
+                                 static_cast<int64_t>(stepStreamlines[streamlineIndex].size());
             if (next > std::numeric_limits<int>::max()) {
                 throw std::runtime_error("streamline data exceeds INT_MAX points in step " +
-                                         std::to_string(s));
+                                         std::to_string(stepIndex));
             }
-            offsets[i + 1] = static_cast<int>(next);
+            offsets[streamlineIndex + 1] = static_cast<int>(next);
         }
 
         const auto totalPoints = static_cast<std::size_t>(offsets[numStreams]);
 
         // paths_flat: shape (totalPoints, 2), each row is [row, col]
         std::vector<std::vector<int>> pathsFlat(totalPoints, std::vector<int>(2));
-        std::size_t idx = 0;
+        std::size_t i = 0;
         for (const auto& path : stepStreamlines) {
-            for (const auto& pt : path) {
-                pathsFlat[idx][0] = pt.row;
-                pathsFlat[idx][1] = pt.col;
-                ++idx;
+            for (const auto& point : path) {
+                pathsFlat[i][0] = point.row;
+                pathsFlat[i][1] = point.col;
+                ++i;
             }
         }
 

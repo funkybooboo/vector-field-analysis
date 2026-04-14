@@ -1,4 +1,5 @@
 #include "fieldReader.hpp"
+#include "fieldIOCommon.hpp"
 
 #include <highfive/highfive.hpp>
 #include <stdexcept>
@@ -7,11 +8,10 @@
 
 namespace FieldReader {
 
-Vector::FieldTimeSeries read(const std::string& path) {
+Field::TimeSeries read(const std::string& path) {
     HighFive::File file(path, HighFive::File::ReadOnly);
     const auto group = file.getGroup("field");
 
-    using RawFieldData = std::vector<std::vector<std::vector<float>>>; // [step][row][col]
     RawFieldData vxRaw;
     RawFieldData vyRaw;
     group.getDataSet("vx").read(vxRaw);
@@ -26,24 +26,24 @@ Vector::FieldTimeSeries read(const std::string& path) {
         throw std::runtime_error("vx and vy dataset shapes do not match in: " + path);
     }
 
-    Vector::FieldTimeSeries result;
+    Field::TimeSeries result;
     group.getAttribute("xMin").read(result.bounds.xMin);
     group.getAttribute("xMax").read(result.bounds.xMax);
     group.getAttribute("yMin").read(result.bounds.yMin);
     group.getAttribute("yMax").read(result.bounds.yMax);
 
-    const std::size_t numSteps = vxRaw.size();
+    const std::size_t numFrames = vxRaw.size();
     const std::size_t height = vxRaw[0].size();
     const std::size_t width = vxRaw[0][0].size();
 
-    result.steps.resize(numSteps);
-    for (std::size_t step = 0; step < numSteps; ++step) {
-        result.steps[step].resize(height);
+    result.frames.resize(numFrames);
+    for (std::size_t frame = 0; frame < numFrames; ++frame) {
+        result.frames[frame].resize(height);
         for (std::size_t row = 0; row < height; ++row) {
-            result.steps[step][row].resize(width, Vector::Vec2{});
+            result.frames[frame][row].resize(width, Vector::Vec2{});
             for (std::size_t col = 0; col < width; ++col) {
-                result.steps[step][row][col] =
-                    Vector::Vec2(vxRaw[step][row][col], vyRaw[step][row][col]);
+                result.frames[frame][row][col] =
+                    Vector::Vec2(vxRaw[frame][row][col], vyRaw[frame][row][col]);
             }
         }
     }

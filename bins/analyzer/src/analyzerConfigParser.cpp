@@ -1,31 +1,28 @@
 #include "analyzerConfigParser.hpp"
 
+#include "toml_include.hpp"
+
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
 #include <string>
 
-// NOLINTBEGIN(misc-include-cleaner)
-#define TOML_EXCEPTIONS 1
-#include <toml++/toml.hpp>
-// NOLINTEND(misc-include-cleaner)
-
-namespace AnalyzerConfigParser {
+namespace ConfigParser {
 
 namespace {
 
 void validateSolver(const std::string& name) {
     if (std::any_of(kValidSolvers.begin(), kValidSolvers.end(),
-                    [&name](std::string_view s) { return name == s; })) {
+                    [&name](std::string_view candidate) { return name == candidate; })) {
         return;
     }
     // Build the valid-names list from kValidSolvers so it stays in sync automatically.
     std::string valid;
-    for (const auto& s : kValidSolvers) {
+    for (const auto& solverName : kValidSolvers) {
         if (!valid.empty()) {
             valid += ", ";
         }
-        valid += std::string(s);
+        valid += std::string(solverName);
     }
     throw std::runtime_error("Unknown solver: \"" + name + "\". Must be one of: " + valid + ".");
 }
@@ -43,22 +40,23 @@ AnalyzerConfig parseFile(const std::string& path) {
         return config;
     }
 
-    if (const auto v = (*analyzer)["input"].value<std::string>()) {
-        config.inputPath = *v;
+    if (const auto inputPath = (*analyzer)["input"].value<std::string>()) {
+        config.inputPath = *inputPath;
     }
-    if (const auto v = (*analyzer)["output"].value<std::string>()) {
-        config.outputPath = *v;
+    if (const auto outputPath = (*analyzer)["output"].value<std::string>()) {
+        config.outputPath = *outputPath;
     }
-    if (const auto v = (*analyzer)["solver"].value<std::string>()) {
-        validateSolver(*v);
-        config.solver = *v;
+    if (const auto solverName = (*analyzer)["solver"].value<std::string>()) {
+        validateSolver(*solverName);
+        config.solver = *solverName;
     }
-    if (const auto v = (*analyzer)["threads"].value<int64_t>()) {
-        if (*v < 0 || *v > static_cast<int64_t>(std::numeric_limits<unsigned int>::max())) {
+    if (const auto threadCount = (*analyzer)["threads"].value<int64_t>()) {
+        if (*threadCount < 0 ||
+            *threadCount > static_cast<int64_t>(std::numeric_limits<unsigned int>::max())) {
             throw std::runtime_error("threads must be between 0 and " +
                                      std::to_string(std::numeric_limits<unsigned int>::max()));
         }
-        config.threadCount = static_cast<unsigned int>(*v);
+        config.threadCount = static_cast<unsigned int>(*threadCount);
     }
 
     if (config.inputPath.empty()) {
@@ -68,4 +66,4 @@ AnalyzerConfig parseFile(const std::string& path) {
     return config;
 }
 
-} // namespace AnalyzerConfigParser
+} // namespace ConfigParser

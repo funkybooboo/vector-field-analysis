@@ -1,6 +1,6 @@
-#include "mpiCPU.hpp"
+#include "mpiStreamlineSolver.hpp"
 
-#include "sequentialCPU.hpp"
+#include "sequentialStreamlineSolver.hpp"
 
 #ifdef USE_MPI
 #include <algorithm>
@@ -12,16 +12,16 @@
 #include <vector>
 #endif
 
-void MpiCPU::computeTimeStep(VectorField::FieldGrid& grid) {
+void MpiStreamlineSolver::computeTimeStep(Field::Grid& grid) {
 #ifdef USE_MPI
     // Each (src, dest) pair is packed as four ints: srcRow, srcCol, destRow, destCol.
-    static constexpr std::size_t kTupleSize = 4;
+    static constexpr std::size_t kCellPairPackSize = 4;
 
     // Fall back to sequential if MPI was not initialised (e.g. in unit tests).
     int mpiReady = 0;
     MPI_Initialized(&mpiReady);
     if (mpiReady == 0) {
-        SequentialCPU fallback;
+        SequentialStreamlineSolver fallback;
         fallback.computeTimeStep(grid);
         return;
     }
@@ -33,7 +33,7 @@ void MpiCPU::computeTimeStep(VectorField::FieldGrid& grid) {
 
     if (size == 1) {
         // Single-rank: no communication overhead, identical to sequential.
-        SequentialCPU fallback;
+        SequentialStreamlineSolver fallback;
         fallback.computeTimeStep(grid);
         return;
     }
@@ -59,32 +59,32 @@ void MpiCPU::computeTimeStep(VectorField::FieldGrid& grid) {
     // colCount == 0 -> localCount == 0, no overflow possible; guard avoids division by zero
     // in the overflow formula below.
     if (colCount > 0 &&
-        static_cast<std::size_t>(localRows) > std::numeric_limits<std::size_t>::max() / kTupleSize /
+        static_cast<std::size_t>(localRows) > std::numeric_limits<std::size_t>::max() / kCellPairPackSize /
                                                   static_cast<std::size_t>(colCount)) {
         std::cerr << "rank " << rank
                   << ": fatal: grid too large for MPI gather (size_t overflow)\n";
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
     const auto localCount =
-        static_cast<std::size_t>(localRows) * static_cast<std::size_t>(colCount) * kTupleSize;
+        static_cast<std::size_t>(localRows) * static_cast<std::size_t>(colCount) * kCellPairPackSize;
     if (localCount > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
         std::cerr << "rank " << rank
                   << ": fatal: localCount exceeds INT_MAX; grid too large for MPI gather\n";
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
     const int localCountInt = static_cast<int>(localCount);
-    std::vector<int> localData(localCount);
+    std::vector<int> localPairs(localCount);
     for (int row = startRow; row < endRow; row++) {
         for (int col = 0; col < colCount; col++) {
             const auto cellIdx =
                 (static_cast<std::size_t>(row - startRow) * static_cast<std::size_t>(colCount)) +
                 static_cast<std::size_t>(col);
-            const std::size_t base = cellIdx * kTupleSize;
+            const std::size_t base = cellIdx * kCellPairPackSize;
             auto [destRow, destCol] = grid.downstreamCell(row, col);
-            localData[base + 0] = row;
-            localData[base + 1] = col;
-            localData[base + 2] = destRow;
-            localData[base + 3] = destCol;
+            localPairs[base + 0] = row;
+            localPairs[base + 1] = col;
+            localPairs[base + 2] = destRow;
+            localPairs[base + 3] = destCol;
         }
     }
 
@@ -98,47 +98,51 @@ void MpiCPU::computeTimeStep(VectorField::FieldGrid& grid) {
     // Build displacements and receive buffer.
     // Root allocates real buffers; non-root gets 1-element dummies so .data()
     // is non-null for MPI_Gatherv (same portability reason as above).
-    // displs[0] = 0 intentionally (rank 0's data starts at offset 0); the loop below
-    // starts at i=1 and fills the remaining entries from recvCounts.
-    std::vector<int> displs(rank == 0 ? static_cast<std::size_t>(size) : 1, 0);
-    std::vector<int> allData(1);
+    // displacements[0] = 0 intentionally (rank 0's data starts at offset 0); the loop below
+    // starts at rankIndex=1 and fills the remaining entries from recvCounts.
+    std::vector<int> displacements(rank == 0 ? static_cast<std::size_t>(size) : 1, 0);
+    std::vector<int> allPairs(1);
     if (rank == 0) {
-        int64_t runningDispl = 0;
-        for (int i = 1; i < size; i++) {
-            runningDispl += recvCounts[static_cast<std::size_t>(i - 1)];
-            if (runningDispl > std::numeric_limits<int>::max()) {
+        int64_t runningDisplacement = 0;
+        for (int rankIndex = 1; rankIndex < size; rankIndex++) {
+            runningDisplacement += recvCounts[static_cast<std::size_t>(rankIndex - 1)];
+            if (runningDisplacement > std::numeric_limits<int>::max()) {
                 std::cerr << "rank 0: fatal: total gather size exceeds INT_MAX\n";
                 MPI_Abort(MPI_COMM_WORLD, 1);
             }
-            displs[static_cast<std::size_t>(i)] = static_cast<int>(runningDispl);
+            displacements[static_cast<std::size_t>(rankIndex)] = static_cast<int>(runningDisplacement);
         }
-        const int64_t totalCount64 = runningDispl + recvCounts[static_cast<std::size_t>(size - 1)];
-        if (totalCount64 > std::numeric_limits<int>::max()) {
+        const int64_t total = runningDisplacement + recvCounts[static_cast<std::size_t>(size - 1)];
+        if (total > std::numeric_limits<int>::max()) {
             std::cerr << "rank 0: fatal: total gather size exceeds INT_MAX\n";
             MPI_Abort(MPI_COMM_WORLD, 1);
         }
-        allData.resize(static_cast<std::size_t>(totalCount64));
+        allPairs.resize(static_cast<std::size_t>(total));
     }
 
     // Gather all neighbor pairs to rank 0.
-    // recvcounts/displs/recvbuf are significant only at root per MPI spec.
-    MPI_Gatherv(localData.data(), localCountInt, MPI_INT, allData.data(), recvCounts.data(),
-                displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
+    // recvcounts/displacements/recvbuf are significant only at root per MPI spec.
+    MPI_Gatherv(localPairs.data(), localCountInt, MPI_INT, allPairs.data(), recvCounts.data(),
+                displacements.data(), MPI_INT, 0, MPI_COMM_WORLD);
 
     // Pass 2 (sequential on rank 0): apply all (src, dest) pairs to build streamlines.
-    // traceStreamlineStep writes to streams_ and is not thread-safe, so this must be
-    // sequential.  Only rank 0 has the full allData, so only rank 0 does this pass.
+    // traceStreamlineStep writes to streamlines_ and is not thread-safe, so this must be
+    // sequential.  Only rank 0 has the full allPairs, so only rank 0 does this pass.
     if (rank == 0) {
-        assert(allData.size() % kTupleSize == 0);
-        const std::size_t totalPairs = allData.size() / kTupleSize;
-        for (std::size_t i = 0; i < totalPairs; i++) {
-            const std::size_t base = i * kTupleSize;
-            grid.traceStreamlineStep({allData[base + 0], allData[base + 1]},
-                                     {allData[base + 2], allData[base + 3]});
+        if (allPairs.size() % kCellPairPackSize != 0) {
+            std::cerr << "rank 0: fatal: gathered pairs buffer size " << allPairs.size()
+                      << " is not a multiple of " << kCellPairPackSize << "\n";
+            MPI_Abort(MPI_COMM_WORLD, 1);
+        }
+        const std::size_t totalPairs = allPairs.size() / kCellPairPackSize;
+        for (std::size_t pairIndex = 0; pairIndex < totalPairs; pairIndex++) {
+            const std::size_t base = pairIndex * kCellPairPackSize;
+            grid.traceStreamlineStep({allPairs[base + 0], allPairs[base + 1]},
+                                     {allPairs[base + 2], allPairs[base + 3]});
         }
     }
 #else
-    SequentialCPU fallback;
+    SequentialStreamlineSolver fallback;
     fallback.computeTimeStep(grid);
 #endif
 }

@@ -1,7 +1,7 @@
-#include "mpiCPU.hpp"
-#include "openMP.hpp"
-#include "pthreads.hpp"
-#include "sequentialCPU.hpp"
+#include "mpiStreamlineSolver.hpp"
+#include "openMPStreamlineSolver.hpp"
+#include "pthreadsStreamlineSolver.hpp"
+#include "sequentialStreamlineSolver.hpp"
 #include "solverFactory.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -11,28 +11,28 @@
 // Known solver names return the expected concrete type
 // ---------------------------------------------------------------------------
 
-TEST_CASE("makeSolver(\"sequential\") returns SequentialCPU", "[factory]") {
+TEST_CASE("makeSolver(\"sequential\") returns SequentialStreamlineSolver", "[factory]") {
     auto solver = makeSolver("sequential", 0);
     REQUIRE(solver != nullptr);
-    REQUIRE(dynamic_cast<SequentialCPU*>(solver.get()) != nullptr);
+    REQUIRE(dynamic_cast<SequentialStreamlineSolver*>(solver.get()) != nullptr);
 }
 
-TEST_CASE("makeSolver(\"openmp\") returns OpenMP", "[factory]") {
+TEST_CASE("makeSolver(\"openmp\") returns OpenMPStreamlineSolver", "[factory]") {
     auto solver = makeSolver("openmp", 0);
     REQUIRE(solver != nullptr);
-    REQUIRE(dynamic_cast<OpenMP*>(solver.get()) != nullptr);
+    REQUIRE(dynamic_cast<OpenMPStreamlineSolver*>(solver.get()) != nullptr);
 }
 
-TEST_CASE("makeSolver(\"pthreads\") returns Pthreads", "[factory]") {
+TEST_CASE("makeSolver(\"pthreads\") returns PthreadsStreamlineSolver", "[factory]") {
     auto solver = makeSolver("pthreads", 4);
     REQUIRE(solver != nullptr);
-    REQUIRE(dynamic_cast<Pthreads*>(solver.get()) != nullptr);
+    REQUIRE(dynamic_cast<PthreadsStreamlineSolver*>(solver.get()) != nullptr);
 }
 
-TEST_CASE("makeSolver(\"mpi\") returns MpiCPU", "[factory]") {
+TEST_CASE("makeSolver(\"mpi\") returns MpiStreamlineSolver", "[factory]") {
     auto solver = makeSolver("mpi", 0);
     REQUIRE(solver != nullptr);
-    REQUIRE(dynamic_cast<MpiCPU*>(solver.get()) != nullptr);
+    REQUIRE(dynamic_cast<MpiStreamlineSolver*>(solver.get()) != nullptr);
 }
 
 // ---------------------------------------------------------------------------

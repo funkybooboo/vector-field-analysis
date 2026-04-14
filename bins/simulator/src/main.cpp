@@ -1,28 +1,12 @@
 #include "configParser.hpp"
 #include "fieldGenerator.hpp"
 #include "fieldWriter.hpp"
+#include "formatBytes.hpp"
 
 #include <chrono>
 #include <filesystem>
-#include <iomanip>
 #include <iostream>
 #include <string>
-
-static std::string formatBytes(std::uintmax_t bytes) {
-    std::ostringstream oss;
-    oss << std::fixed << std::setprecision(1);
-    const auto d = static_cast<double>(bytes);
-    if (bytes >= 1024ULL * 1024 * 1024) {
-        oss << (d / (1024.0 * 1024 * 1024)) << " GB";
-    } else if (bytes >= 1024ULL * 1024) {
-        oss << (d / (1024.0 * 1024)) << " MB";
-    } else if (bytes >= 1024ULL) {
-        oss << (d / 1024.0) << " KB";
-    } else {
-        oss << std::defaultfloat << bytes << " B";
-    }
-    return oss.str();
-}
 
 int main(int argc, char* argv[]) {
     if (argc > 1 && (std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h")) {
@@ -47,30 +31,37 @@ int main(int argc, char* argv[]) {
                   << "Steps:   " << config.steps << "  (dt=" << config.dt
                   << ", viscosity=" << config.viscosity << ")\n"
                   << "Layers:  ";
-        for (std::size_t i = 0; i < config.layers.size(); ++i) {
-            if (i > 0) {
+        for (std::size_t layerIndex = 0; layerIndex < config.layers.size(); ++layerIndex) {
+            if (layerIndex > 0) {
                 std::cout << "  ";
             }
-            std::cout << toString(config.layers[i].type) << "(s=" << config.layers[i].strength
+            std::cout << toString(config.layers[layerIndex].type) << "(s=" << config.layers[layerIndex].strength
                       << ")";
         }
         std::cout << "\n\n";
 
         std::cout << "Generating..." << std::flush;
-        const auto t0 = std::chrono::steady_clock::now();
-        const Vector::FieldTimeSeries field = FieldGenerator::generateTimeSeries(config);
+        const auto startTime = std::chrono::steady_clock::now();
+        const Field::TimeSeries field = FieldGenerator::generateTimeSeries(config);
         const double ms =
-            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0)
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startTime)
                 .count();
         std::cout << " done in " << ms << " ms\n";
 
-        FieldWriter::write(field, config);
+        std::string typeLabel;
+        for (const auto& layer : config.layers) {
+            if (!typeLabel.empty()) {
+                typeLabel += '+';
+            }
+            typeLabel += toString(layer.type);
+        }
+        FieldWriter::write(config.output, field, typeLabel, config.dt, config.viscosity);
 
-        std::error_code ec;
-        const auto bytes = std::filesystem::file_size(config.output, ec);
+        std::error_code err;
+        const auto bytes = std::filesystem::file_size(config.output, err);
         std::cout << "Wrote " << config.output;
-        if (!ec) {
-            std::cout << "  (" << formatBytes(bytes) << ")";
+        if (!err) {
+            std::cout << "  (" << Utils::formatBytes(bytes) << ")";
         }
         std::cout << "\n";
     } catch (const std::exception& e) {

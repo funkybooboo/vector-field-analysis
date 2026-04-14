@@ -1,7 +1,7 @@
 #pragma once
-#include "vector.hpp"
+#include "fieldTypes.hpp"
 
-namespace Vector {
+namespace Field {
 
 class Streamline {
   public:
@@ -12,4 +12,4 @@ class Streamline {
     explicit Streamline(GridCell startPoint);
 };
 
-} // namespace Vector
+} // namespace Field

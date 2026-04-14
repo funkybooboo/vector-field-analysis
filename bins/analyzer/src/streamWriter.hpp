@@ -1,5 +1,5 @@
 #pragma once
-#include "vector.hpp"
+#include "fieldTypes.hpp"
 
 #include <string>
 #include <vector>
@@ -7,7 +7,7 @@
 namespace StreamWriter {
 
 // StepStreamlines: all unique streamlines for one time step.
-using StepStreamlines = std::vector<Vector::Path>;
+using StepStreamlines = std::vector<Field::Path>;
 
 // Writes all-steps streamline data to an HDF5 file at outPath.
 //
@@ -24,6 +24,6 @@ using StepStreamlines = std::vector<Vector::Path>;
 //   off  = f["streams/step_0/offsets"][:]      # (S+1,)
 //   path = flat[off[i]:off[i+1]]              # (len, 2) row, col
 void write(const std::string& outPath, const std::vector<StepStreamlines>& streamlinesByStep,
-           const Vector::FieldBounds& bounds, const Vector::GridSize& grid);
+           const Field::Bounds& bounds, const Field::GridSize& grid);
 
 } // namespace StreamWriter

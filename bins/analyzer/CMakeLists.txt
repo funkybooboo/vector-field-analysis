@@ -1,20 +1,18 @@
 add_library(analyzer_lib STATIC
     src/analyzerConfigParser.cpp
-    src/fieldReader.cpp
-    src/mpiCPU.cpp
-    src/openMP.cpp
-    src/pthreads.cpp
-    src/sequentialCPU.cpp
+    src/mpiStreamlineSolver.cpp
+    src/openMPStreamlineSolver.cpp
+    src/pthreadsStreamlineSolver.cpp
+    src/sequentialStreamlineSolver.cpp
     src/solverFactory.cpp
     src/streamWriter.cpp
-    src/vectorField.cpp
 )
 
 target_include_directories(analyzer_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(analyzer_lib PUBLIC vector HighFive tomlplusplus::tomlplusplus)
+target_link_libraries(analyzer_lib PUBLIC field field_io utils HighFive tomlplusplus::tomlplusplus)
 
 find_package(MPI)
 if(MPI_FOUND)

@@ -1,10 +1,10 @@
 #pragma once
-#include "vector.hpp"
+#include "fieldTypes.hpp"
 
 #include <string>
 
 namespace FieldReader {
 
-Vector::FieldTimeSeries read(const std::string& path);
+Field::TimeSeries read(const std::string& path);
 
 } // namespace FieldReader

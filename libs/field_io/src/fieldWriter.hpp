@@ -1,17 +1,11 @@
 #pragma once
-#include "vector.hpp"
+#include "fieldTypes.hpp"
 
 #include <string>
 
 namespace FieldWriter {
 
-struct FieldWriteMetadata {
-    std::string typeLabel;
-    float dt        = 0.0f;
-    float viscosity = 0.0f;
-};
-
-void write(const std::string& path, const Vector::FieldTimeSeries& field,
-           const FieldWriteMetadata& meta);
+void write(const std::string& path, const Field::TimeSeries& field,
+           const std::string& typeLabel, float dt, float viscosity);
 
 } // namespace FieldWriter

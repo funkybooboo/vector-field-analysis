@@ -1,6 +1,6 @@
 #include "fieldGenerator.hpp"
 
-#include "vector.hpp"
+#include "fieldTypes.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -150,7 +150,7 @@ struct CustomExpressionEvaluator {
 
 } // namespace
 
-Vector::FieldTimeSeries generateTimeSeries(const SimulatorConfig& config) {
+Field::TimeSeries generateTimeSeries(const SimulatorConfig& config) {
     const auto numSteps = static_cast<std::size_t>(config.steps);
     const auto height = static_cast<std::size_t>(config.grid.height);
     const auto width = static_cast<std::size_t>(config.grid.width);
@@ -159,27 +159,27 @@ Vector::FieldTimeSeries generateTimeSeries(const SimulatorConfig& config) {
     std::vector<float> xCoords(width);
     std::vector<float> yCoords(height);
     for (std::size_t col = 0; col < width; ++col) {
-        xCoords[col] = gridToWorld(static_cast<int>(col), config.grid.width, config.bounds.xMin,
+        xCoords[col] = Field::indexToCoord(static_cast<int>(col), config.grid.width, config.bounds.xMin,
                                    config.bounds.xMax);
     }
     for (std::size_t row = 0; row < height; ++row) {
-        yCoords[row] = gridToWorld(static_cast<int>(row), config.grid.height, config.bounds.yMin,
+        yCoords[row] = Field::indexToCoord(static_cast<int>(row), config.grid.height, config.bounds.yMin,
                                    config.bounds.yMax);
     }
 
     // Pre-compile custom field expressions - one evaluator per layer, nullptr for non-custom
     std::vector<std::unique_ptr<CustomExpressionEvaluator>> evaluators(config.layers.size());
-    for (std::size_t layerIdx = 0; layerIdx < config.layers.size(); ++layerIdx) {
-        if (config.layers[layerIdx].type == FieldType::Custom) {
-            evaluators[layerIdx] = std::make_unique<CustomExpressionEvaluator>(
-                config.layers[layerIdx].xExpression, config.layers[layerIdx].yExpression);
+    for (std::size_t layerIndex = 0; layerIndex < config.layers.size(); ++layerIndex) {
+        if (config.layers[layerIndex].type == FieldType::Custom) {
+            evaluators[layerIndex] = std::make_unique<CustomExpressionEvaluator>(
+                config.layers[layerIndex].xExpression, config.layers[layerIndex].yExpression);
         }
     }
 
     // Allocate result: steps[steps][height][width]
-    Vector::FieldTimeSeries result;
+    Field::TimeSeries result;
     result.bounds = config.bounds;
-    result.steps.assign(numSteps, Vector::FieldSlice(height, std::vector<Vector::Vec2>(width)));
+    result.frames.assign(numSteps, Field::Slice(height, std::vector<Vector::Vec2>(width)));
 
     // For each time step, sample every layer at every grid cell and sum their
     // contributions (linear superposition). Strength is the per-layer weight.
@@ -195,8 +195,8 @@ Vector::FieldTimeSeries generateTimeSeries(const SimulatorConfig& config) {
 
                 Vector::Vec2 sum{};
 
-                for (std::size_t layerIdx = 0; layerIdx < config.layers.size(); ++layerIdx) {
-                    const FieldLayerConfig& layer = config.layers[layerIdx];
+                for (std::size_t layerIndex = 0; layerIndex < config.layers.size(); ++layerIndex) {
+                    const FieldLayerConfig& layer = config.layers[layerIndex];
                     Vector::Vec2 contribution{};
 
                     switch (layer.type) {
@@ -222,14 +222,14 @@ Vector::FieldTimeSeries generateTimeSeries(const SimulatorConfig& config) {
                         contribution = evalNoise(pos, time, layer);
                         break;
                     case FieldType::Custom:
-                        contribution = evaluators[layerIdx]->eval(pos, time);
+                        contribution = evaluators[layerIndex]->eval(pos, time);
                         break;
                     }
 
-                    sum += layer.strength * (layer.magnitude * contribution);
+                    sum += layer.strength * (layer.amplitude * contribution);
                 }
 
-                result.steps[step][row][col] = decay * sum;
+                result.frames[step][row][col] = decay * sum;
             }
         }
     }

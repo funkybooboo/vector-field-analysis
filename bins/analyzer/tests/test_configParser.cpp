@@ -35,7 +35,7 @@ struct TmpFile {
 
 TEST_CASE("parseFile returns defaults when [analyzer] table is absent", "[config]") {
     TmpFile tmp("# empty\n");
-    const auto cfg = AnalyzerConfigParser::parseFile(tmp.path);
+    const auto cfg = ConfigParser::parseFile(tmp.path);
 
     REQUIRE(cfg.inputPath == "field.h5");
     REQUIRE(cfg.outputPath.empty());
@@ -45,13 +45,13 @@ TEST_CASE("parseFile returns defaults when [analyzer] table is absent", "[config
 
 TEST_CASE("parseFile reads output path from [analyzer]", "[config]") {
     TmpFile tmp("[analyzer]\noutput = \"output/streams_a100.h5\"\n");
-    const auto cfg = AnalyzerConfigParser::parseFile(tmp.path);
+    const auto cfg = ConfigParser::parseFile(tmp.path);
     REQUIRE(cfg.outputPath == "output/streams_a100.h5");
 }
 
 TEST_CASE("parseFile reads input, solver, and threads from [analyzer]", "[config]") {
     TmpFile tmp("[analyzer]\ninput = \"data.h5\"\nsolver = \"sequential\"\nthreads = 4\n");
-    const auto cfg = AnalyzerConfigParser::parseFile(tmp.path);
+    const auto cfg = ConfigParser::parseFile(tmp.path);
 
     REQUIRE(cfg.inputPath == "data.h5");
     REQUIRE(cfg.solver == "sequential");
@@ -61,13 +61,13 @@ TEST_CASE("parseFile reads input, solver, and threads from [analyzer]", "[config
 TEST_CASE("parseFile accepts all valid solver names", "[config]") {
     for (const auto* solver : {"sequential", "openmp", "pthreads", "mpi", "all"}) {
         TmpFile tmp(std::string("[analyzer]\nsolver = \"") + solver + "\"\n");
-        REQUIRE_NOTHROW(AnalyzerConfigParser::parseFile(tmp.path));
+        REQUIRE_NOTHROW(ConfigParser::parseFile(tmp.path));
     }
 }
 
 TEST_CASE("parseFile accepts threads = 0", "[config]") {
     TmpFile tmp("[analyzer]\nthreads = 0\n");
-    const auto cfg = AnalyzerConfigParser::parseFile(tmp.path);
+    const auto cfg = ConfigParser::parseFile(tmp.path);
     REQUIRE(cfg.threadCount == 0);
 }
 
@@ -77,19 +77,19 @@ TEST_CASE("parseFile accepts threads = 0", "[config]") {
 
 TEST_CASE("parseFile throws on unknown solver name", "[config]") {
     TmpFile tmp("[analyzer]\nsolver = \"gpu\"\n");
-    REQUIRE_THROWS_AS(AnalyzerConfigParser::parseFile(tmp.path), std::runtime_error);
+    REQUIRE_THROWS_AS(ConfigParser::parseFile(tmp.path), std::runtime_error);
 }
 
 TEST_CASE("parseFile throws on negative threads", "[config]") {
     TmpFile tmp("[analyzer]\nthreads = -1\n");
-    REQUIRE_THROWS_AS(AnalyzerConfigParser::parseFile(tmp.path), std::runtime_error);
+    REQUIRE_THROWS_AS(ConfigParser::parseFile(tmp.path), std::runtime_error);
 }
 
 TEST_CASE("parseFile throws on threads exceeding UINT_MAX", "[config]") {
     TmpFile tmp("[analyzer]\nthreads = 4294967296\n"); // UINT_MAX + 1
-    REQUIRE_THROWS_AS(AnalyzerConfigParser::parseFile(tmp.path), std::runtime_error);
+    REQUIRE_THROWS_AS(ConfigParser::parseFile(tmp.path), std::runtime_error);
 }
 
 TEST_CASE("parseFile throws on missing file", "[config]") {
-    REQUIRE_THROWS(AnalyzerConfigParser::parseFile("/tmp/does_not_exist_analyzer_test.toml"));
+    REQUIRE_THROWS(ConfigParser::parseFile("/tmp/does_not_exist_analyzer_test.toml"));
 }

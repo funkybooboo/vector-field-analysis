@@ -3,8 +3,8 @@
 
 #include <string>
 
-namespace AnalyzerConfigParser {
+namespace ConfigParser {
 
 AnalyzerConfig parseFile(const std::string& path);
 
-} // namespace AnalyzerConfigParser
+} // namespace ConfigParser

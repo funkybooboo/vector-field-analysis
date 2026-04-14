@@ -1,10 +1,10 @@
 #include "solverFactory.hpp"
 
 #include "analyzerConfig.hpp"
-#include "mpiCPU.hpp"
-#include "openMP.hpp"
-#include "pthreads.hpp"
-#include "sequentialCPU.hpp"
+#include "mpiStreamlineSolver.hpp"
+#include "openMPStreamlineSolver.hpp"
+#include "pthreadsStreamlineSolver.hpp"
+#include "sequentialStreamlineSolver.hpp"
 
 #include <memory>
 #include <stdexcept>
@@ -16,16 +16,16 @@ static_assert(kValidSolvers.size() == 5, "kValidSolvers changed -- update makeSo
 
 std::unique_ptr<StreamlineSolver> makeSolver(std::string_view name, unsigned int threadCount) {
     if (name == "sequential") {
-        return std::make_unique<SequentialCPU>();
+        return std::make_unique<SequentialStreamlineSolver>();
     }
     if (name == "openmp") {
-        return std::make_unique<OpenMP>(threadCount);
+        return std::make_unique<OpenMPStreamlineSolver>(threadCount);
     }
     if (name == "pthreads") {
-        return std::make_unique<Pthreads>(threadCount);
+        return std::make_unique<PthreadsStreamlineSolver>(threadCount);
     }
     if (name == "mpi") {
-        return std::make_unique<MpiCPU>();
+        return std::make_unique<MpiStreamlineSolver>();
     }
     throw std::runtime_error("Unknown solver: \"" + std::string(name) + "\"");
 }

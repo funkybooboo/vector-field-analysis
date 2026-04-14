@@ -1,19 +1,19 @@
-#include "mpiCPU.hpp"
-#include "openMP.hpp"
-#include "pthreads.hpp"
-#include "sequentialCPU.hpp"
-#include "vectorField.hpp"
+#include "mpiStreamlineSolver.hpp"
+#include "openMPStreamlineSolver.hpp"
+#include "pthreadsStreamlineSolver.hpp"
+#include "sequentialStreamlineSolver.hpp"
+#include "grid.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
 // 3x3 grid where all vectors point right (+x)
-static VectorField::FieldGrid makeGrid() {
-    return {Vector::FieldBounds{0.0f, 2.0f, 0.0f, 2.0f},
-            Vector::FieldSlice(3, std::vector<Vector::Vec2>(3, Vector::Vec2(1.0f, 0.0f)))};
+static Field::Grid makeGrid() {
+    return {Field::Bounds{0.0f, 2.0f, 0.0f, 2.0f},
+            Field::Slice(3, std::vector<Vector::Vec2>(3, Vector::Vec2(1.0f, 0.0f)))};
 }
 
-static VectorField::FieldGrid makeEmptyGrid() {
-    return {Vector::FieldBounds{0.0f, 2.0f, 0.0f, 2.0f}, Vector::FieldSlice{}};
+static Field::Grid makeEmptyGrid() {
+    return {Field::Bounds{0.0f, 2.0f, 0.0f, 2.0f}, Field::Slice{}};
 }
 
 // ---------------------------------------------------------------------------
@@ -22,195 +22,192 @@ static VectorField::FieldGrid makeEmptyGrid() {
 
 TEST_CASE("traceStreamlineStep(src,dest) extends into unclaimed cell", "[vectorfield]") {
     auto grid = makeGrid();
-    // Manually supply precomputed dest rather than letting the grid compute it
     REQUIRE_NOTHROW(grid.traceStreamlineStep({0, 0}, {0, 1}));
 }
 
 TEST_CASE("traceStreamlineStep(src,dest) merges when dest is already claimed", "[vectorfield]") {
     auto grid = makeGrid();
-    grid.traceStreamlineStep({0, 0}, {0, 1}); // claims (0,1)
-    // (0,2) also points toward (0,1) -- triggers joinStreamlines
+    grid.traceStreamlineStep({0, 0}, {0, 1});
     REQUIRE_NOTHROW(grid.traceStreamlineStep({0, 2}, {0, 1}));
 }
 
 TEST_CASE("traceStreamlineStep(src,dest) src pointing at itself is a no-op merge",
           "[vectorfield]") {
     auto grid = makeGrid();
-    // src == dest: joinStreamlines guards against self-merge
     REQUIRE_NOTHROW(grid.traceStreamlineStep({0, 0}, {0, 0}));
 }
 
 // ---------------------------------------------------------------------------
-// SequentialCPU
+// SequentialStreamlineSolver
 // ---------------------------------------------------------------------------
 
-TEST_CASE("SequentialCPU::computeTimeStep completes on uniform field", "[impl][sequential]") {
+TEST_CASE("SequentialStreamlineSolver::computeTimeStep completes on uniform field",
+          "[impl][sequential]") {
     auto grid = makeGrid();
-    REQUIRE_NOTHROW(SequentialCPU{}.computeTimeStep(grid));
+    REQUIRE_NOTHROW(SequentialStreamlineSolver{}.computeTimeStep(grid));
 }
 
-TEST_CASE("SequentialCPU::computeTimeStep handles empty grid", "[impl][sequential]") {
+TEST_CASE("SequentialStreamlineSolver::computeTimeStep handles empty grid", "[impl][sequential]") {
     auto grid = makeEmptyGrid();
-    REQUIRE_NOTHROW(SequentialCPU{}.computeTimeStep(grid));
+    REQUIRE_NOTHROW(SequentialStreamlineSolver{}.computeTimeStep(grid));
 }
 
 // ---------------------------------------------------------------------------
-// Pthreads
+// PthreadsStreamlineSolver
 // ---------------------------------------------------------------------------
 
-TEST_CASE("Pthreads zero threads returns early", "[impl][pthreads]") {
+TEST_CASE("PthreadsStreamlineSolver zero threads returns early", "[impl][pthreads]") {
     auto grid = makeGrid();
-    REQUIRE_NOTHROW(Pthreads{0}.computeTimeStep(grid));
+    REQUIRE_NOTHROW(PthreadsStreamlineSolver{0}.computeTimeStep(grid));
 }
 
-TEST_CASE("Pthreads single thread", "[impl][pthreads]") {
+TEST_CASE("PthreadsStreamlineSolver single thread", "[impl][pthreads]") {
     auto grid = makeGrid();
-    REQUIRE_NOTHROW(Pthreads{1}.computeTimeStep(grid));
+    REQUIRE_NOTHROW(PthreadsStreamlineSolver{1}.computeTimeStep(grid));
 }
 
-TEST_CASE("Pthreads two threads", "[impl][pthreads]") {
+TEST_CASE("PthreadsStreamlineSolver two threads", "[impl][pthreads]") {
     auto grid = makeGrid();
-    REQUIRE_NOTHROW(Pthreads{2}.computeTimeStep(grid));
+    REQUIRE_NOTHROW(PthreadsStreamlineSolver{2}.computeTimeStep(grid));
 }
 
-TEST_CASE("Pthreads more threads than rows", "[impl][pthreads]") {
-    // 3-row grid, 8 threads: most threads get empty ranges, last gets all rows
+TEST_CASE("PthreadsStreamlineSolver more threads than rows", "[impl][pthreads]") {
     auto grid = makeGrid();
-    REQUIRE_NOTHROW(Pthreads{8}.computeTimeStep(grid));
+    REQUIRE_NOTHROW(PthreadsStreamlineSolver{8}.computeTimeStep(grid));
 }
 
-TEST_CASE("Pthreads empty grid returns early", "[impl][pthreads]") {
+TEST_CASE("PthreadsStreamlineSolver empty grid returns early", "[impl][pthreads]") {
     auto grid = makeEmptyGrid();
-    REQUIRE_NOTHROW(Pthreads{4}.computeTimeStep(grid));
+    REQUIRE_NOTHROW(PthreadsStreamlineSolver{4}.computeTimeStep(grid));
 }
 
 // ---------------------------------------------------------------------------
-// OpenMP
+// OpenMPStreamlineSolver
 // ---------------------------------------------------------------------------
 
-TEST_CASE("OpenMP::computeTimeStep completes on uniform field", "[impl][openmp]") {
+TEST_CASE("OpenMPStreamlineSolver::computeTimeStep completes on uniform field",
+          "[impl][openmp]") {
     auto grid = makeGrid();
-    REQUIRE_NOTHROW(OpenMP{}.computeTimeStep(grid));
+    REQUIRE_NOTHROW(OpenMPStreamlineSolver{}.computeTimeStep(grid));
 }
 
-TEST_CASE("OpenMP::computeTimeStep handles empty grid", "[impl][openmp]") {
+TEST_CASE("OpenMPStreamlineSolver::computeTimeStep handles empty grid", "[impl][openmp]") {
     auto grid = makeEmptyGrid();
-    REQUIRE_NOTHROW(OpenMP{}.computeTimeStep(grid));
+    REQUIRE_NOTHROW(OpenMPStreamlineSolver{}.computeTimeStep(grid));
 }
 
 // ---------------------------------------------------------------------------
-// MpiCPU
+// MpiStreamlineSolver
 // ---------------------------------------------------------------------------
 
 // NOTE: These tests exercise only the no-MPI-init fallback path (MPI_Initialized()
-// returns 0, so MpiCPU delegates to SequentialCPU). The actual gather/gatherv code
-// in mpiCPU.cpp requires >1 MPI rank and is not covered here.
+// returns 0, so MpiStreamlineSolver delegates to SequentialStreamlineSolver). The
+// actual gather/gatherv code in mpiStreamlineSolver.cpp requires >1 MPI rank and is
+// not covered here.
 // To exercise it: mpirun -n 2 ./build/bins/analyzer/tests/analyzer_tests [mpi]
 
-TEST_CASE("MpiCPU::computeTimeStep completes on uniform field", "[impl][mpi]") {
+TEST_CASE("MpiStreamlineSolver::computeTimeStep completes on uniform field", "[impl][mpi]") {
     auto grid = makeGrid();
-    REQUIRE_NOTHROW(MpiCPU{}.computeTimeStep(grid));
+    REQUIRE_NOTHROW(MpiStreamlineSolver{}.computeTimeStep(grid));
 }
 
-TEST_CASE("MpiCPU::computeTimeStep handles empty grid", "[impl][mpi]") {
+TEST_CASE("MpiStreamlineSolver::computeTimeStep handles empty grid", "[impl][mpi]") {
     auto grid = makeEmptyGrid();
-    REQUIRE_NOTHROW(MpiCPU{}.computeTimeStep(grid));
+    REQUIRE_NOTHROW(MpiStreamlineSolver{}.computeTimeStep(grid));
 }
 
 // ---------------------------------------------------------------------------
 // Solver output: getStreamlines() correctness
 // ---------------------------------------------------------------------------
 
-TEST_CASE("SequentialCPU getStreamlines returns 3 streamlines on uniform 3x3 field",
+TEST_CASE("SequentialStreamlineSolver getStreamlines returns 3 streamlines on uniform 3x3 field",
           "[impl][sequential][streamlines]") {
     auto grid = makeGrid();
-    SequentialCPU{}.computeTimeStep(grid);
+    SequentialStreamlineSolver{}.computeTimeStep(grid);
     REQUIRE(grid.getStreamlines().size() == 3);
 }
 
-TEST_CASE("SequentialCPU getStreamlines path contents are correct for uniform 3x3 field",
+TEST_CASE("SequentialStreamlineSolver getStreamlines path contents correct for uniform 3x3 field",
           "[impl][sequential][streamlines]") {
     auto grid = makeGrid();
-    SequentialCPU{}.computeTimeStep(grid);
+    SequentialStreamlineSolver{}.computeTimeStep(grid);
     const auto lines = grid.getStreamlines();
     REQUIRE(lines.size() == 3);
-    REQUIRE(lines[0] == (Vector::Path{{0, 0}, {0, 1}, {0, 2}}));
-    REQUIRE(lines[1] == (Vector::Path{{1, 0}, {1, 1}, {1, 2}}));
-    REQUIRE(lines[2] == (Vector::Path{{2, 0}, {2, 1}, {2, 2}}));
+    REQUIRE(lines[0] == (Field::Path{{0, 0}, {0, 1}, {0, 2}}));
+    REQUIRE(lines[1] == (Field::Path{{1, 0}, {1, 1}, {1, 2}}));
+    REQUIRE(lines[2] == (Field::Path{{2, 0}, {2, 1}, {2, 2}}));
 }
 
-TEST_CASE("OpenMP getStreamlines returns same count as sequential on uniform 3x3 field",
+TEST_CASE("OpenMPStreamlineSolver getStreamlines returns same count as sequential",
           "[impl][openmp][streamlines]") {
     auto seqGrid = makeGrid();
-    SequentialCPU{}.computeTimeStep(seqGrid);
+    SequentialStreamlineSolver{}.computeTimeStep(seqGrid);
     const std::size_t expected = seqGrid.getStreamlines().size();
     auto grid = makeGrid();
-    OpenMP{}.computeTimeStep(grid);
+    OpenMPStreamlineSolver{}.computeTimeStep(grid);
     REQUIRE(grid.getStreamlines().size() == expected);
 }
 
-TEST_CASE("Pthreads getStreamlines returns same count as sequential on uniform 3x3 field",
+TEST_CASE("PthreadsStreamlineSolver getStreamlines returns same count as sequential",
           "[impl][pthreads][streamlines]") {
     auto seqGrid = makeGrid();
-    SequentialCPU{}.computeTimeStep(seqGrid);
+    SequentialStreamlineSolver{}.computeTimeStep(seqGrid);
     const std::size_t expected = seqGrid.getStreamlines().size();
     auto grid = makeGrid();
-    Pthreads{4}.computeTimeStep(grid);
+    PthreadsStreamlineSolver{4}.computeTimeStep(grid);
     REQUIRE(grid.getStreamlines().size() == expected);
 }
 
-TEST_CASE("MpiCPU getStreamlines returns same count as sequential on uniform 3x3 field",
+TEST_CASE("MpiStreamlineSolver getStreamlines returns same count as sequential",
           "[impl][mpi][streamlines]") {
     auto seqGrid = makeGrid();
-    SequentialCPU{}.computeTimeStep(seqGrid);
+    SequentialStreamlineSolver{}.computeTimeStep(seqGrid);
     const std::size_t expected = seqGrid.getStreamlines().size();
     auto grid = makeGrid();
-    MpiCPU{}.computeTimeStep(grid);
+    MpiStreamlineSolver{}.computeTimeStep(grid);
     REQUIRE(grid.getStreamlines().size() == expected);
 }
 
-TEST_CASE("getStreamlines returns non-empty result after any impl on non-empty field",
+TEST_CASE("getStreamlines returns non-empty result after any solver on non-empty field",
           "[impl][consistency][streamlines]") {
     {
         auto grid = makeGrid();
-        SequentialCPU{}.computeTimeStep(grid);
+        SequentialStreamlineSolver{}.computeTimeStep(grid);
         REQUIRE_FALSE(grid.getStreamlines().empty());
     }
     {
         auto grid = makeGrid();
-        OpenMP{}.computeTimeStep(grid);
+        OpenMPStreamlineSolver{}.computeTimeStep(grid);
         REQUIRE_FALSE(grid.getStreamlines().empty());
     }
     {
         auto grid = makeGrid();
-        Pthreads{2}.computeTimeStep(grid);
+        PthreadsStreamlineSolver{2}.computeTimeStep(grid);
         REQUIRE_FALSE(grid.getStreamlines().empty());
     }
     {
         auto grid = makeGrid();
-        MpiCPU{}.computeTimeStep(grid);
+        MpiStreamlineSolver{}.computeTimeStep(grid);
         REQUIRE_FALSE(grid.getStreamlines().empty());
     }
 }
 
 // ---------------------------------------------------------------------------
-// Consistency: all impls agree on neighbor directions for uniform field
+// Consistency: all solvers agree on neighbor directions for uniform field
 // ---------------------------------------------------------------------------
 
-TEST_CASE("all impls agree on neighbor directions for uniform field", "[impl][consistency]") {
-    // downstreamCell is const and deterministic -- compute expected
-    // results once, then verify each impl doesn't deviate from the field geometry.
+TEST_CASE("all solvers agree on neighbor directions for uniform field", "[impl][consistency]") {
     auto ref = makeGrid();
     const int rows = static_cast<int>(ref.rows());
     const int cols = static_cast<int>(ref.cols());
 
     // All vectors point right: every cell's neighbor should be one column to
     // the right (clamped at the edge).
-    for (int r = 0; r < rows; r++) {
-        for (int c = 0; c < cols; c++) {
-            auto cell = ref.downstreamCell(r, c);
-            REQUIRE(cell.row == r);
-            REQUIRE(cell.col == std::min(c + 1, cols - 1));
+    for (int row = 0; row < rows; row++) {
+        for (int col = 0; col < cols; col++) {
+            auto cell = ref.downstreamCell(row, col);
+            REQUIRE(cell.row == row);
+            REQUIRE(cell.col == std::min(col + 1, cols - 1));
         }
     }
 }

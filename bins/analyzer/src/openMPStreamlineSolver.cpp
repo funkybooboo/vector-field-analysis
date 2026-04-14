@@ -1,6 +1,6 @@
-#include "openMP.hpp"
+#include "openMPStreamlineSolver.hpp"
 
-#include "sequentialCPU.hpp"
+#include "sequentialStreamlineSolver.hpp"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -8,7 +8,7 @@
 
 #include <vector>
 
-OpenMP::OpenMP(unsigned int threadCount)
+OpenMPStreamlineSolver::OpenMPStreamlineSolver(unsigned int threadCount)
 #ifdef _OPENMP
     : threadCount_(threadCount)
 #endif
@@ -18,7 +18,7 @@ OpenMP::OpenMP(unsigned int threadCount)
 #endif
 }
 
-void OpenMP::computeTimeStep(VectorField::FieldGrid& grid) {
+void OpenMPStreamlineSolver::computeTimeStep(Field::Grid& grid) {
 #ifdef _OPENMP
     if (threadCount_ > 0) {
         omp_set_num_threads(static_cast<int>(threadCount_));
@@ -32,8 +32,8 @@ void OpenMP::computeTimeStep(VectorField::FieldGrid& grid) {
 
     // Pass 1: parallel -- each cell reads its neighbor direction from field_ (read-only).
     // downstreamCell is const and touches no shared mutable state.
-    std::vector<Vector::GridCell> neighbors(static_cast<std::size_t>(rowCount) *
-                                            static_cast<std::size_t>(colCount));
+    std::vector<Field::GridCell> neighbors(static_cast<std::size_t>(rowCount) *
+                                           static_cast<std::size_t>(colCount));
 
 #pragma omp parallel for schedule(static) collapse(2)
     for (int row = 0; row < rowCount; row++) {
@@ -44,17 +44,10 @@ void OpenMP::computeTimeStep(VectorField::FieldGrid& grid) {
     }
 
     // Pass 2: sequential -- apply streamline merges using the precomputed pairs.
-    // traceStreamlineStep writes to streams_ and is not thread-safe.
-    for (int row = 0; row < rowCount; row++) {
-        for (int col = 0; col < colCount; col++) {
-            grid.traceStreamlineStep(
-                {row, col},
-                neighbors[static_cast<std::size_t>(row) * static_cast<std::size_t>(colCount) +
-                          static_cast<std::size_t>(col)]);
-        }
-    }
+    // traceStreamlineStep writes to streamlines_ and is not thread-safe.
+    applyNeighborPairs(grid, neighbors, rowCount, colCount);
 #else
-    SequentialCPU fallback;
+    SequentialStreamlineSolver fallback;
     fallback.computeTimeStep(grid);
 #endif
 }

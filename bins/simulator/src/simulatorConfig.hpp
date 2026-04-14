@@ -1,5 +1,5 @@
 #pragma once
-#include "vector.hpp"
+#include "fieldTypes.hpp"
 
 #include <cstdint>
 #include <string>
@@ -39,14 +39,9 @@ inline std::string_view toString(FieldType type) {
     return "unknown";
 }
 
-// Maps grid index i (0..n-1) linearly onto [lo, hi]. Precondition: n >= 2.
-inline float gridToWorld(int i, int n, float lo, float hi) {
-    return lo + ((hi - lo) * static_cast<float>(i) / static_cast<float>(n - 1));
-}
-
 // Configuration for one layer in a superposed vector field.
-// All types support: strength, center, magnitude (default 1.0 = unit length).
-//   magnitude scales the output vector length before strength is applied.
+// All types support: strength, center, amplitude (default 1.0 = unit length).
+//   amplitude scales the output vector length before strength is applied.
 // Type-specific parameters:
 //   Uniform -> angle (degrees from positive x-axis)
 //   Spiral  -> sinkBlend (0 = pure vortex rotation, 1 = pure sink attraction)
@@ -55,9 +50,9 @@ inline float gridToWorld(int i, int n, float lo, float hi) {
 struct FieldLayerConfig {
     FieldType type = FieldType::Vortex;
     float strength = 1.0f;
-    Vector::Vec2 center;
+    Vector::Vec2 center;  // NOLINT(misc-include-cleaner) — Vec2 from fieldTypes.hpp via vec2.hpp
     float angle = 0.0f;
-    float magnitude = 1.0f;
+    float amplitude = 1.0f;
     float sinkBlend = 0.5f;
     float scale = 1.0f;
     int seed = 0;
@@ -74,8 +69,8 @@ struct SimulatorConfig {
     // viscosity=0 means no damping; larger values damp the field more aggressively.
     float viscosity = 0.0f;
     std::string output = "field.h5";
-    Vector::GridSize grid = {64, 64};
-    Vector::FieldBounds bounds = {-1.0f, 1.0f, -1.0f, 1.0f};
+    Field::GridSize grid = {64, 64};
+    Field::Bounds bounds = {-1.0f, 1.0f, -1.0f, 1.0f};
     // Each layer's contribution is added together (linear superposition),
     // so layer order does not affect the result.
     std::vector<FieldLayerConfig> layers;

@@ -1,9 +1,9 @@
 #pragma once
 #include "simulatorConfig.hpp"
-#include "vector.hpp"
+#include "fieldTypes.hpp"
 
 namespace FieldGenerator {
 
-Vector::FieldTimeSeries generateTimeSeries(const SimulatorConfig& config);
+Field::TimeSeries generateTimeSeries(const SimulatorConfig& config);
 
 } // namespace FieldGenerator

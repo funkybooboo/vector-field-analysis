@@ -44,9 +44,9 @@ TEST_CASE("FieldReader::read() returns correct step/row/col dimensions", "[field
 
     const auto result = FieldReader::read(path.string());
 
-    REQUIRE(static_cast<int>(result.steps.size()) == kSteps);
-    REQUIRE(static_cast<int>(result.steps[0].size()) == kRows);
-    REQUIRE(static_cast<int>(result.steps[0][0].size()) == kCols);
+    REQUIRE(static_cast<int>(result.frames.size()) == kSteps);
+    REQUIRE(static_cast<int>(result.frames[0].size()) == kRows);
+    REQUIRE(static_cast<int>(result.frames[0][0].size()) == kCols);
 
     std::error_code ec;
     std::filesystem::remove(path, ec);
@@ -73,8 +73,8 @@ TEST_CASE("FieldReader::read() Vec2 values match written floats", "[fieldreader]
 
     const auto result = FieldReader::read(path.string());
 
-    REQUIRE_THAT(result.steps[1][2][3].x, WithinAbs(kVxValue, 1e-6f));
-    REQUIRE_THAT(result.steps[1][2][3].y, WithinAbs(kVyValue, 1e-6f));
+    REQUIRE_THAT(result.frames[1][2][3].x, WithinAbs(kVxValue, 1e-6f));
+    REQUIRE_THAT(result.frames[1][2][3].y, WithinAbs(kVyValue, 1e-6f));
 
     std::error_code ec;
     std::filesystem::remove(path, ec);

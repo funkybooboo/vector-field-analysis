@@ -1,10 +1,10 @@
 #include "analyzerConfig.hpp"
 #include "analyzerConfigParser.hpp"
 #include "fieldReader.hpp"
+#include "formatBytes.hpp"
 #include "solverFactory.hpp"
 #include "streamWriter.hpp"
 #include "streamlineSolver.hpp"
-#include "vectorField.hpp"
 
 #ifdef USE_MPI
 #include <mpi.h>
@@ -17,31 +17,25 @@
 #include <iomanip>
 #include <iostream>
 #include <numeric>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <thread>
 
-// One step's worth of streamlines: [streamline][point] = (row, col)
-using StepStreamlines = StreamWriter::StepStreamlines;
-// All steps: [step][streamline][point]
-using AllStepStreamlines = std::vector<StepStreamlines>;
-
 struct RunResult {
-    double ms;
-    AllStepStreamlines streams;
+    double elapsedMilliseconds;
+    std::vector<StreamWriter::StepStreamlines> streams;
 };
 
-static RunResult runSolver(StreamlineSolver& solver, const Vector::FieldTimeSeries& data) {
+static RunResult runSolver(StreamlineSolver& solver, const Field::TimeSeries& timeSeries) {
     RunResult result;
-    auto t0 = std::chrono::steady_clock::now();
-    for (const auto& step : data.steps) {
-        VectorField::FieldGrid grid(data.bounds, step);
+    auto startTime = std::chrono::steady_clock::now();
+    for (const auto& frame : timeSeries.frames) {
+        Field::Grid grid(timeSeries.bounds, frame);
         solver.computeTimeStep(grid);
         result.streams.push_back(grid.getStreamlines());
     }
-    result.ms =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    result.elapsedMilliseconds =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startTime).count();
     return result;
 }
 
@@ -50,59 +44,45 @@ static RunResult runSolver(StreamlineSolver& solver, const Vector::FieldTimeSeri
 // points, so path traversal order is preserved while comparison stays
 // independent of the order in which unique streamlines were encountered
 // during grid iteration.
-static std::vector<Vector::Path> canonicalize(const StepStreamlines& step) {
+static std::vector<Field::Path> canonicalize(const StreamWriter::StepStreamlines& step) {
     auto copy = step;
-    std::sort(copy.begin(), copy.end(), [](const auto& a, const auto& b) {
-        if (a.empty() != b.empty()) {
-            return b.empty();
+    std::sort(copy.begin(), copy.end(), [](const auto& lhs, const auto& rhs) {
+        if (lhs.empty() != rhs.empty()) {
+            return rhs.empty();
         }
-        if (a.front() != b.front()) {
-            return a.front() < b.front();
+        if (lhs.front() != rhs.front()) {
+            return lhs.front() < rhs.front();
         }
-        if (a.size() != b.size()) {
-            return a.size() < b.size();
+        if (lhs.size() != rhs.size()) {
+            return lhs.size() < rhs.size();
         }
-        return a.back() < b.back();
+        return lhs.back() < rhs.back();
     });
     return copy;
 }
 
 // Crash with a descriptive message if impl's output differs from the reference
 // (sequential). Comparison is canonical so iteration order doesn't matter.
-static void verify(const AllStepStreamlines& reference, const AllStepStreamlines& other,
+static void verify(const std::vector<StreamWriter::StepStreamlines>& reference,
+                   const std::vector<StreamWriter::StepStreamlines>& other,
                    const std::string& name) {
     if (reference.size() != other.size()) {
         std::cerr << "Error: " << name << " produced " << other.size() << " step(s) but sequential"
                   << " produced " << reference.size() << "\n";
         std::exit(1);
     }
-    for (std::size_t s = 0; s < reference.size(); ++s) {
-        if (canonicalize(reference[s]) != canonicalize(other[s])) {
-            std::cerr << "Error: " << name << " streamlines differ from sequential at step " << s
+    for (std::size_t stepIndex = 0; stepIndex < reference.size(); ++stepIndex) {
+        if (canonicalize(reference[stepIndex]) != canonicalize(other[stepIndex])) {
+            std::cerr << "Error: " << name << " streamlines differ from sequential at step " << stepIndex
                       << "\n";
             std::exit(1);
         }
     }
 }
 
-static std::string formatBytes(std::uintmax_t bytes) {
-    const auto d = static_cast<double>(bytes);
-    std::ostringstream oss;
-    oss << std::fixed << std::setprecision(1);
-    if (bytes >= 1024ULL * 1024 * 1024) {
-        oss << (d / (1024.0 * 1024 * 1024)) << " GB";
-    } else if (bytes >= 1024ULL * 1024) {
-        oss << (d / (1024.0 * 1024)) << " MB";
-    } else if (bytes >= 1024ULL) {
-        oss << (d / 1024.0) << " KB";
-    } else {
-        oss << std::defaultfloat << bytes << " B";
-    }
-    return oss.str();
-}
-
-static void writeAndReport(const std::string& outPath, const AllStepStreamlines& streams,
-                           const Vector::FieldBounds& bounds, const Vector::GridSize& grid) {
+static void writeAndReport(const std::string& outPath,
+                           const std::vector<StreamWriter::StepStreamlines>& streams,
+                           const Field::Bounds& bounds, const Field::GridSize& grid) {
     const std::size_t total =
         std::accumulate(streams.begin(), streams.end(), std::size_t{0},
                         [](std::size_t acc, const auto& step) { return acc + step.size(); });
@@ -114,11 +94,11 @@ static void writeAndReport(const std::string& outPath, const AllStepStreamlines&
 
     StreamWriter::write(outPath, streams, bounds, grid);
 
-    std::error_code ec;
-    const auto fileBytes = std::filesystem::file_size(outPath, ec);
+    std::error_code err;
+    const auto fileBytes = std::filesystem::file_size(outPath, err);
     std::cout << "Streamlines written to " << outPath;
-    if (!ec) {
-        std::cout << "  (" << formatBytes(fileBytes) << ")";
+    if (!err) {
+        std::cout << "  (" << Utils::formatBytes(fileBytes) << ")";
     }
     std::cout << "\n";
 }
@@ -161,19 +141,19 @@ static unsigned int resolveThreadCount(unsigned int requested) {
     return hw > 0 ? hw : 1;
 }
 
-static void runAll(const Vector::FieldTimeSeries& field, unsigned int threadCount, int mpiRank,
+static void runAll(const Field::TimeSeries& field, unsigned int threadCount, int mpiRank,
                    int mpiSize, const std::string& outPath) {
     // Non-MPI solvers run only on rank 0.
-    RunResult seqResult{};
-    RunResult ompResult{};
-    RunResult ptResult{};
+    RunResult sequentialResult{};
+    RunResult openmpResult{};
+    RunResult pthreadsResult{};
     if (mpiRank == 0) {
-        auto seq = makeSolver("sequential", threadCount);
-        auto omp = makeSolver("openmp", threadCount);
-        auto pt = makeSolver("pthreads", threadCount);
-        seqResult = runSolver(*seq, field);
-        ompResult = runSolver(*omp, field);
-        ptResult = runSolver(*pt, field);
+        auto sequentialSolver = makeSolver("sequential", threadCount);
+        auto openmpSolver = makeSolver("openmp", threadCount);
+        auto pthreadsSolver = makeSolver("pthreads", threadCount);
+        sequentialResult = runSolver(*sequentialSolver, field);
+        openmpResult = runSolver(*openmpSolver, field);
+        pthreadsResult = runSolver(*pthreadsSolver, field);
     }
 
     // MPI solver: all ranks must participate (collective calls inside).
@@ -186,40 +166,45 @@ static void runAll(const Vector::FieldTimeSeries& field, unsigned int threadCoun
     }
 
     if (mpiRank == 0) {
-        const std::string seqLabel = "sequential";
-        const std::string ompLabel = "openmp (" + std::to_string(threadCount) + " thr)";
-        const std::string ptLabel = "pthreads (" + std::to_string(threadCount) + " thr)";
+        const std::string sequentialLabel = "sequential";
+        const std::string openmpLabel = "openmp (" + std::to_string(threadCount) + " thr)";
+        const std::string pthreadsLabel = "pthreads (" + std::to_string(threadCount) + " thr)";
         const std::string mpiLabel = "mpi (" + std::to_string(mpiSize) + " rank(s))";
 
-        int labelWidth = static_cast<int>(std::max(
-                             {seqLabel.size(), ompLabel.size(), ptLabel.size(), mpiLabel.size()})) +
-                         2;
-        std::cout << std::left << std::setw(labelWidth) << seqLabel << seqResult.ms << " ms\n"
-                  << std::setw(labelWidth) << ompLabel << ompResult.ms << " ms"
-                  << "  (" << (ompResult.ms > 0 ? seqResult.ms / ompResult.ms : 0.0)
+        int labelWidth =
+            static_cast<int>(std::max({sequentialLabel.size(), openmpLabel.size(),
+                                       pthreadsLabel.size(), mpiLabel.size()})) +
+            2;
+        std::cout << std::left << std::setw(labelWidth) << sequentialLabel << sequentialResult.elapsedMilliseconds
+                  << " ms\n"
+                  << std::setw(labelWidth) << openmpLabel << openmpResult.elapsedMilliseconds << " ms"
+                  << "  ("
+                  << (openmpResult.elapsedMilliseconds > 0 ? sequentialResult.elapsedMilliseconds / openmpResult.elapsedMilliseconds : 0.0)
                   << "x vs sequential)\n"
-                  << std::setw(labelWidth) << ptLabel << ptResult.ms << " ms"
-                  << "  (" << (ptResult.ms > 0 ? seqResult.ms / ptResult.ms : 0.0)
+                  << std::setw(labelWidth) << pthreadsLabel << pthreadsResult.elapsedMilliseconds << " ms"
+                  << "  ("
+                  << (pthreadsResult.elapsedMilliseconds > 0 ? sequentialResult.elapsedMilliseconds / pthreadsResult.elapsedMilliseconds : 0.0)
                   << "x vs sequential)\n";
         if (runMpi) {
-            std::cout << std::setw(labelWidth) << mpiLabel << mpiResult.ms << " ms"
-                      << "  (" << (mpiResult.ms > 0 ? seqResult.ms / mpiResult.ms : 0.0)
+            std::cout << std::setw(labelWidth) << mpiLabel << mpiResult.elapsedMilliseconds << " ms"
+                      << "  ("
+                      << (mpiResult.elapsedMilliseconds > 0 ? sequentialResult.elapsedMilliseconds / mpiResult.elapsedMilliseconds : 0.0)
                       << "x vs sequential)\n";
         } else {
             std::cout << "(mpi skipped -- rerun with mpirun -n N for a multi-rank comparison)\n";
         }
 
-        verify(seqResult.streams, ompResult.streams, "openmp");
-        verify(seqResult.streams, ptResult.streams, "pthreads");
+        verify(sequentialResult.streams, openmpResult.streams, "openmp");
+        verify(sequentialResult.streams, pthreadsResult.streams, "pthreads");
         if (runMpi) {
-            verify(seqResult.streams, mpiResult.streams, "mpi");
+            verify(sequentialResult.streams, mpiResult.streams, "mpi");
         }
 
-        writeAndReport(outPath, seqResult.streams, field.bounds, field.gridSize());
+        writeAndReport(outPath, sequentialResult.streams, field.bounds, field.gridSize());
     }
 }
 
-static void runOne(const std::string& solverName, const Vector::FieldTimeSeries& field,
+static void runOne(const std::string& solverName, const Field::TimeSeries& field,
                    unsigned int threadCount, int mpiRank, int mpiSize, const std::string& outPath) {
     RunResult result{};
     if (solverName == "mpi") {
@@ -240,7 +225,7 @@ static void runOne(const std::string& solverName, const Vector::FieldTimeSeries&
         } else if (solverName == "mpi") {
             label += " (" + std::to_string(mpiSize) + " rank(s))";
         }
-        std::cout << label << "  " << result.ms << " ms\n";
+        std::cout << label << "  " << result.elapsedMilliseconds << " ms\n";
 
         writeAndReport(outPath, result.streams, field.bounds, field.gridSize());
     }
@@ -281,13 +266,13 @@ int main(int argc, char* argv[]) {
     }
 
     try {
-        const AnalyzerConfig config = AnalyzerConfigParser::parseFile(argv[1]);
-        const Vector::FieldTimeSeries field = FieldReader::read(config.inputPath);
+        const AnalyzerConfig config = ConfigParser::parseFile(argv[1]);
+        const Field::TimeSeries field = FieldReader::read(config.inputPath);
         // Use the TOML output path if set; otherwise derive from the input field path.
         const std::string outPath =
             config.outputPath.empty() ? makeOutPath(config.inputPath) : config.outputPath;
 
-        if (field.steps.empty()) {
+        if (field.frames.empty()) {
             throw std::runtime_error("field file contains no time steps: " + config.inputPath);
         }
 
@@ -300,7 +285,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (mpiRank == 0) {
-            const int numSteps = static_cast<int>(field.steps.size());
+            const int numSteps = static_cast<int>(field.frames.size());
             const auto [width, height] = field.gridSize();
             std::cout << "Field:   " << config.inputPath << "\n"
                       << "Grid:    " << width << " x " << height << "  |  x [" << field.bounds.xMin
