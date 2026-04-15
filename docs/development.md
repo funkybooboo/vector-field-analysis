@@ -116,11 +116,11 @@ mise run run:simulator                              # build and run with karman_
 ### Analyzer
 
 ```sh
-mise run run:analyzer         # run simulator then benchmark all impls under mpirun -n $(nproc)
-mise run run:analyzer:mpi     # MPI solver only (default 4 ranks; override with NRANKS=N)
+mise run run:analyzer         # run simulator then benchmark all impls under mpirun -n $MPI_RANKS
+mise run run:analyzer:mpi     # MPI solver only (MPI_RANKS defaults to 4; override with MPI_RANKS=N)
 ```
 
-`run:analyzer` launches under `mpirun -n $(nproc)` so all parallel solvers (openmp, pthreads, mpi)
+`run:analyzer` launches under `mpirun -n $MPI_RANKS` so all parallel solvers (openmp, pthreads, mpi)
 use the same number of workers for a fair comparison. The thread count adapts to the MPI rank count
 automatically, and MPI is skipped with a hint message if the binary is invoked without mpirun.
 

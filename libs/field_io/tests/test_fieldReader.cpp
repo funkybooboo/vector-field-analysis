@@ -80,7 +80,7 @@ TEST_CASE("FieldReader::read() Vec2 values match written floats", "[fieldreader]
     std::filesystem::remove(path, ec);
 }
 
-TEST_CASE("FieldReader::read() throws when vx dataset is missing", "[fieldreader]") {
+TEST_CASE("FieldReader::read() throws when vx and vy datasets are missing", "[fieldreader]") {
     const auto path = std::filesystem::temp_directory_path() / "test_fr_missing.h5";
     {
         HighFive::File file(path.string(), HighFive::File::Overwrite);
@@ -90,6 +90,25 @@ TEST_CASE("FieldReader::read() throws when vx dataset is missing", "[fieldreader
         group.createAttribute("yMin", -1.0f);
         group.createAttribute("yMax", 1.0f);
         // Intentionally omit vx/vy datasets
+    }
+    REQUIRE_THROWS(FieldReader::read(path.string()));
+
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+}
+
+TEST_CASE("FieldReader::read() throws when vy dataset is missing", "[fieldreader]") {
+    const auto path = std::filesystem::temp_directory_path() / "test_fr_missing_vy.h5";
+    {
+        HighFive::File file(path.string(), HighFive::File::Overwrite);
+        auto group = file.createGroup("field");
+        const std::vector<std::vector<std::vector<float>>> vx(
+            2, std::vector<std::vector<float>>(3, std::vector<float>(4, 0.0f)));
+        group.createDataSet("vx", vx);
+        group.createAttribute("xMin", -1.0f);
+        group.createAttribute("xMax", 1.0f);
+        group.createAttribute("yMin", -1.0f);
+        group.createAttribute("yMax", 1.0f);
     }
     REQUIRE_THROWS(FieldReader::read(path.string()));
 

@@ -1,20 +1,12 @@
 # Analyzer Config Guide
 
-An analyzer config is a TOML file with a single `[analyzer]` table.
+An analyzer config is a TOML file with an optional `[analyzer]` table. When the
+`[analyzer]` table is absent, struct defaults apply (`solver = "all"`, `threads = 0`).
+Any simulator config in `configs/` can be passed directly to the analyzer.
 
 ```
 analyzer <config.toml>
 ```
-
-## Ready-to-Run Configs
-
-| Config | Solver | Notes |
-|--------|--------|-------|
-| `bins/analyzer/configs/all.toml` | `all` | Benchmark all impls side-by-side (default) |
-| `bins/analyzer/configs/sequential.toml` | `sequential` | Single-threaded reference |
-| `bins/analyzer/configs/openmp.toml` | `openmp` | Shared memory, OpenMP |
-| `bins/analyzer/configs/pthreads.toml` | `pthreads` | Shared memory, pthreads |
-| `bins/analyzer/configs/mpi.toml` | `mpi` | Distributed memory, MPI |
 
 ---
 
@@ -22,9 +14,11 @@ analyzer <config.toml>
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `input` | string | `"field.h5"` | HDF5 field file produced by the simulator |
 | `solver` | string | `"all"` | Solver to run (see below) |
 | `threads` | int | `0` | Thread count for `openmp` and `pthreads`. `0` = `ANALYZER_THREADS` env var, then `hardware_concurrency`. |
+
+I/O paths are derived from the config filename stem at runtime -- they are not stored in
+the config. The analyzer reads `data/<stem>/field.h5` and writes `data/<stem>/streams.h5`.
 
 ---
 
@@ -46,14 +40,11 @@ The `mpi` solver requires all ranks to call `computeTimeStep` together.
 Run with `mpirun` (local) or `srun` (CHPC/Slurm):
 
 ```bash
-# Local -- MPI solver only
-mpirun -n 4 analyzer bins/analyzer/configs/mpi.toml
-
 # Local -- all solvers with fair comparison (thread count adapts to rank count)
-mpirun -n 4 analyzer bins/analyzer/configs/all.toml
+mpirun -n 4 analyzer configs/karman_street_128x64.toml
 
 # CHPC via Slurm
-srun -n 4 analyzer bins/analyzer/configs/mpi.toml
+srun -n 4 analyzer configs/karman_street_128x64.toml
 ```
 
 Each rank reads the field file independently (works on shared filesystems like Lustre).
@@ -76,7 +67,6 @@ is printed instead of producing a misleading result.
 
 ```toml
 [analyzer]
-input  = "field.h5"
 solver = "all"
 ```
 
@@ -84,7 +74,6 @@ solver = "all"
 
 ```toml
 [analyzer]
-input   = "field.h5"
 solver  = "pthreads"
 threads = 8    # overrides ANALYZER_THREADS env var
 ```
@@ -93,6 +82,5 @@ threads = 8    # overrides ANALYZER_THREADS env var
 
 ```toml
 [analyzer]
-input  = "field.h5"
 solver = "mpi"
 ```

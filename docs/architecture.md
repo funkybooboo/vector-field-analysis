@@ -35,20 +35,24 @@ so no secondary config file is needed at read time.
 
 ---
 
-## `libs/vector`
+## `libs/field`
 
-**Path:** `libs/vector/src/`
+**Path:** `libs/field/src/`
 
 A shared library providing the core vector types used by both binaries.
 
-| Type / Function | Purpose |
-|-----------------|---------|
-| `Vec2` | 2D float vector with `x` and `y` components and arithmetic operators |
-| `Streamline` | Ordered list of grid-index pairs tracing a path through the field |
-| `FieldSlice` | Type alias for one time step's field: `vector<vector<Vec2>>` indexed `[row][col]` |
-| `FieldTimeSeries` | Struct holding `steps` (vector of `FieldSlice`) plus grid boundary floats |
-| `dotProduct` | Scalar dot product of two `Vec2`s |
-| `almostParallel` | L1-distance test on near-unit vectors |
+| Type / Function | Namespace | Purpose |
+|-----------------|-----------|---------|
+| `Vec2` | `Vector` | 2D float vector with `x` and `y` components and arithmetic operators |
+| `GridCell` | `Field` | Grid position identified by `(row, col)` indices |
+| `Path` | `Field` | Type alias for `vector<GridCell>` -- an ordered sequence of grid positions |
+| `Bounds` | `Field` | Physical-space domain boundaries (`xMin`, `xMax`, `yMin`, `yMax`) |
+| `GridSize` | `Field` | Integer grid dimensions (`width`, `height`) |
+| `Slice` | `Field` | Type alias for one time-step snapshot: `vector<vector<Vec2>>` indexed `[row][col]` |
+| `TimeSeries` | `Field` | Struct holding `frames` (vector of `Slice`) and `bounds` (`Bounds`) |
+| `Streamline` | `Field` | Ordered sequence of `GridCell` values tracing a path through the field |
+| `Grid` | `Field` | Owns a single-frame field and drives the streamline tracing algorithm |
+| `indexToCoord` | `Field` | Maps a grid index linearly onto a physical-space coordinate range |
 
 The library is intentionally small -- it defines data structures and math primitives only,
 with no I/O or field-generation logic.
@@ -94,31 +98,44 @@ See [`pipeline.md`](pipeline.md) for a detailed walkthrough.
 
 **Path:** `bins/analyzer/src/`
 
-Reads the HDF5 output and traces streamlines through each time step's field.
+Reads the HDF5 output and traces streamlines through every cell in each time step's field.
+Supports four parallel solver implementations that can be benchmarked side-by-side.
 
 | Source file | Role |
 |-------------|------|
-| `main.cpp` | Entry point; loads data, traces from the origin cell each step |
-| `fieldReader.hpp/.cpp` | Reads the HDF5 `field` group into `Vector::FieldTimeSeries` |
-| `vectorField.hpp/.cpp` | `FieldGrid`: owns one step's field and drives streamline tracing |
+| `main.cpp` | Entry point; orchestrates config, I/O, solver selection, and timing |
+| `configParser.hpp/.cpp` | Parses `[analyzer]` TOML table into `AnalyzerConfig` |
+| `fieldReader.hpp/.cpp` | Reads the HDF5 `field` group into `Field::TimeSeries` |
+| `streamlineSolver.hpp` | Abstract `StreamlineSolver` base class |
+| `solverFactory.hpp/.cpp` | Factory: solver name → `std::unique_ptr<StreamlineSolver>` |
+| `sequentialStreamlineSolver.hpp/.cpp` | Single-threaded reference implementation |
+| `openMpStreamlineSolver.hpp/.cpp` | Shared-memory parallelism via OpenMP |
+| `pthreadsStreamlineSolver.hpp/.cpp` | Shared-memory parallelism via pthreads |
+| `mpiStreamlineSolver.hpp/.cpp` | Distributed-memory parallelism via MPI |
+| `streamWriter.hpp/.cpp` | Writes traced streamlines to `streams.h5` |
 
-The current implementation is a prototype -- it traces a single streamline step from
-grid cell `(0, 0)` in each time step. A full analysis would seed every cell in the grid.
+**Streamline tracing algorithm** (in `Field::Grid`):
 
-**Streamline tracing algorithm** (in `FieldGrid`):
+All four solver implementations follow the same two-pass design per time step:
 
-Each `traceStreamlineStep` call advances one cell forward in the vector direction and
-either extends the current streamline (if the destination is unclaimed) or merges with the
-existing streamline at that cell (if the two paths converge). Merging is done by absorbing
-the shorter path's cells into the longer path's `Streamline` object. Streamline associations
-are tracked in a separate `streams_` grid (parallel to the field grid), so `Vec2` values do
-not hold streamline pointers.
+- **Pass 1 (parallelisable)** -- each cell calls `downstreamCell(row, col)`, which returns
+  the grid index of the nearest cell in the direction the vector points. This method is
+  `const` and reads no mutable state, so it is safe to call concurrently.
 
-**Third-party dependency:**
+- **Pass 2 (sequential)** -- `traceStreamlineStep(src, dest)` is called for each
+  `(src, dest)` pair. It writes to the internal streamline grid (shared mutable state) and
+  is not thread-safe. Each call either extends the current streamline (destination
+  unclaimed) or merges two converging paths via `joinStreamlines`.
+
+When `solver = "all"`, all four implementations run on the same field data and timings are
+printed side-by-side. All results are verified against the sequential reference.
+
+**Third-party dependencies:**
 
 | Library | Purpose |
 |---------|---------|
-| HighFive v2.10.0 | C++ wrapper for HDF5 input |
+| HighFive v2.10.0 | C++ wrapper for HDF5 input/output |
+| OpenMPI | MPI runtime for the distributed-memory solver |
 
 ---
 
@@ -131,8 +148,9 @@ dependencies are fetched automatically -- no manual `pip install` needed.
 
 | Script | Purpose |
 |--------|---------|
-| `visualize.py` | Animates or plots a single step as a quiver (arrow) plot |
+| `visualize.py` | Animates or plots a single step as a quiver (arrow) plot; supports streamline overlay |
 | `field_math.py` | Adds or subtracts two `.h5` files element-wise |
+| `stats.py` | Prints statistics for field and streamline `.h5` files |
 
 Both scripts expect the same HDF5 schema written by the simulator and preserved by
 `field_math.py`, so the output of `field_math.py` is a drop-in input for `visualize.py`.

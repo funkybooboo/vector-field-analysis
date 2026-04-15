@@ -38,6 +38,30 @@ TEST_CASE("parseAnalyzer accepts threads = 0", "[config]") {
     REQUIRE(cfg.threadCount == 0);
 }
 
+TEST_CASE("parseAnalyzer returns default solver when [analyzer] present but solver absent",
+          "[config]") {
+    TempFile tmp("[analyzer]\nthreads = 2\n");
+    const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
+    REQUIRE(cfg.solver == "all");
+}
+
+TEST_CASE("parseAnalyzer returns default threadCount when [analyzer] present but threads absent",
+          "[config]") {
+    TempFile tmp("[analyzer]\nsolver = \"sequential\"\n");
+    const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
+    REQUIRE(cfg.threadCount == 0);
+}
+
+TEST_CASE("parseAnalyzer error message for unknown solver contains the bad name", "[config]") {
+    TempFile tmp("[analyzer]\nsolver = \"badname\"\n");
+    try {
+        ConfigParser::parseAnalyzer(tmp.path.string());
+        FAIL("expected exception");
+    } catch (const std::runtime_error& ex) {
+        REQUIRE(std::string(ex.what()).find("badname") != std::string::npos);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Invalid configs
 // ---------------------------------------------------------------------------

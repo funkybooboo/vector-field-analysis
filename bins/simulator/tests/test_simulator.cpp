@@ -614,3 +614,30 @@ TEST_CASE("FieldWriter::write() vx/vy values match generateTimeSeries() output",
     std::error_code ec;
     std::filesystem::remove(tmpPath, ec);
 }
+
+TEST_CASE("FieldWriter::write() stores geometry attributes (bounds and grid size)",
+          "[simulator][writer]") {
+    FieldLayerConfig layer;
+    layer.type = FieldType::Vortex;
+    SimulatorConfig config = makeConfig(layer, 1);
+    config.bounds.xMin = -2.0f;
+    config.bounds.xMax = 2.0f;
+    config.bounds.yMin = -1.5f;
+    config.bounds.yMax = 1.5f;
+    const auto tmpPath = std::filesystem::temp_directory_path() / "test_fw_geom_attrs.h5";
+    const std::string outPath = tmpPath.string();
+
+    FieldWriter::write(outPath, generateTimeSeries(config), "vortex", config.dt, config.viscosity);
+
+    const HighFive::File file(tmpPath.string(), HighFive::File::ReadOnly);
+    const auto group = file.getGroup("field");
+    REQUIRE_THAT(group.getAttribute("xMin").read<float>(), WithinAbs(-2.0f, 1e-6f));
+    REQUIRE_THAT(group.getAttribute("xMax").read<float>(), WithinAbs(2.0f, 1e-6f));
+    REQUIRE_THAT(group.getAttribute("yMin").read<float>(), WithinAbs(-1.5f, 1e-6f));
+    REQUIRE_THAT(group.getAttribute("yMax").read<float>(), WithinAbs(1.5f, 1e-6f));
+    REQUIRE(group.getAttribute("width").read<int>() == config.grid.width);
+    REQUIRE(group.getAttribute("height").read<int>() == config.grid.height);
+
+    std::error_code ec;
+    std::filesystem::remove(tmpPath, ec);
+}

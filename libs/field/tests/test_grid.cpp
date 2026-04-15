@@ -1,6 +1,7 @@
 #include "grid.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <stdexcept>
 
 // Uniform-fill 3x3 grid
 static Field::Grid makeField(Vector::Vec2 fill = {}) {
@@ -226,6 +227,30 @@ TEST_CASE("getStreamlines path contents match expected for uniform right-pointin
     REQUIRE(lines[0] == (Field::Path{{0, 0}, {0, 1}, {0, 2}}));
     REQUIRE(lines[1] == (Field::Path{{1, 0}, {1, 1}, {1, 2}}));
     REQUIRE(lines[2] == (Field::Path{{2, 0}, {2, 1}, {2, 2}}));
+}
+
+// ---------------------------------------------------------------------------
+// downstreamCell and traceStreamlineStep error paths
+// ---------------------------------------------------------------------------
+
+TEST_CASE("downstreamCell throws on empty grid", "[grid]") {
+    Field::Grid grid(Field::Bounds{0.0f, 2.0f, 0.0f, 2.0f}, Field::Slice{});
+    REQUIRE_THROWS_AS(grid.downstreamCell(0, 0), std::runtime_error);
+}
+
+TEST_CASE("traceStreamlineStep throws when src row is out of bounds", "[grid]") {
+    auto grid = makeField(Vector::Vec2(1.0f, 0.0f));
+    REQUIRE_THROWS_AS(grid.traceStreamlineStep({3, 0}, {0, 0}), std::out_of_range);
+}
+
+TEST_CASE("traceStreamlineStep throws when src col is out of bounds", "[grid]") {
+    auto grid = makeField(Vector::Vec2(1.0f, 0.0f));
+    REQUIRE_THROWS_AS(grid.traceStreamlineStep({0, 3}, {0, 0}), std::out_of_range);
+}
+
+TEST_CASE("traceStreamlineStep throws when dest is out of bounds", "[grid]") {
+    auto grid = makeField(Vector::Vec2(1.0f, 0.0f));
+    REQUIRE_THROWS_AS(grid.traceStreamlineStep({0, 0}, {3, 0}), std::out_of_range);
 }
 
 TEST_CASE("getStreamlines returns 1 streamline when paths converge via merge",

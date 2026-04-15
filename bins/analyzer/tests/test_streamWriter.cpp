@@ -1,9 +1,12 @@
 #include "streamWriter.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <filesystem>
 #include <highfive/highfive.hpp>
 #include <vector>
+
+using Catch::Matchers::WithinAbs;
 
 using StreamWriter::StepStreamlines;
 
@@ -69,6 +72,34 @@ TEST_CASE("StreamWriter::write() step_1 offsets and point count", "[streamwriter
     REQUIRE(flat.size() == 4);
     REQUIRE(offsets == std::vector<int>{0, 4});
     std::error_code ec;
+    std::filesystem::remove(path, ec);
+}
+
+TEST_CASE("StreamWriter::write() stores bounds attributes on /streams group", "[streamwriter]") {
+    const auto path = std::filesystem::temp_directory_path() / "test_sw_bounds.h5";
+    writeFixture(path);
+    HighFive::File file(path.string(), HighFive::File::ReadOnly);
+    const auto grp = file.getGroup("streams");
+    REQUIRE_THAT(grp.getAttribute("xMin").read<float>(), WithinAbs(-1.0f, 1e-6f));
+    REQUIRE_THAT(grp.getAttribute("xMax").read<float>(), WithinAbs(1.0f, 1e-6f));
+    REQUIRE_THAT(grp.getAttribute("yMin").read<float>(), WithinAbs(-1.0f, 1e-6f));
+    REQUIRE_THAT(grp.getAttribute("yMax").read<float>(), WithinAbs(1.0f, 1e-6f));
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+}
+
+TEST_CASE("StreamWriter::write() empty step has empty paths_flat and sentinel-only offsets",
+          "[streamwriter]") {
+    const auto path = std::filesystem::temp_directory_path() / "test_sw_empty_step.h5";
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    StreamWriter::write(path.string(), {StepStreamlines{}}, {0.0f, 1.0f, 0.0f, 1.0f}, {2, 2});
+    HighFive::File file(path.string(), HighFive::File::ReadOnly);
+    const auto sg = file.getGroup("streams").getGroup("step_0");
+    const auto flat = sg.getDataSet("paths_flat").read<std::vector<std::vector<int>>>();
+    const auto offsets = sg.getDataSet("offsets").read<std::vector<int>>();
+    REQUIRE(flat.empty());
+    REQUIRE(offsets == std::vector<int>{0});
     std::filesystem::remove(path, ec);
 }
 

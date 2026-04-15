@@ -4,7 +4,17 @@
 #include "pthreadsStreamlineSolver.hpp"
 #include "sequentialStreamlineSolver.hpp"
 
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
+
+// Sort streamlines canonically by their first cell so solver outputs can be compared
+// regardless of the order in which solvers emit them.
+static std::vector<Field::Path> canonicalize(std::vector<Field::Path> lines) {
+    std::sort(lines.begin(), lines.end(), [](const Field::Path& a, const Field::Path& b) {
+        return a.empty() ? true : (b.empty() ? false : a.front() < b.front());
+    });
+    return lines;
+}
 
 // 3x3 grid where all vectors point right (+x)
 static Field::Grid makeGrid() {
@@ -173,6 +183,37 @@ TEST_CASE("MpiStreamlineSolver getStreamlines returns same count as sequential",
     REQUIRE(grid.getStreamlines().size() == expected);
 }
 
+TEST_CASE("OpenMpStreamlineSolver path contents match sequential", "[impl][openmp][streamlines]") {
+    auto seqGrid = makeGrid();
+    SequentialStreamlineSolver{}.computeTimeStep(seqGrid);
+    const auto expected = canonicalize(seqGrid.getStreamlines());
+
+    auto grid = makeGrid();
+    OpenMpStreamlineSolver{}.computeTimeStep(grid);
+    REQUIRE(canonicalize(grid.getStreamlines()) == expected);
+}
+
+TEST_CASE("PthreadsStreamlineSolver path contents match sequential", "[impl][pthreads][streamlines]") {
+    auto seqGrid = makeGrid();
+    SequentialStreamlineSolver{}.computeTimeStep(seqGrid);
+    const auto expected = canonicalize(seqGrid.getStreamlines());
+
+    auto grid = makeGrid();
+    PthreadsStreamlineSolver{4}.computeTimeStep(grid);
+    REQUIRE(canonicalize(grid.getStreamlines()) == expected);
+}
+
+TEST_CASE("PthreadsStreamlineSolver with thread count equal to row count produces correct output",
+          "[impl][pthreads]") {
+    auto seqGrid = makeGrid();
+    SequentialStreamlineSolver{}.computeTimeStep(seqGrid);
+    const auto expected = canonicalize(seqGrid.getStreamlines());
+
+    auto grid = makeGrid();
+    PthreadsStreamlineSolver{3}.computeTimeStep(grid); // exactly 3 threads for 3-row grid
+    REQUIRE(canonicalize(grid.getStreamlines()) == expected);
+}
+
 TEST_CASE("getStreamlines returns non-empty result after any solver on non-empty field",
           "[impl][consistency][streamlines]") {
     {
@@ -226,15 +267,25 @@ TEST_CASE("all solvers handle near-zero magnitude field without crash", "[impl][
 }
 
 TEST_CASE("all solvers handle single-row grid without crash", "[impl][consistency]") {
-    Field::Grid grid{Field::Bounds{0.0f, 2.0f, 0.0f, 0.0f},
-                     Field::Slice(1, std::vector<Vector::Vec2>(3, Vector::Vec2(1.0f, 0.0f)))};
-    REQUIRE_NOTHROW(SequentialStreamlineSolver{}.computeTimeStep(grid));
+    auto make = [] {
+        return Field::Grid{Field::Bounds{0.0f, 2.0f, 0.0f, 0.0f},
+                           Field::Slice(1, std::vector<Vector::Vec2>(3, Vector::Vec2(1.0f, 0.0f)))};
+    };
+    { auto grid = make(); REQUIRE_NOTHROW(SequentialStreamlineSolver{}.computeTimeStep(grid)); }
+    { auto grid = make(); REQUIRE_NOTHROW(OpenMpStreamlineSolver{}.computeTimeStep(grid)); }
+    { auto grid = make(); REQUIRE_NOTHROW(PthreadsStreamlineSolver{2}.computeTimeStep(grid)); }
+    { auto grid = make(); REQUIRE_NOTHROW(MpiStreamlineSolver{}.computeTimeStep(grid)); }
 }
 
 TEST_CASE("all solvers handle single-column grid without crash", "[impl][consistency]") {
-    Field::Grid grid{Field::Bounds{0.0f, 0.0f, 0.0f, 2.0f},
-                     Field::Slice(3, std::vector<Vector::Vec2>(1, Vector::Vec2(1.0f, 0.0f)))};
-    REQUIRE_NOTHROW(SequentialStreamlineSolver{}.computeTimeStep(grid));
+    auto make = [] {
+        return Field::Grid{Field::Bounds{0.0f, 0.0f, 0.0f, 2.0f},
+                           Field::Slice(3, std::vector<Vector::Vec2>(1, Vector::Vec2(1.0f, 0.0f)))};
+    };
+    { auto grid = make(); REQUIRE_NOTHROW(SequentialStreamlineSolver{}.computeTimeStep(grid)); }
+    { auto grid = make(); REQUIRE_NOTHROW(OpenMpStreamlineSolver{}.computeTimeStep(grid)); }
+    { auto grid = make(); REQUIRE_NOTHROW(PthreadsStreamlineSolver{2}.computeTimeStep(grid)); }
+    { auto grid = make(); REQUIRE_NOTHROW(MpiStreamlineSolver{}.computeTimeStep(grid)); }
 }
 
 // ---------------------------------------------------------------------------

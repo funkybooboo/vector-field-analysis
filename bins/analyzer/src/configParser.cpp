@@ -52,6 +52,9 @@ AnalyzerConfig parseAnalyzer(const std::string& path) {
                 throw std::runtime_error("threads must be an integer");
             }
             const auto threadCount = threadsNode.value<int64_t>();
+            if (!threadCount.has_value()) {
+                throw std::runtime_error("threads must be an integer");
+            }
             if (*threadCount < 0 ||
                 *threadCount > static_cast<int64_t>(std::numeric_limits<unsigned int>::max())) {
                 throw std::runtime_error("threads must be between 0 and " +

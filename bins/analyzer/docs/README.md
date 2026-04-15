@@ -5,7 +5,7 @@ Documentation for the `analyzer` binary (`bins/analyzer`).
 ## What It Does
 
 Reads a time-series vector field from an HDF5 file and, for each time step, constructs a
-`FieldGrid` and traces streamlines across it using a selected parallel implementation.
+`Field::Grid` and traces streamlines across every cell using a selected parallel implementation.
 All implementations share a two-pass design: a parallelisable read pass followed by a
 sequential merge pass.
 
@@ -19,10 +19,9 @@ mise run run:analyzer         # uses MPI_RANKS for a fair apples-to-apples compa
 MPI_RANKS=8 mise run run:analyzer:mpi
 
 # Or drive manually:
-simulator bins/simulator/configs/vortex.toml          # generate field.h5
-analyzer bins/analyzer/configs/all.toml               # benchmark all impls (single-process)
-mpirun -n 4 analyzer bins/analyzer/configs/all.toml   # benchmark with MPI active
-mpirun -n 4 analyzer bins/analyzer/configs/mpi.toml   # MPI solver only, 4 ranks
+simulator configs/vortex_128x128.toml                        # generate field.h5
+analyzer configs/vortex_128x128.toml                         # benchmark all impls (single-process)
+mpirun -n 4 analyzer configs/vortex_128x128.toml             # benchmark with MPI active
 ```
 
 ## Input Format

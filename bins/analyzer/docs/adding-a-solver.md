@@ -18,11 +18,11 @@ class StreamlineSolver {
     StreamlineSolver(StreamlineSolver&&) = delete;
     StreamlineSolver& operator=(StreamlineSolver&&) = delete;
 
-    virtual void computeTimeStep(VectorField::FieldGrid& grid) = 0;
+    virtual void computeTimeStep(Field::Grid& grid) = 0;
 };
 ```
 
-`computeTimeStep` is called once per time step. The `FieldGrid` it receives exposes two operations:
+`computeTimeStep` is called once per time step. The `Field::Grid` it receives exposes two operations:
 
 | Method | Thread-safe | Description |
 |--------|-------------|-------------|
@@ -43,7 +43,7 @@ All existing solvers use a **two-pass design** to exploit this split:
 |------|------|--------|
 | 1 | `src/mysolver.hpp` (new) | Declare class inheriting `StreamlineSolver` |
 | 2 | `src/mysolver.cpp` (new) | Implement `computeTimeStep()` |
-| 3 | `src/analyzerConfig.hpp` | Add name to `kValidSolvers`; update array size |
+| 3 | `libs/config/src/analyzerConfig.hpp` | Add name to `kValidSolvers`; update array size |
 | 4 | `src/solverFactory.cpp` | Add case in `makeSolver()`; update `static_assert` |
 | 5 | `CMakeLists.txt` | Add `.cpp` to `analyzer_lib` sources |
 | 6 | `configs/mysolver.toml` (new) | Config file for running the solver in isolation |
@@ -63,7 +63,7 @@ class MySolver : public StreamlineSolver {
     unsigned int threadCount_;
   public:
     explicit MySolver(unsigned int threadCount);
-    void computeTimeStep(VectorField::FieldGrid& grid) override;
+    void computeTimeStep(Field::Grid& grid) override;
 };
 ```
 
@@ -74,18 +74,17 @@ Omit `threadCount_` if your solver does not use threads.
 ```cpp
 // bins/analyzer/src/mysolver.cpp
 #include "mysolver.hpp"
-#include "vectorField.hpp"
 #include <vector>
 
 MySolver::MySolver(unsigned int threadCount) : threadCount_(threadCount) {}
 
-void MySolver::computeTimeStep(VectorField::FieldGrid& grid) {
+void MySolver::computeTimeStep(Field::Grid& grid) {
     const auto numRow = grid.rows();
     const auto numCol = grid.cols();
     if (numRow == 0 || numCol == 0) return;
 
     // Pass 1: read-only, parallel-safe
-    std::vector<Vector::GridCell> neighbors(numRow * numCol);
+    std::vector<Field::GridCell> neighbors(numRow * numCol);
     for (std::size_t row = 0; row < numRow; row++) {
         for (std::size_t col = 0; col < numCol; col++) {
             neighbors[row * numCol + col] =
@@ -107,7 +106,7 @@ void MySolver::computeTimeStep(VectorField::FieldGrid& grid) {
 ### 3. Register the Name
 
 ```cpp
-// bins/analyzer/src/analyzerConfig.hpp
+// libs/config/src/analyzerConfig.hpp
 inline constexpr std::array<std::string_view, 6> kValidSolvers = {   // was 5
     "sequential", "openmp", "pthreads", "mpi", "mysolver", "all"
 };
@@ -161,9 +160,9 @@ Then guard the implementation:
 #include <mylib.h>
 // real implementation
 #else
-#include "sequentialCPU.hpp"
-void MySolver::computeTimeStep(VectorField::FieldGrid& grid) {
-    SequentialCPU fallback;
+#include "sequentialStreamlineSolver.hpp"
+void MySolver::computeTimeStep(Field::Grid& grid) {
+    SequentialStreamlineSolver fallback;
     fallback.computeTimeStep(grid);
 }
 #endif
@@ -172,13 +171,12 @@ void MySolver::computeTimeStep(VectorField::FieldGrid& grid) {
 ### 6. Config File
 
 ```toml
-# bins/analyzer/configs/mysolver.toml
+# configs/mysolver.toml
 # Brief description of the implementation.
 #
-# Run: analyzer bins/analyzer/configs/mysolver.toml
+# Run: analyzer configs/mysolver.toml
 
 [analyzer]
-input  = "field.h5"
 solver = "mysolver"
 ```
 
@@ -193,7 +191,7 @@ Thread count is controlled by the `ANALYZER_THREADS` env var (see `.env.example`
 1. Add it to the `runAll()` function in `main.cpp` following the pattern of the existing solvers.
 2. Call `verify()` against the sequential reference result to confirm correctness.
 
-If your solver is MPI-aware (collective calls required), it must participate across all ranks -- see `MpiCPU` as the reference.
+If your solver is MPI-aware (collective calls required), it must participate across all ranks -- see `MpiStreamlineSolver` as the reference.
 
 ---
 
