@@ -11,8 +11,12 @@
 // regardless of the order in which solvers emit them.
 static std::vector<Field::Path> canonicalize(std::vector<Field::Path> lines) {
     std::sort(lines.begin(), lines.end(), [](const Field::Path& a, const Field::Path& b) {
-        if (a.empty()) { return true; }
-        if (b.empty()) { return false; }
+        if (a.empty()) {
+            return true;
+        }
+        if (b.empty()) {
+            return false;
+        }
         return a.front() < b.front();
     });
     return lines;

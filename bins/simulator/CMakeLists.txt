@@ -8,7 +8,7 @@ target_include_directories(simulator_lib PUBLIC
 )
 
 target_link_libraries(simulator_lib
-    PUBLIC  field field_io config
+    PUBLIC  field field_io
     PRIVATE utils exprtk stb_perlin tomlplusplus::tomlplusplus
 )
 

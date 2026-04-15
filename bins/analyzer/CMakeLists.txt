@@ -13,7 +13,7 @@ target_include_directories(analyzer_lib PUBLIC
 )
 
 target_link_libraries(analyzer_lib
-    PUBLIC  field field_io config
+    PUBLIC  field field_io
     PRIVATE utils HighFive tomlplusplus::tomlplusplus
 )
 

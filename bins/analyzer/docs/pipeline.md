@@ -34,7 +34,7 @@ config.toml
 **Source:** `configParser.hpp`, `configParser.cpp`
 
 Reads a TOML file using toml++ and produces an `AnalyzerConfig` struct (defined in
-`libs/config/src/analyzerConfig.hpp`). The `[analyzer]` table is optional -- struct
+`src/analyzerConfig.hpp`). The `[analyzer]` table is optional -- struct
 defaults apply when absent.
 
 ```
@@ -157,5 +157,5 @@ To keep the comparison apples-to-apples:
 | `openMpStreamlineSolver.hpp/.cpp` | OpenMP shared-memory implementation |
 | `pthreadsStreamlineSolver.hpp/.cpp` | Pthreads shared-memory implementation |
 | `mpiStreamlineSolver.hpp/.cpp` | MPI distributed-memory CPU implementation |
-| `libs/config/src/analyzerConfig.hpp` | `AnalyzerConfig` struct and `kValidSolvers` array |
+| `analyzerConfig.hpp` | `AnalyzerConfig` struct and `kValidSolvers` array |
 | `libs/field/src/grid.hpp` | `Field::Grid` -- owns the streamline state per time step |

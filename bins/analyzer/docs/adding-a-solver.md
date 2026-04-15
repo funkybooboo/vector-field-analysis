@@ -43,7 +43,7 @@ All existing solvers use a **two-pass design** to exploit this split:
 |------|------|--------|
 | 1 | `src/mysolver.hpp` (new) | Declare class inheriting `StreamlineSolver` |
 | 2 | `src/mysolver.cpp` (new) | Implement `computeTimeStep()` |
-| 3 | `libs/config/src/analyzerConfig.hpp` | Add name to `kValidSolvers`; update array size |
+| 3 | `src/analyzerConfig.hpp` | Add name to `kValidSolvers`; update array size |
 | 4 | `src/solverFactory.cpp` | Add case in `makeSolver()`; update `static_assert` |
 | 5 | `CMakeLists.txt` | Add `.cpp` to `analyzer_lib` sources |
 | 6 | `configs/mysolver.toml` (new) | Config file for running the solver in isolation |
@@ -106,7 +106,7 @@ void MySolver::computeTimeStep(Field::Grid& grid) {
 ### 3. Register the Name
 
 ```cpp
-// libs/config/src/analyzerConfig.hpp
+// bins/analyzer/src/analyzerConfig.hpp
 inline constexpr std::array<std::string_view, 6> kValidSolvers = {   // was 5
     "sequential", "openmp", "pthreads", "mpi", "mysolver", "all"
 };
