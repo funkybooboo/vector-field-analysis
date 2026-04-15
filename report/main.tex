@@ -1,0 +1,42 @@
+\documentclass[journal]{IEEEtran}
+
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage[colorlinks=true,allcolors=blue]{hyperref}
+
+\graphicspath{{./figures/}}
+
+\begin{document}
+
+\title{Title of Your Paper}
+\author{Author Name, Member, IEEE\thanks{Author affiliation and thanks to funding agencies.}}
+\markboth{IEEE Journal Name}{Shell \MakeLowercase{\textit{et al.}}: Title of Paper}
+\IEEEtitleabstractindextext{
+	\begin{abstract}
+		Abstract goes here. The abstract should be a brief summary of the paper, usually 150-250 words. It should state the problem, the methods used, the main results, and conclusions. Do not reference figures, tables, or equations in the abstract.
+	\end{abstract}
+	\begin{IEEEkeywords}
+		keyword1, keyword2, keyword3, keyword4
+	\end{IEEEkeywords}
+}
+
+\maketitle
+
+\IEEEpeerreviewmaketitle
+
+\input{sections/introduction}
+\input{sections/background}
+\input{sections/methodology}
+\input{sections/results}
+\input{sections/conclusion}
+\input{sections/acknowledgments}
+\input{sections/references}
+
+% Add a citation to generate bibliography entries
+See \cite{ref1} for more information.
+
+\end{document}
+
+
