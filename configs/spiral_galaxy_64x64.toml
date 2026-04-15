@@ -1,0 +1,26 @@
+# spiral_galaxy_64x64.toml
+# Differential rotation with a weak inward drift, mimicking galactic disk flow.
+# Unlike a rigid-body vortex (omega = const), here omega ~ 1/r so the inner
+# parts orbit faster than the outer parts -- exactly like a spiral galaxy.
+# The small infall term (-0.1 * radial) adds a slow inward drift.
+#
+# Run: simulator configs/spiral_galaxy_64x64.toml
+
+[simulation]
+steps     = 200
+dt        = 0.05
+viscosity = 0.0
+width     = 64
+height    = 64
+xmin      = -2.0
+xmax      =  2.0
+ymin      = -2.0
+ymax      =  2.0
+
+# Differential rotation (1/r) + slow infall
+# vx = (-y - 0.1*x) / (r^2 + 0.1),  vy = (x - 0.1*y) / (r^2 + 0.1)
+[[layers]]
+type         = "custom"
+strength     = 1.0
+x_expression = "(-y - 0.1 * x) / (x*x + y*y + 0.1)"
+y_expression = "( x - 0.1 * y) / (x*x + y*y + 0.1)"

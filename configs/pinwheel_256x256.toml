@@ -1,0 +1,68 @@
+# pinwheel_256x256.toml
+# Four sources and four sinks alternating around a circle of radius 1.0.
+# Sources sit on the cardinal axes (0, 90, 180, 270 degrees); sinks sit on the
+# diagonals (45, 135, 225, 315 degrees). Flow spirals outward from each source
+# and is pulled into the adjacent sinks, creating a pinwheel pattern.
+#
+# Run: simulator configs/pinwheel_256x256.toml
+
+[simulation]
+steps     = 100
+dt        = 0.05
+viscosity = 0.0
+width     = 256
+height    = 256
+xmin      = -2.0
+xmax      =  2.0
+ymin      = -2.0
+ymax      =  2.0
+
+# Sources on cardinal axes
+[[layers]]
+type     = "source"
+center_x =  1.0
+center_y =  0.0
+strength =  1.0
+
+[[layers]]
+type     = "source"
+center_x =  0.0
+center_y =  1.0
+strength =  1.0
+
+[[layers]]
+type     = "source"
+center_x = -1.0
+center_y =  0.0
+strength =  1.0
+
+[[layers]]
+type     = "source"
+center_x =  0.0
+center_y = -1.0
+strength =  1.0
+
+# Sinks on diagonals
+[[layers]]
+type     = "sink"
+center_x =  0.707
+center_y =  0.707
+strength =  1.0
+
+[[layers]]
+type     = "sink"
+center_x = -0.707
+center_y =  0.707
+strength =  1.0
+
+[[layers]]
+type     = "sink"
+center_x = -0.707
+center_y = -0.707
+strength =  1.0
+
+[[layers]]
+type     = "sink"
+center_x =  0.707
+center_y = -0.707
+strength =  1.0

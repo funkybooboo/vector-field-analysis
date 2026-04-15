@@ -8,7 +8,9 @@ A C++17 research tool for generating and analyzing 2D vector fields. The simulat
 
 | Library | Description |
 |---|---|
-| [`libs/vector`](libs/vector) | Core vector types and math utilities shared across binaries and libraries |
+| [`libs/field`](libs/field) | Core vector types, grid, and streamline math shared across binaries and libraries |
+| [`libs/field_io`](libs/field_io) | HDF5 read/write for field and streamline data |
+| [`libs/utils`](libs/utils) | Shared utilities (byte formatting, TOML helpers) |
 
 **Binaries** (`bins/`)
 
@@ -27,7 +29,7 @@ A C++17 research tool for generating and analyzing 2D vector fields. The simulat
 
 ```sh
 mise install     # install pinned tools (cmake, ninja, uv, clang-format, clang-tidy, lychee)
-mise run deps    # install system dependencies (HDF5, cppcheck)
+mise run deps    # install system dependencies (HDF5, OpenMPI, cppcheck)
 mise run build   # configure and build everything
 mise run test    # run all tests
 ```
@@ -49,21 +51,23 @@ mise run test    # run all tests
 | `mise run test:coverage` | Run tests and generate coverage report |
 | `mise run links` | Check for broken links in markdown files |
 | `mise run ci` | Full pipeline -- mirrors all GitHub Actions jobs |
-| `mise run run:bin:simulator` | Build and run the simulator with `karman_street.toml` (writes `field.h5`) |
-| `mise run run:bin:analyzer` | Build and run the analyzer (reads `field.h5`) |
+| `mise run run:simulator` | Build and run the simulator with `karman_street.toml` (writes `field.h5`) |
+| `mise run run:analyzer` | Run simulator then benchmark all solver impls under `mpirun -n $(nproc)` |
+| `mise run run:analyzer:mpi` | Run MPI solver only under mpirun (default 4 ranks; override with `NRANKS=N`) |
 | `mise run visualize` | Animate `field.h5` as a quiver plot |
+| `mise run visualize:streams` | Animate `field.h5` with streamlines overlaid from `field.streams.h5` |
 | `mise run clean` | Remove build artifacts |
 
 Individual targets:
 
 | Task | Description |
 |---|---|
-| `mise run build:lib:vector` | Build vector library only |
-| `mise run build:bin:analyzer` | Build analyzer only |
-| `mise run build:bin:simulator` | Build simulator only |
-| `mise run test:lib:vector` | Test vector library only |
-| `mise run test:bin:analyzer` | Test analyzer only |
-| `mise run test:bin:simulator` | Test simulator only |
+| `mise run build` | Build vector library only |
+| `mise run build:analyzer` | Build analyzer only |
+| `mise run build:simulator` | Build simulator only |
+| `mise run test:vector` | Test vector library only |
+| `mise run test:analyzer` | Test analyzer only |
+| `mise run test:simulator` | Test simulator only |
 
 ## Dependencies
 
@@ -83,6 +87,7 @@ Individual targets:
 | Dependency | Notes |
 |---|---|
 | HDF5 | Binary data format used by simulator and analyzer |
+| OpenMPI | MPI runtime and headers for the MPI solver |
 | cppcheck | Secondary static analyzer |
 
 **Fetched automatically by CMake** (`FetchContent`)

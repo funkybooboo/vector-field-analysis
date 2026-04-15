@@ -18,11 +18,12 @@ CMake modules for the project.
 
 \* `stb` has no release tags; `master` is the only option. This is a known reproducibility gap.
 
-HDF5 must be installed on the system before configuring. Run `mise run deps` to install it.
+HDF5 and OpenMPI must be installed on the system before configuring. Run `mise run deps` to install them.
 
-| Distro | Package |
-|---|---|
-| Arch Linux | `hdf5` |
-| Ubuntu | `libhdf5-dev` |
+| Distro | HDF5 | OpenMPI |
+|---|---|---|
+| Arch Linux | `hdf5` | `openmpi` |
+| Ubuntu | `libhdf5-dev` | `libopenmpi-dev openmpi-bin` |
+| Fedora | `hdf5` | `openmpi-devel` |
 
 `clang-format 22.1.1` and `clang-tidy 22.1.0` are managed by mise via the pipx backend (PyPI) and installed automatically with `mise install`. They are pinned to exact versions so all contributors and CI use identical binaries regardless of OS.

@@ -1,6 +1,6 @@
 #include "fieldGenerator.hpp"
 
-#include "vector.hpp"
+#include "fieldTypes.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -33,9 +33,9 @@ struct RadialComponents {
 };
 
 // Returns nullopt when the point is at the singularity (radius < kSingularityRadius).
-std::optional<RadialComponents> computeRadial(float px, float py, const FieldLayerConfig& layer) {
-    const float dx = px - layer.centerX;
-    const float dy = py - layer.centerY;
+std::optional<RadialComponents> computeRadial(Vector::Vec2 pos, const FieldLayerConfig& layer) {
+    const float dx = pos.x - layer.center.x;
+    const float dy = pos.y - layer.center.y;
     const float radius = std::sqrt((dx * dx) + (dy * dy));
     if (radius < kSingularityRadius) {
         return std::nullopt;
@@ -44,17 +44,17 @@ std::optional<RadialComponents> computeRadial(float px, float py, const FieldLay
 }
 
 // ---------------------------------------------------------------------------
-// Per-layer base vector at physical coords (px, py, t=time)
+// Per-layer base vector at physical position pos, t=time
 // ---------------------------------------------------------------------------
 
 // Returns a unit tangent vector perpendicular to the radius, producing pure
 // counter-clockwise rotation around the center point.
-Vector::Vec2 evalVortex(float px, float py, const FieldLayerConfig& layer) {
-    const auto r = computeRadial(px, py, layer);
-    if (!r) {
+Vector::Vec2 evalVortex(Vector::Vec2 pos, const FieldLayerConfig& layer) {
+    const auto radial = computeRadial(pos, layer);
+    if (!radial) {
         return Vector::Vec2{};
     }
-    return {-r->dy / r->radius, r->dx / r->radius};
+    return {-radial->dy / radial->radius, radial->dx / radial->radius};
 }
 
 Vector::Vec2 evalUniform(const FieldLayerConfig& layer) {
@@ -62,40 +62,42 @@ Vector::Vec2 evalUniform(const FieldLayerConfig& layer) {
     return {std::cos(radians), std::sin(radians)};
 }
 
-Vector::Vec2 evalSource(float px, float py, const FieldLayerConfig& layer) {
-    const auto r = computeRadial(px, py, layer);
-    if (!r) {
+Vector::Vec2 evalSource(Vector::Vec2 pos, const FieldLayerConfig& layer) {
+    const auto radial = computeRadial(pos, layer);
+    if (!radial) {
         return Vector::Vec2{};
     }
-    return {r->dx / r->radius, r->dy / r->radius};
+    return {radial->dx / radial->radius, radial->dy / radial->radius};
 }
 
 // A sink is a source with the direction reversed -- flow points inward rather than outward.
-Vector::Vec2 evalSink(float px, float py, const FieldLayerConfig& layer) {
-    return -evalSource(px, py, layer);
+Vector::Vec2 evalSink(Vector::Vec2 pos, const FieldLayerConfig& layer) {
+    return -evalSource(pos, layer);
 }
 
 // Hyperbolic flow: stretches along the x-axis and compresses along y,
 // with two attracting and two repelling sectors separated by the axes.
-Vector::Vec2 evalSaddle(float px, float py, const FieldLayerConfig& layer) {
-    const auto r = computeRadial(px, py, layer);
-    if (!r) {
+Vector::Vec2 evalSaddle(Vector::Vec2 pos, const FieldLayerConfig& layer) {
+    const auto radial = computeRadial(pos, layer);
+    if (!radial) {
         return Vector::Vec2{};
     }
-    return {r->dx / r->radius, -r->dy / r->radius};
+    return {radial->dx / radial->radius, -radial->dy / radial->radius};
 }
 
 // A spiral is a convex blend of rotation (vortex) and attraction (sink).
 // sinkBlend=0 is a pure circular vortex; sinkBlend=1 is a pure inward sink.
-Vector::Vec2 evalSpiral(float px, float py, const FieldLayerConfig& layer) {
+Vector::Vec2 evalSpiral(Vector::Vec2 pos, const FieldLayerConfig& layer) {
     const float sinkWeight = std::clamp(layer.sinkBlend, 0.0f, 1.0f);
-    return (1.0f - sinkWeight) * evalVortex(px, py, layer) + sinkWeight * evalSink(px, py, layer);
+    return (1.0f - sinkWeight) * evalVortex(pos, layer) + sinkWeight * evalSink(pos, layer);
 }
 
-Vector::Vec2 evalNoise(float px, float py, float time, const FieldLayerConfig& layer) {
+Vector::Vec2 evalNoise(Vector::Vec2 pos, float time, const FieldLayerConfig& layer) {
+    // Multiply by 100 to spread seeds far apart in Perlin noise coordinate space;
+    // adjacent seed values would otherwise produce nearly identical patterns.
     const float seedOffset = static_cast<float>(layer.seed) * 100.0f;
-    const float scaledX = px * layer.scale;
-    const float scaledY = py * layer.scale;
+    const float scaledX = pos.x * layer.scale;
+    const float scaledY = pos.y * layer.scale;
     const float velocityX =
         stb_perlin_noise3(scaledX + seedOffset, scaledY + seedOffset, time, 0, 0, 0);
     // Sample y velocity at a spatially offset location so vx and vy are
@@ -140,9 +142,9 @@ struct CustomExpressionEvaluator {
         }
     }
 
-    Vector::Vec2 eval(float px, float py, float time) {
-        x = px;
-        y = py;
+    Vector::Vec2 eval(Vector::Vec2 pos, float time) {
+        x = pos.x;
+        y = pos.y;
         t = time;
         return {xExpr.value(), yExpr.value()};
     }
@@ -150,37 +152,36 @@ struct CustomExpressionEvaluator {
 
 } // namespace
 
-Vector::FieldTimeSeries generateTimeSeries(const SimulatorConfig& config) {
+Field::TimeSeries generateTimeSeries(const SimulatorConfig& config) {
     const auto numSteps = static_cast<std::size_t>(config.steps);
-    const auto height = static_cast<std::size_t>(config.height);
-    const auto width = static_cast<std::size_t>(config.width);
+    const auto height = static_cast<std::size_t>(config.grid.height);
+    const auto width = static_cast<std::size_t>(config.grid.width);
 
     // Pre-compute physical coordinates for each grid index
     std::vector<float> xCoords(width);
     std::vector<float> yCoords(height);
     for (std::size_t col = 0; col < width; ++col) {
-        xCoords[col] = gridToWorld(static_cast<int>(col), config.width, config.xMin, config.xMax);
+        xCoords[col] = Field::indexToCoord(static_cast<int>(col), config.grid.width,
+                                           config.bounds.xMin, config.bounds.xMax);
     }
     for (std::size_t row = 0; row < height; ++row) {
-        yCoords[row] = gridToWorld(static_cast<int>(row), config.height, config.yMin, config.yMax);
+        yCoords[row] = Field::indexToCoord(static_cast<int>(row), config.grid.height,
+                                           config.bounds.yMin, config.bounds.yMax);
     }
 
     // Pre-compile custom field expressions - one evaluator per layer, nullptr for non-custom
     std::vector<std::unique_ptr<CustomExpressionEvaluator>> evaluators(config.layers.size());
-    for (std::size_t layerIdx = 0; layerIdx < config.layers.size(); ++layerIdx) {
-        if (config.layers[layerIdx].type == FieldType::Custom) {
-            evaluators[layerIdx] = std::make_unique<CustomExpressionEvaluator>(
-                config.layers[layerIdx].xExpression, config.layers[layerIdx].yExpression);
+    for (std::size_t layerIndex = 0; layerIndex < config.layers.size(); ++layerIndex) {
+        if (config.layers[layerIndex].type == FieldType::Custom) {
+            evaluators[layerIndex] = std::make_unique<CustomExpressionEvaluator>(
+                config.layers[layerIndex].xExpression, config.layers[layerIndex].yExpression);
         }
     }
 
-    // Allocate output: steps[steps][height][width]
-    Vector::FieldTimeSeries output;
-    output.xMin = config.xMin;
-    output.xMax = config.xMax;
-    output.yMin = config.yMin;
-    output.yMax = config.yMax;
-    output.steps.assign(numSteps, Vector::FieldSlice(height, std::vector<Vector::Vec2>(width)));
+    // Allocate result: steps[steps][height][width]
+    Field::TimeSeries result;
+    result.bounds = config.bounds;
+    result.frames.assign(numSteps, Field::Slice(height, std::vector<Vector::Vec2>(width)));
 
     // For each time step, sample every layer at every grid cell and sum their
     // contributions (linear superposition). Strength is the per-layer weight.
@@ -192,51 +193,50 @@ Vector::FieldTimeSeries generateTimeSeries(const SimulatorConfig& config) {
 
         for (std::size_t row = 0; row < height; ++row) {
             for (std::size_t col = 0; col < width; ++col) {
-                const float px = xCoords[col];
-                const float py = yCoords[row];
+                const Vector::Vec2 pos{xCoords[col], yCoords[row]};
 
                 Vector::Vec2 sum{};
 
-                for (std::size_t layerIdx = 0; layerIdx < config.layers.size(); ++layerIdx) {
-                    const FieldLayerConfig& layer = config.layers[layerIdx];
+                for (std::size_t layerIndex = 0; layerIndex < config.layers.size(); ++layerIndex) {
+                    const FieldLayerConfig& layer = config.layers[layerIndex];
                     Vector::Vec2 contribution{};
 
                     switch (layer.type) {
                     case FieldType::Vortex:
-                        contribution = evalVortex(px, py, layer);
+                        contribution = evalVortex(pos, layer);
                         break;
                     case FieldType::Uniform:
                         contribution = evalUniform(layer);
                         break;
                     case FieldType::Source:
-                        contribution = evalSource(px, py, layer);
+                        contribution = evalSource(pos, layer);
                         break;
                     case FieldType::Sink:
-                        contribution = evalSink(px, py, layer);
+                        contribution = evalSink(pos, layer);
                         break;
                     case FieldType::Saddle:
-                        contribution = evalSaddle(px, py, layer);
+                        contribution = evalSaddle(pos, layer);
                         break;
                     case FieldType::Spiral:
-                        contribution = evalSpiral(px, py, layer);
+                        contribution = evalSpiral(pos, layer);
                         break;
                     case FieldType::Noise:
-                        contribution = evalNoise(px, py, time, layer);
+                        contribution = evalNoise(pos, time, layer);
                         break;
                     case FieldType::Custom:
-                        contribution = evaluators[layerIdx]->eval(px, py, time);
+                        contribution = evaluators[layerIndex]->eval(pos, time);
                         break;
                     }
 
-                    sum += layer.strength * (layer.magnitude * contribution);
+                    sum += layer.strength * (layer.amplitude * contribution);
                 }
 
-                output.steps[step][row][col] = decay * sum;
+                result.frames[step][row][col] = decay * sum;
             }
         }
     }
 
-    return output;
+    return result;
 }
 
 } // namespace FieldGenerator

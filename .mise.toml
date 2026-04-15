@@ -7,16 +7,16 @@ uv = "latest"
 "ubi:lycheeverse/lychee" = "latest"
 
 [tasks.deps]
-description = "Install system dependencies (HDF5, cppcheck; clang-format/tidy/lychee/uv managed by mise)"
+description = "Install system dependencies (HDF5, OpenMPI, cppcheck)"
 run = """
 if command -v apt-get &>/dev/null; then
-    sudo apt-get update -q && sudo apt-get install -y -q libhdf5-dev cppcheck
+    sudo apt-get update -q && sudo apt-get install -y -q libhdf5-dev libopenmpi-dev openmpi-bin cppcheck
 elif command -v dnf &>/dev/null; then
-    sudo dnf update -q && sudo dnf install -y -q hdf5 cppcheck
+    sudo dnf update -q && sudo dnf install -y -q hdf5 openmpi-devel cppcheck
 elif command -v pacman &>/dev/null; then
-    sudo pacman -S --needed hdf5 cppcheck
+    sudo pacman -S --needed hdf5 openmpi cppcheck
 else
-    echo "Unsupported package manager -> install HDF5 and cppcheck manually"
+    echo "Unsupported package manager -> install HDF5, OpenMPI, and cppcheck manually"
     exit 1
 fi
 """
@@ -30,17 +30,12 @@ description = "Build everything"
 depends = ["configure"]
 run = "cmake --build build"
 
-[tasks."build:lib:vector"]
-description = "Build vector library"
-depends = ["configure"]
-run = "cmake --build build --target vector"
-
-[tasks."build:bin:analyzer"]
+[tasks."build:analyzer"]
 description = "Build analyzer"
 depends = ["configure"]
 run = "cmake --build build --target analyzer"
 
-[tasks."build:bin:simulator"]
+[tasks."build:simulator"]
 description = "Build simulator"
 depends = ["configure"]
 run = "cmake --build build --target simulator"
@@ -50,34 +45,60 @@ description = "Run all tests"
 depends = ["build"]
 run = "ctest --test-dir build --output-on-failure"
 
-[tasks."test:lib:vector"]
+[tasks."test:vector"]
 description = "Run vector library tests"
 depends = ["build"]
 run = "ctest --test-dir build --output-on-failure -R vector"
 
-[tasks."test:bin:analyzer"]
+[tasks."test:analyzer"]
 description = "Run analyzer tests"
 depends = ["build"]
 run = "ctest --test-dir build --output-on-failure -R analyzer"
 
-[tasks."test:bin:simulator"]
+[tasks."test:simulator"]
 description = "Run simulator tests"
 depends = ["build"]
 run = "ctest --test-dir build --output-on-failure -R simulator"
 
-[tasks."run:bin:simulator"]
+[tasks."run:simulator"]
 description = "Build and run the simulator"
-depends = ["build:bin:simulator"]
-run = "./build/bins/simulator/simulator bins/simulator/configs/karman_street.toml"
+depends = ["build:simulator"]
+run = "./build/bins/simulator/simulator configs/karman_street_128x64.toml"
 
-[tasks."run:bin:analyzer"]
-description = "Generate field data via simulator then benchmark all analyzer impls"
-depends = ["build:bin:analyzer", "run:bin:simulator"]
-run = "./build/bins/analyzer/analyzer field.h5"
+[tasks."run:analyzer"]
+description = "Generate field data then benchmark all analyzer impls (MPI_RANKS, ANALYZER_THREADS)"
+depends = ["build:analyzer", "run:simulator"]
+run = "mpirun -n ${MPI_RANKS:-4} --oversubscribe ./build/bins/analyzer/analyzer configs/karman_street_128x64.toml"
+
+[tasks.demo]
+description = "Full pipeline: build, simulate, benchmark all solvers, then visualize"
+depends = ["run:analyzer"]
+run = "uv run tools/visualize.py data/${STEM:-karman_street_128x64}/field.h5 --streams data/${STEM:-karman_street_128x64}/streams.h5"
+
+[tasks."run:analyzer:mpi"]
+description = "Run MPI analyzer (NRANKS defaults to 4)"
+depends = ["build:analyzer", "run:simulator"]
+run = "mpirun -n ${MPI_RANKS:-4} --oversubscribe ./build/bins/analyzer/analyzer configs/karman_street_128x64.toml"
+
+[tasks.stats]
+description = "Print stats for field.h5 and field.streams.h5"
+run = "uv run tools/stats.py data/${STEM:-karman_street_128x64}/field.h5 data/${STEM:-karman_street_128x64}/streams.h5"
+
+[tasks."stats:field"]
+description = "Print stats for field.h5"
+run = "uv run tools/stats.py data/${STEM:-karman_street_128x64}/field.h5"
+
+[tasks."stats:streams"]
+description = "Print stats for field.streams.h5"
+run = "uv run tools/stats.py data/${STEM:-karman_street_128x64}/streams.h5"
 
 [tasks.visualize]
-description = "Visualize field.h5 with the quiver plot tool"
-run = "uv run tools/visualize.py field.h5"
+description = "Visualize field.h5 with quiver plot"
+run = "uv run tools/visualize.py data/${STEM:-karman_street_128x64}/field.h5"
+
+[tasks."visualize:streams"]
+description = "Visualize field.h5 with streamlines overlaid"
+run = "uv run tools/visualize.py data/${STEM:-karman_street_128x64}/field.h5 --streams data/${STEM:-karman_street_128x64}/streams.h5"
 
 [tasks.format]
 description = "Format all source files in place"
@@ -88,13 +109,12 @@ description = "Check formatting without modifying files"
 run = "find bins libs -name '*.cpp' -o -name '*.hpp' | xargs clang-format --dry-run --Werror"
 
 [tasks."ascii-check"]
-description = "Fail if any project source file contains non-ASCII characters"
+description = "Fail if any source file contains non-ASCII characters"
 run = """
 if grep -rn --include='*.cpp' --include='*.hpp' --include='*.toml' --include='*.cmake' --include='*.txt' -P '[\x80-\xFF]' bins libs cmake docs CMakeLists.txt .clang-tidy .clang-format; then
-echo "Non-ASCII characters found in project files."
-exit 1
+    echo "Non-ASCII characters found."
+    exit 1
 fi
-echo "All project files are ASCII-only."
 """
 
 [tasks.lint]
@@ -102,8 +122,35 @@ description = "Run clang-tidy on all source files"
 depends = ["configure"]
 run = "find bins libs -name '*.cpp' | xargs clang-tidy -p build --config-file=.clang-tidy --warnings-as-errors=*"
 
-[tasks."configure:sanitize"]
-description = "Configure CMake build with AddressSanitizer + UBSanitizer"
+[tasks.spell]
+description = "Check for spelling errors"
+run = "uvx codespell bins libs docs tools README.md --skip='build,*.h5'"
+
+[tasks.cppcheck]
+description = "Run cppcheck static analysis"
+run = """
+cppcheck --enable=all --error-exitcode=1 \
+  --suppress=missingIncludeSystem \
+  --suppress=missingInclude \
+  --suppress=unmatchedSuppression \
+  --suppress=normalCheckLevelMaxBranches \
+  "--suppress=unusedStructMember:bins/simulator/src/fieldGenerator.cpp" \
+  "--suppress=knownConditionTrueFalse:bins/analyzer/src/main.cpp" \
+  bins/ libs/
+# unusedStructMember: false positive -- RadialComponents members accessed via std::optional::operator->
+# normalCheckLevelMaxBranches: pthreads.cpp two-pass design exceeds branch analysis limit, not an error
+# knownConditionTrueFalse: intentional #ifdef USE_MPI pattern; always 0/1 in non-MPI build
+"""
+
+[tasks.links]
+description = "Check for broken links in markdown files"
+run = """
+lychee --verbose --no-progress --exclude math.nist.gov README.md docs/ tools/ .github/
+# math.nist.gov/oommf: upstream server returns 404 (not our problem)
+"""
+
+[tasks."build:sanitize"]
+description = "Build with AddressSanitizer + UBSanitizer"
 run = """
 cmake -B build-sanitize -G Ninja \
   -DCMAKE_BUILD_TYPE=Debug \
@@ -111,24 +158,16 @@ cmake -B build-sanitize -G Ninja \
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   '-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer' \
   '-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined'
+cmake --build build-sanitize
 """
 
-[tasks."build:sanitize"]
-description = "Build with AddressSanitizer + UBSanitizer"
-depends = ["configure:sanitize"]
-run = "cmake --build build-sanitize"
-
 [tasks."test:sanitize"]
-description = "Run tests under AddressSanitizer + UBSanitizer"
+description = "Test with AddressSanitizer + UBSanitizer"
 depends = ["build:sanitize"]
 run = "ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=print_stacktrace=1 ctest --test-dir build-sanitize --output-on-failure"
 
-[tasks.spell]
-description = "Check source files and docs for spelling errors"
-run = "uvx codespell bins libs docs tools README.md --skip='build,*.h5'"
-
-[tasks."configure:coverage"]
-description = "Configure CMake build with gcov coverage instrumentation"
+[tasks."build:coverage"]
+description = "Build with coverage instrumentation"
 run = """
 cmake -B build-coverage -G Ninja \
   -DCMAKE_BUILD_TYPE=Debug \
@@ -136,12 +175,8 @@ cmake -B build-coverage -G Ninja \
   -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   '-DCMAKE_CXX_FLAGS=--coverage' \
   '-DCMAKE_EXE_LINKER_FLAGS=--coverage'
+cmake --build build-coverage
 """
-
-[tasks."build:coverage"]
-description = "Build with coverage instrumentation"
-depends = ["configure:coverage"]
-run = "cmake --build build-coverage"
 
 [tasks."test:coverage"]
 description = "Run tests and generate coverage report"
@@ -154,29 +189,8 @@ uvx gcovr -r . build-coverage/ \
   --print-summary
 """
 
-[tasks.cppcheck]
-description = "Run cppcheck static analysis on all source files"
-run = """
-cppcheck --enable=all --error-exitcode=1 \
-  --suppress=missingIncludeSystem \
-  --suppress=missingInclude \
-  --suppress=unmatchedSuppression \
-  --suppress=normalCheckLevelMaxBranches \
-  "--suppress=unusedStructMember:bins/simulator/src/fieldGenerator.cpp" \
-  bins/ libs/
-# unusedStructMember suppression: cppcheck 2.7 false positive -- RadialComponents members
-# (dx, dy, radius) are all used via std::optional<RadialComponents>::operator->, but
-# cppcheck 2.7 does not track member access through std::optional.
-# normalCheckLevelMaxBranches: informational only; pthreads.cpp two-pass design exceeds
-# default branch analysis limit. Not an error.
-"""
-
-[tasks.links]
-description = "Check for broken links in markdown files"
-run = "lychee --verbose --no-progress README.md docs/ tools/ .github/"
-
 [tasks.ci]
-description = "Run full CI pipeline (mirrors GitHub Actions)"
+description = "Full CI pipeline"
 depends = [
   "format:check",
   "ascii-check",
@@ -190,4 +204,4 @@ depends = [
 
 [tasks.clean]
 description = "Remove build artifacts"
-run = "rm -rf build build-sanitize build-coverage coverage.info"
+run = "rm -rf build build-sanitize build-coverage coverage.info data/ *.h5 *.pkl"

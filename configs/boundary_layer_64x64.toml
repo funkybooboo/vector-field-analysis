@@ -1,0 +1,25 @@
+# boundary_layer_64x64.toml
+# No-slip boundary layer along the bottom wall (y = -2).
+# Flow speed increases from zero at the wall to near-maximum in the free stream,
+# following a tanh velocity profile -- analogous to a Blasius boundary layer.
+# The gradient is steepest close to the wall and flattens in the free stream.
+#
+# Run: simulator configs/boundary_layer_64x64.toml
+
+[simulation]
+steps     = 100
+dt        = 0.05
+viscosity = 0.0
+width     = 64
+height    = 64
+xmin      = -2.0
+xmax      =  2.0
+ymin      = -2.0
+ymax      =  2.0
+
+# tanh profile: 0 at y=-2 (wall), ~1 for y >> -2 (free stream)
+[[layers]]
+type         = "custom"
+strength     = 1.0
+x_expression = "tanh(1.5 * (y + 2.0))"
+y_expression = "0.0"

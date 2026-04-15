@@ -1,0 +1,39 @@
+# simple_kelvin_helmholtz_64x64.toml
+# Minimal Kelvin-Helmholtz setup: two streams in opposite directions meeting
+# at y=0, plus a sinusoidal transverse perturbation at the interface.
+# In a real simulation the perturbation would grow exponentially; here it
+# shows the initial instability structure -- the classic rolling cat's eye pattern.
+#
+# Run: simulator configs/simple_kelvin_helmholtz_64x64.toml
+
+[simulation]
+steps     = 100
+dt        = 0.05
+viscosity = 0.0
+width     = 64
+height    = 64
+xmin      = -2.0
+xmax      =  2.0
+ymin      = -2.0
+ymax      =  2.0
+
+# Upper stream: rightward, tight band just above y=0
+[[layers]]
+type         = "custom"
+strength     = 1.0
+x_expression = "exp(-((y - 0.25) * (y - 0.25)) / 0.03)"
+y_expression = "0.0"
+
+# Lower stream: leftward, tight band just below y=0
+[[layers]]
+type         = "custom"
+strength     = 1.0
+x_expression = "-exp(-((y + 0.25) * (y + 0.25)) / 0.03)"
+y_expression = "0.0"
+
+# Sinusoidal perturbation at the interface
+[[layers]]
+type         = "custom"
+strength     = 0.2
+x_expression = "0.0"
+y_expression = "sin(2.5 * x) * exp(-((y) * (y)) / 0.05)"

@@ -1,0 +1,46 @@
+# river_delta_128x128.toml
+# A single source on the left fans out into three sinks on the right,
+# like a river delta splitting into distributary channels. The central
+# channel flows straight across; the upper and lower channels diverge
+# at an angle from the common source.
+#
+# Run: simulator configs/river_delta_128x128.toml
+
+[simulation]
+steps     = 100
+dt        = 0.05
+viscosity = 0.01
+width     = 128
+height    = 128
+xmin      = -2.0
+xmax      =  2.0
+ymin      = -2.0
+ymax      =  2.0
+
+# Single source (the river mouth / upstream)
+[[layers]]
+type     = "source"
+center_x = -1.5
+center_y =  0.0
+strength =  2.0
+
+# Upper distributary
+[[layers]]
+type     = "sink"
+center_x =  1.5
+center_y =  1.2
+strength =  0.8
+
+# Central distributary
+[[layers]]
+type     = "sink"
+center_x =  1.5
+center_y =  0.0
+strength =  0.8
+
+# Lower distributary
+[[layers]]
+type     = "sink"
+center_x =  1.5
+center_y = -1.2
+strength =  0.8
