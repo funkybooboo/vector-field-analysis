@@ -77,7 +77,8 @@ TEST_CASE("TimeSeries::gridSize returns zero dimensions for empty series", "[fie
     REQUIRE(gs.height == 0);
 }
 
-TEST_CASE("TimeSeries::gridSize returns correct width and height from first frame", "[fieldtypes]") {
+TEST_CASE("TimeSeries::gridSize returns correct width and height from first frame",
+          "[fieldtypes]") {
     Field::TimeSeries ts;
     ts.frames.push_back(Field::Slice(4, std::vector<Vector::Vec2>(6, Vector::Vec2{})));
     const auto gs = ts.gridSize();

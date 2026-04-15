@@ -193,7 +193,8 @@ TEST_CASE("OpenMpStreamlineSolver path contents match sequential", "[impl][openm
     REQUIRE(canonicalize(grid.getStreamlines()) == expected);
 }
 
-TEST_CASE("PthreadsStreamlineSolver path contents match sequential", "[impl][pthreads][streamlines]") {
+TEST_CASE("PthreadsStreamlineSolver path contents match sequential",
+          "[impl][pthreads][streamlines]") {
     auto seqGrid = makeGrid();
     SequentialStreamlineSolver{}.computeTimeStep(seqGrid);
     const auto expected = canonicalize(seqGrid.getStreamlines());
@@ -271,10 +272,22 @@ TEST_CASE("all solvers handle single-row grid without crash", "[impl][consistenc
         return Field::Grid{Field::Bounds{0.0f, 2.0f, 0.0f, 0.0f},
                            Field::Slice(1, std::vector<Vector::Vec2>(3, Vector::Vec2(1.0f, 0.0f)))};
     };
-    { auto grid = make(); REQUIRE_NOTHROW(SequentialStreamlineSolver{}.computeTimeStep(grid)); }
-    { auto grid = make(); REQUIRE_NOTHROW(OpenMpStreamlineSolver{}.computeTimeStep(grid)); }
-    { auto grid = make(); REQUIRE_NOTHROW(PthreadsStreamlineSolver{2}.computeTimeStep(grid)); }
-    { auto grid = make(); REQUIRE_NOTHROW(MpiStreamlineSolver{}.computeTimeStep(grid)); }
+    {
+        auto grid = make();
+        REQUIRE_NOTHROW(SequentialStreamlineSolver{}.computeTimeStep(grid));
+    }
+    {
+        auto grid = make();
+        REQUIRE_NOTHROW(OpenMpStreamlineSolver{}.computeTimeStep(grid));
+    }
+    {
+        auto grid = make();
+        REQUIRE_NOTHROW(PthreadsStreamlineSolver{2}.computeTimeStep(grid));
+    }
+    {
+        auto grid = make();
+        REQUIRE_NOTHROW(MpiStreamlineSolver{}.computeTimeStep(grid));
+    }
 }
 
 TEST_CASE("all solvers handle single-column grid without crash", "[impl][consistency]") {
@@ -282,10 +295,22 @@ TEST_CASE("all solvers handle single-column grid without crash", "[impl][consist
         return Field::Grid{Field::Bounds{0.0f, 0.0f, 0.0f, 2.0f},
                            Field::Slice(3, std::vector<Vector::Vec2>(1, Vector::Vec2(1.0f, 0.0f)))};
     };
-    { auto grid = make(); REQUIRE_NOTHROW(SequentialStreamlineSolver{}.computeTimeStep(grid)); }
-    { auto grid = make(); REQUIRE_NOTHROW(OpenMpStreamlineSolver{}.computeTimeStep(grid)); }
-    { auto grid = make(); REQUIRE_NOTHROW(PthreadsStreamlineSolver{2}.computeTimeStep(grid)); }
-    { auto grid = make(); REQUIRE_NOTHROW(MpiStreamlineSolver{}.computeTimeStep(grid)); }
+    {
+        auto grid = make();
+        REQUIRE_NOTHROW(SequentialStreamlineSolver{}.computeTimeStep(grid));
+    }
+    {
+        auto grid = make();
+        REQUIRE_NOTHROW(OpenMpStreamlineSolver{}.computeTimeStep(grid));
+    }
+    {
+        auto grid = make();
+        REQUIRE_NOTHROW(PthreadsStreamlineSolver{2}.computeTimeStep(grid));
+    }
+    {
+        auto grid = make();
+        REQUIRE_NOTHROW(MpiStreamlineSolver{}.computeTimeStep(grid));
+    }
 }
 
 // ---------------------------------------------------------------------------
