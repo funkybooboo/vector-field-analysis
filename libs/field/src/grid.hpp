@@ -28,6 +28,9 @@ class Grid {
     [[nodiscard]] std::size_t rows() const { return field_.size(); }
     [[nodiscard]] std::size_t cols() const { return field_.empty() ? 0 : field_[0].size(); }
 
+    [[nodiscard]] const Bounds& bounds() const { return bounds_; }
+    [[nodiscard]] const Slice& field() const { return field_; }
+
     // Returns the grid cell (row, col) that the vector at (row, col) points
     // toward. Read-only; safe to call from multiple threads simultaneously.
     [[nodiscard]] GridCell downstreamCell(int row, int col) const;
