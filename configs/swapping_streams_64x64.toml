@@ -1,0 +1,31 @@
+# swapping_streams_64x64.toml
+# Two streams that oscillate in opposite vertical phases, continuously
+# swapping positions. When one is at y=+0.8, the other is at y=-0.8.
+# They pass through each other at t = pi/2, pi*3/2, etc.
+#
+# Run: simulator configs/swapping_streams_64x64.toml
+
+[simulation]
+steps     = 300
+dt        = 0.05
+viscosity = 0.0
+width     = 64
+height    = 64
+xmin      = -2.0
+xmax      =  2.0
+ymin      = -2.0
+ymax      =  2.0
+
+# Stream 1: starts high, moves down and back
+[[layers]]
+type         = "custom"
+strength     = 1.0
+x_expression = "exp(-((y - 0.8 * sin(t)) * (y - 0.8 * sin(t))) / 0.04)"
+y_expression = "0.0"
+
+# Stream 2: starts low, moves up and back (opposite phase)
+[[layers]]
+type         = "custom"
+strength     = 1.0
+x_expression = "exp(-((y + 0.8 * sin(t)) * (y + 0.8 * sin(t))) / 0.04)"
+y_expression = "0.0"

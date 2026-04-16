@@ -10,7 +10,7 @@ config.toml
 | ConfigParser| -----------------------------------+
 +-------------+                                   |
                                                   v
-                                        +------------------+     FieldTimeSeries
+                                        +------------------+     Field::TimeSeries
                                         |  FieldGenerator  | ------------------+
                                         +------------------+                   |
                                                                                v
@@ -60,8 +60,9 @@ SimulatorConfig
 
 **Source:** `fieldGenerator.hpp`, `fieldGenerator.cpp`
 
-Takes a `SimulatorConfig` and produces a `FieldTimeSeries` -- two 3-D float arrays
-`vx[steps][height][width]` and `vy[steps][height][width]`.
+Takes a `SimulatorConfig` and produces a `Field::TimeSeries` -- a `frames` vector of
+`Field::Slice` grids, where each slice is indexed `[row][col]` and holds a `Vector::Vec2`.
+The HDF5 writer splits the Vec2 components into separate `vx` and `vy` datasets on output.
 
 ### Setup (runs once before the main loop)
 
@@ -121,7 +122,7 @@ can cancel each other.
 
 **Source:** `fieldWriter.hpp`, `fieldWriter.cpp`
 
-Writes the `FieldTimeSeries` and `SimulatorConfig` metadata to an HDF5 file using HighFive.
+Writes the `Field::TimeSeries` and `SimulatorConfig` metadata to an HDF5 file using HighFive.
 
 The file is always opened with `HighFive::File::Overwrite`, so existing output is silently
 replaced. All data lives under a single `field` group:

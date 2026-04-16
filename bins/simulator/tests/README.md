@@ -9,5 +9,5 @@ Catch2 tests for the `simulator` binary.
 ## Running
 
 ```sh
-mise run test:bin:simulator
+mise run test:simulator
 ```

@@ -5,6 +5,7 @@
 
 namespace ConfigParser {
 
-SimulatorConfig parseFile(const std::string& path);
+// Parse the [simulation] + [[layers]] sections from a TOML config file.
+SimulatorConfig parseSimulation(const std::string& path);
 
 } // namespace ConfigParser

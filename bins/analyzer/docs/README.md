@@ -4,12 +4,29 @@ Documentation for the `analyzer` binary (`bins/analyzer`).
 
 ## What It Does
 
-Reads a time-series vector field from an HDF5 file, then for each time step constructs a
-`FieldGrid` and traces a streamline starting from grid position `(0, 0)`.
+Reads a time-series vector field from an HDF5 file and, for each time step, constructs a
+`Field::Grid` and traces streamlines across every cell using a selected parallel implementation.
+All implementations share a two-pass design: a parallelisable read pass followed by a
+sequential merge pass.
+
+## Quick Start
+
+```sh
+# Recommended: build, generate field data, and benchmark all impls in one step
+mise run run:analyzer         # uses MPI_RANKS for a fair apples-to-apples comparison
+
+# MPI solver only with a custom rank count
+MPI_RANKS=8 mise run run:analyzer:mpi
+
+# Or drive manually:
+simulator configs/vortex_128x128.toml                        # generate field.h5
+analyzer configs/vortex_128x128.toml                         # benchmark all impls (single-process)
+mpirun -n 4 analyzer configs/vortex_128x128.toml             # benchmark with MPI active
+```
 
 ## Input Format
 
-The analyzer expects an HDF5 file in the format produced by the simulator:
+The analyzer reads HDF5 files in the format produced by the simulator:
 
 ```
 field/               (group)
@@ -25,39 +42,8 @@ field/               (group)
   type               (string attribute)
 ```
 
-## Algorithms
-
-### `neighborInVectorDirection(row, col)`
-
-Given a grid index `(row, col)`, returns the index of the nearest grid cell in the direction
-the vector at that position points. The vector's x-component advances the column index;
-the y-component advances the row index. The result is clamped to grid bounds.
-
-### `traceStreamlineStep(startCoords)`
-
-Follows the vector at `startCoords` one step:
-
-1. If the source cell has no streamline, creates one starting at `startCoords`.
-2. Finds the destination cell via `neighborInVectorDirection`.
-3. If the destination has no streamline, assigns it to the source's streamline and appends
-   its coordinates to the path.
-4. If the destination already belongs to a different streamline, merges the two via
-   `joinStreamlines`.
-
-### `joinStreamlines(start, end)`
-
-Absorbs `end`'s path into `start`. All field vectors that belonged to `end` are redirected
-to point to `start`.
-
-## Usage
-
-```sh
-mise run run:bin:analyzer                # read field.h5 in the working directory
-./build/bins/analyzer/analyzer my.h5    # read a specific file
-```
-
 ## Contents
 
-- **Input formats** - supported vector field data formats
-- **Algorithms** - streamline computation, flow tracing, and streamline merging
-- **Usage examples** - example invocations and walkthroughs
+- [pipeline.md](pipeline.md) -- data flow, algorithm details, and source file map
+- [config-guide.md](config-guide.md) -- all TOML config keys and examples
+- [adding-a-solver.md](adding-a-solver.md) -- how to implement and register a new solver

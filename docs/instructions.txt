@@ -1,0 +1,56 @@
+For the project you have chosen on the quiz or proposed you will have to submit:
+
+    code with instructions on how to build and execute all the implementations on CHPC. You can develop on your own platform, but we should be able to build and run your code on one of the CHPC clusters. Please provide any instructions (e.g., modules loaded, compilation steps, command line example) to build and run your code in this environment.
+    description the approach used for each of the following implementations 
+        serial 
+        parallel shared memory CPU 
+        parallel CUDA GPU (no CUDA shared memory required)
+        distributed memory CPU
+        distributed memory GPU (with obviously some use of CPU code)
+    Scaling study experiments where you compare implementations:
+        1 vs 2
+        3 (note: you don't need a scaling study for GPUs, you can look instead at different block/tile size)
+        4 vs 5 (note: those experiments will have to use from 2 to 4 nodes of any of the CHPC clusters you have access to)
+    use a validation function to check that the result from parallel implementations is equal to the serial output implementation. This can also be implemented as a separate script which compares output files (this can be done in C/C++ or Python, no parallelization required).
+    reuse code across implementations
+    visualization of the output (you can use simple external libraries in C/C++ or Python, no parallelization required).
+    clearly explain who was responsible for which task on the project
+
+Note: You are allowed to reuse serial implementations of the algorithm (or parts of it) that you might find online and make your own parallel implementations. Always cite all external code that you use in your project. 
+
+Data exploration: you can use Paraview (https://www.paraview.org/download Links to an external site.) or ImageJ to visualize the input/output dataset.
+
+ 
+
+1. Things are turning
+
+Given a 2D vector field compute vorticity at each cell and segment areas with positive vorticity (>0.2) and negative vorticity (<-0.2).
+
+Data: cyl2d_1300x600_float32[2].raw Download cyl2d_1300x600_float32[2].raw
+This is a 2D vector field of size 1300x600 of datatype float32, there are two values for each pixel which represent the velocity field in 2 dimensions.
+
+Vorticity calculation: You can use the attached code Download attached code to compute vorticity at a given cell with coordinates X, Y
+
+Output: one binary file with datatype int32 with values -1 (negative), 0, +1 (positive).
+
+ 
+
+2. The Genre Reveal Party 
+
+Implement a parallel K-mean clustering algorithm to cluster 1.2M songs using metrics provided by Spotify. The program has to work with different numbers of K, you can choose K for your experiments.  (Links to an external site.
+
+Data: https://www.kaggle.com/datasets/rodolfofigueroa/spotify-12m-songs Links to an external site.
+
+Serial implementation: you can follow this tutorial here Links to an external site.
+
+Output: one csv file containing the categorization of the songs and a sample visualization using 3 feature axis (e.g., valence, danceability, and energy or any combination with the most discriminant features) and any visualization library (also in python) that shows the clustering with any K > 2. 
+
+ 
+
+3. AwannaCU
+
+Given a digital elevation map compute the number of points visible from every cell (with a max range of 100 pixels). You can use the Bresenham's algorithm Links to an external site. for computing the visibility line between two points. Here is a serial implementation to help you get started: bresenham_serial.cpp Download bresenham_serial.cpp
+
+Data: srtm_14_04_6000x6000_short16.raw Download srtm_14_04_6000x6000_short16.raw (from http://srtm.csi.cgiar.org/srtmdata Links to an external site. ) Data has size 6000x6000 and datatype short (signed int 16 bit).
+
+Output: one binary file with datatype int32 where each pixel value contains the number of visible pixel in the viewshed computed at that location.

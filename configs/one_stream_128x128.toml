@@ -1,0 +1,24 @@
+# one_stream_128x128.toml
+# A single clear left-to-right flow centered in the domain.
+# A wider Gaussian envelope (0.15) gives the stream a visible body
+# while still fading toward the top and bottom edges.
+#
+# Run: simulator configs/one_stream_128x128.toml
+
+[simulation]
+steps     = 100
+dt        = 0.05
+viscosity = 0.0
+width     = 128
+height    = 128
+xmin      = -2.0
+xmax      =  2.0
+ymin      = -2.0
+ymax      =  2.0
+
+# Single stream centered at y = 0.0
+[[layers]]
+type         = "custom"
+strength     = 1.0
+x_expression = "exp(-((y) * (y)) / 0.15)"
+y_expression = "0.0"

@@ -42,7 +42,7 @@ If no `[[layers]]` are defined, a single default vortex layer is used.
 
 ## Stage 2: FieldGenerator
 
-**Entry point:** `FieldGenerator::generateTimeSeries(config)` -> `FieldTimeSeries`
+**Entry point:** `FieldGenerator::generateTimeSeries(config)` -> `Field::TimeSeries`
 
 Produces two 3-D arrays, `vx` and `vy`, each shaped `[steps][height][width]`.
 

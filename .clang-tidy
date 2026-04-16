@@ -15,6 +15,7 @@ Checks: >
 
 WarningsAsErrors: "*"
 HeaderFilterRegex: ".*/(bins|libs)/.*"
+ExtraArgs: ['-U_OPENMP']
 
 CheckOptions:
   - key: modernize-use-default-member-init.UseAssignment

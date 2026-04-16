@@ -1,0 +1,39 @@
+# three_streams_128x128.toml
+# Three distinct left-to-right flows confined to separate horizontal bands.
+# Streams are evenly spaced at y = -1.2, 0.0, +1.2. Each uses a Gaussian
+# envelope so it decays to near-zero before reaching its neighbors.
+# At each midpoint between streams (0.6 units away), value is exp(-6) ~ 0.002.
+#
+# Run: simulator configs/three_streams_128x128.toml
+
+[simulation]
+steps     = 100
+dt        = 0.05
+viscosity = 0.0
+width     = 128
+height    = 128
+xmin      = -2.0
+xmax      =  2.0
+ymin      = -2.0
+ymax      =  2.0
+
+# Top stream: centered at y = 1.2
+[[layers]]
+type         = "custom"
+strength     = 1.0
+x_expression = "exp(-((y - 1.2) * (y - 1.2)) / 0.06)"
+y_expression = "0.0"
+
+# Middle stream: centered at y = 0.0
+[[layers]]
+type         = "custom"
+strength     = 1.0
+x_expression = "exp(-((y) * (y)) / 0.06)"
+y_expression = "0.0"
+
+# Bottom stream: centered at y = -1.2
+[[layers]]
+type         = "custom"
+strength     = 1.0
+x_expression = "exp(-((y + 1.2) * (y + 1.2)) / 0.06)"
+y_expression = "0.0"

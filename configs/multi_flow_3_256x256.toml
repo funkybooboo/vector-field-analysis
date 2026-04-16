@@ -1,0 +1,78 @@
+# multi_flow_3_256x256.toml
+# Three uniform streams and three source-sink pairs.
+# Streams at three different angles create a complex background field,
+# while three source-sink pairs drive distinct flow channels at evenly
+# spaced y positions across the domain.
+#
+# Run: simulator configs/multi_flow_3_256x256.toml
+
+[simulation]
+steps     = 100
+dt        = 0.05
+viscosity = 0.01
+width     = 256
+height    = 256
+xmin      = -2.0
+xmax      =  2.0
+ymin      = -2.0
+ymax      =  2.0
+
+# Stream 1: rightward
+[[layers]]
+type      = "uniform"
+angle     = 0.0
+magnitude = 1.0
+strength  = 0.25
+
+# Stream 2: upper-right diagonal
+[[layers]]
+type      = "uniform"
+angle     = 60.0
+magnitude = 1.0
+strength  = 0.2
+
+# Stream 3: lower-right diagonal
+[[layers]]
+type      = "uniform"
+angle     = -60.0
+magnitude = 1.0
+strength  = 0.2
+
+# Source-sink pair 1 (top channel)
+[[layers]]
+type     = "source"
+center_x = -1.5
+center_y =  1.2
+strength =  1.0
+
+[[layers]]
+type     = "sink"
+center_x =  1.5
+center_y =  1.2
+strength =  1.0
+
+# Source-sink pair 2 (middle channel)
+[[layers]]
+type     = "source"
+center_x = -1.5
+center_y =  0.0
+strength =  1.0
+
+[[layers]]
+type     = "sink"
+center_x =  1.5
+center_y =  0.0
+strength =  1.0
+
+# Source-sink pair 3 (bottom channel)
+[[layers]]
+type     = "source"
+center_x = -1.5
+center_y = -1.2
+strength =  1.0
+
+[[layers]]
+type     = "sink"
+center_x =  1.5
+center_y = -1.2
+strength =  1.0

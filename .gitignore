@@ -48,8 +48,15 @@ build-coverage/
 build-sanitize/
 
 # Generated output
+data/
 *.h5
+
 
 # IDE / tooling
 .cache/
 compile_commands.json
+
+# Local environment
+.env
+logs/
+output/
