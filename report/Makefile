@@ -5,6 +5,9 @@
 all:
 	latexmk -pdf main.tex
 
+watch:
+	latexmk -pvc main.tex
+
 view:
 	xdg-open main.pdf
 

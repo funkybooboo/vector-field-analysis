@@ -1,5 +1,6 @@
 \documentclass[journal]{IEEEtran}
 
+\usepackage{newtxtext,newtxmath}
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage{algorithm}
@@ -10,19 +11,25 @@
 
 \begin{document}
 
-\title{Title of Your Paper}
-\author{Author Name, Member, IEEE\thanks{Author affiliation and thanks to funding agencies.}}
-\markboth{IEEE Journal Name}{Shell \MakeLowercase{\textit{et al.}}: Title of Paper}
+\title{Comparative Performance Analysis of Parallel Implementations for Accelerated Streamline Visualization in Vector Field Analysis}
+\author{Nate Stott, Rylei Mindrum, Ethan Gee\thanks{6030 High Performance Computing, Utah State University.}}
+\markboth{HPC Class Project}{Nate Stott, Rylei Mindrum, Ethan Gee: Accelerated Streamline Visualization}
 \IEEEtitleabstractindextext{
 	\begin{abstract}
-		Abstract goes here. The abstract should be a brief summary of the paper, usually 150-250 words. It should state the problem, the methods used, the main results, and conclusions. Do not reference figures, tables, or equations in the abstract.
+		Streamline visualization is a fundamental tool for analyzing complex vector fields, yet it often faces significant computational overhead due to the intensive numerical integration and irregular data-access patterns required for tracing paths across high-resolution grids.
+		This study presents a comprehensive suite of implementations aimed at accelerating streamline visualization through various parallel computing paradigms.
+		We developed and evaluated a vector field analyzer across several architectures. Namely, sequential CPU, shared-memory parallelism using Pthreads and OpenMP, distributed-memory systems with OpenMPI, and massively parallel GPU acceleration through CUDA, as well as a hybrid approach utilizing distributed CUDA with OpenMPI.
+		Our analysis focuses on the scalability and speedup of each implementation, comparing  performance across various example datasets at a variety of field sizes and streamline complexity.
+		Results demonstrate significant performance gains over sequential implementations, with the distributed GPU implementation showing the best performance increase.
 	\end{abstract}
 	\begin{IEEEkeywords}
-		keyword1, keyword2, keyword3, keyword4
+		Streamline Visualization, Vector Field Analysis, Parallel Computing, OpenMP, OpenMPI, CUDA, GPU Acceleration, Pthreads.
 	\end{IEEEkeywords}
 }
 
 \maketitle
+
+\IEEEdisplaynontitleabstractindextext
 
 \IEEEpeerreviewmaketitle
 
@@ -38,5 +45,3 @@
 See \cite{ref1} for more information.
 
 \end{document}
-
-
