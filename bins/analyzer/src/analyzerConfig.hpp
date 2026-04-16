@@ -8,13 +8,12 @@
 // Single source of truth for valid solver names.
 // configParser.cpp and solverFactory.cpp both reference this.
 inline constexpr std::array<std::string_view, 6> kValidSolvers = {
-  "sequential", 
-  "openmp",
-  "pthreads", 
-  "mpi",
-  "cuda",
-  "all"
-};
+    "sequential",
+    "openmp",
+    "pthreads",
+    "mpi",
+    "cuda",
+    "all"};
 
 // Input/output paths are derived from the config filename stem at runtime -- not stored here.
 struct AnalyzerConfig {
