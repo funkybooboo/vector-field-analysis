@@ -30,7 +30,7 @@ std::unique_ptr<StreamlineSolver> makeSolver(std::string_view name, unsigned int
     }
 #ifdef ENABLE_CUDA_SOLVER
     if (name == "cuda") {
-      return std::make_unique<CudaStreamlineSolver>();
+        return std::make_unique<CudaStreamlineSolver>();
     }
 #endif
     if (name == "mpi") {
