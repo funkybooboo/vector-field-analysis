@@ -171,7 +171,7 @@ jobs:
         uses: jdx/mise-action@v2
 
       - name: Install tectonic
-        uses: wtfjoke/setup-tectonic@v3
+        uses: wtfjoke/setup-tectonic@v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
