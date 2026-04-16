@@ -46,3 +46,16 @@ This is especially apparent in GPU-accelerated and distributed implementations w
 
 Together, these factors make efficient and scalable streamline computation a challenging problem in high-performance vector field analysis.
 
+
+\subsection{Contributions}
+
+This paper presents a research tool developed in C++17 for the accelerated analysis of 2D vector fields.
+
+We address the computational bottleneck of streamline tracing by implementing and evaluating several parallel computing strategies.
+
+Our primary contributions include:
+\begin{itemize}
+	\item A modular simulator for generating procedural vector fields (vortices, noise, and custom expressions) stored in HDF5 format.
+	\item A suite of parallel analyzer implementations, ranging from shared-memory models (Pthreads, OpenMP) to distributed-memory (OpenMPI) and massively parallel GPU acceleration (CUDA).
+	\item A comparative performance study demonstrating the scalability and speedup of these implementations across various field resolutions and streamline densities.
+\end{itemize}
