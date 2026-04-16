@@ -291,89 +291,76 @@ std::vector<Field::Path> reconstructPaths(const Result& result) {
     }
 
     const int total = result.rows * result.cols;
-    if (static_cast<int>(result.successor.size()) != total ||
-        static_cast<int>(result.componentId.size()) != total) {
+    if (static_cast<int>(result.successor.size()) != total) {
         throw std::runtime_error("cudaFull::reconstructPaths received inconsistent result sizes");
     }
 
-    const int componentCount =
-        *std::max_element(result.componentId.begin(), result.componentId.end()) + 1;
+    // owner[idx] = streamline id currently owning this cell, or -1 if unclaimed
+    std::vector<int> owner(static_cast<std::size_t>(total), -1);
 
-    std::vector<int> indegree(static_cast<std::size_t>(total), 0);
+    // Each streamline is stored as a flattened list of cell indices.
+    std::vector<std::vector<int>> paths;
+    paths.reserve(static_cast<std::size_t>(total));
+
+    // Replay the same row-major source->destination application order used by
+    // the existing CPU implementations.
     for (int idx = 0; idx < total; ++idx) {
-        const int succ = result.successor[static_cast<std::size_t>(idx)];
-        if (succ >= 0 && succ < total) {
-            indegree[static_cast<std::size_t>(succ)]++;
+        int srcOwner = owner[static_cast<std::size_t>(idx)];
+
+        // If this source cell does not yet belong to a streamline, create one
+        // rooted at this source cell.
+        if (srcOwner == -1) {
+            srcOwner = static_cast<int>(paths.size());
+            paths.push_back(std::vector<int>{idx});
+            owner[static_cast<std::size_t>(idx)] = srcOwner;
         }
+
+        const int dest = result.successor[static_cast<std::size_t>(idx)];
+        if (dest < 0 || dest >= total) {
+            continue;
+        }
+
+        const int destOwner = owner[static_cast<std::size_t>(dest)];
+
+        if (destOwner == -1) {
+            // Destination is unclaimed: extend the source streamline into it.
+            owner[static_cast<std::size_t>(dest)] = srcOwner;
+            paths[static_cast<std::size_t>(srcOwner)].push_back(dest);
+        } else if (destOwner != srcOwner) {
+            // Destination already belongs to another streamline:
+            // merge source into destination, matching joinStreamlines(dest, src).
+            for (const int point : paths[static_cast<std::size_t>(srcOwner)]) {
+                paths[static_cast<std::size_t>(destOwner)].push_back(point);
+                owner[static_cast<std::size_t>(point)] = destOwner;
+            }
+            paths[static_cast<std::size_t>(srcOwner)].clear();
+        }
+        // If destOwner == srcOwner, do nothing.
+        // This matches the CPU logic where self-merges are ignored.
     }
 
-    std::vector<std::vector<int>> nodesByComponent(static_cast<std::size_t>(componentCount));
+    // Emit unique non-empty paths in deterministic row-major order.
+    std::vector<Field::Path> output;
+    std::vector<bool> emitted(paths.size(), false);
+
     for (int idx = 0; idx < total; ++idx) {
-        nodesByComponent[static_cast<std::size_t>(result.componentId[static_cast<std::size_t>(idx)])]
-            .push_back(idx);
-    }
-
-    std::vector<Field::Path> paths;
-
-    for (int component = 0; component < componentCount; ++component) {
-        const auto& nodes = nodesByComponent[static_cast<std::size_t>(component)];
-        std::vector<bool> visited(static_cast<std::size_t>(total), false);
-
-        // First prefer source-like starts (indegree == 0) for deterministic paths.
-        for (const int start : nodes) {
-            if (indegree[static_cast<std::size_t>(start)] != 0 ||
-                visited[static_cast<std::size_t>(start)]) {
-                continue;
-            }
-
-            Field::Path path;
-            int current = start;
-
-            while (!visited[static_cast<std::size_t>(current)]) {
-                visited[static_cast<std::size_t>(current)] = true;
-                path.push_back(toGridCell(current, result.cols));
-
-                const int next = result.successor[static_cast<std::size_t>(current)];
-                if (next < 0 || next >= total ||
-                    result.componentId[static_cast<std::size_t>(next)] != component) {
-                    break;
-                }
-                current = next;
-            }
-
-            if (!path.empty()) {
-                paths.push_back(std::move(path));
-            }
+        const int streamId = owner[static_cast<std::size_t>(idx)];
+        if (streamId < 0 ||
+            emitted[static_cast<std::size_t>(streamId)] ||
+            paths[static_cast<std::size_t>(streamId)].empty()) {
+            continue;
         }
 
-        // handle cycles / remaining nodes not reached from indegree-0 starts
-        for (const int start : nodes) {
-            if (visited[static_cast<std::size_t>(start)]) {
-                continue;
-            }
+        emitted[static_cast<std::size_t>(streamId)] = true;
 
-            Field::Path path;
-            int current = start;
-
-            while (!visited[static_cast<std::size_t>(current)]) {
-                visited[static_cast<std::size_t>(current)] = true;
-                path.push_back(toGridCell(current, result.cols));
-
-                const int next = result.successor[static_cast<std::size_t>(current)];
-                if (next < 0 || next >= total ||
-                    result.componentId[static_cast<std::size_t>(next)] != component) {
-                    break;
-                }
-                current = next;
-            }
-
-            if (!path.empty()) {
-                paths.push_back(std::move(path));
-            }
+        Field::Path path;
+        path.reserve(paths[static_cast<std::size_t>(streamId)].size());
+        for (const int point : paths[static_cast<std::size_t>(streamId)]) {
+            path.push_back(toGridCell(point, result.cols));
         }
+        output.push_back(std::move(path));
     }
 
-    return paths;
+    return output;
 }
-
 } // namespace cudaFull
