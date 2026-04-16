@@ -94,6 +94,10 @@ void Grid::traceStreamlineStep(GridCell src, GridCell dest) {
 }
 
 std::vector<Path> Grid::getStreamlines() const {
+    if (hasPrecomputedStreamlines_) {
+        return precomputedStreamlines_;
+    }
+
     std::unordered_set<Streamline*> seen;
     std::vector<Path> result;
     for (const auto& row : streamlines_) {

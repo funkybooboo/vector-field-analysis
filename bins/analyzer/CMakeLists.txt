@@ -19,6 +19,8 @@ add_library(analyzer_lib STATIC
 if(ENABLE_CUDA)
   target_sources(analyzer_lib PRIVATE
                  src/cudaStreamlineSolver.cu
+                 src/cudaFull.cu 
+                 src/cudaFullStreamlineSolver.cu
                )
 endif()
 

@@ -16,6 +16,11 @@ class Grid {
     Slice field_;
     std::vector<std::vector<std::shared_ptr<Streamline>>> streamlines_;
 
+    // for externally computed streamline result
+    // used only by cudaFull
+    std::vector<Path> precomputedStreamlines_;
+    bool hasPrecomputedStreamlines_ = false;
+
   public:
     Grid(Bounds bounds, Slice field)
         : bounds_(bounds),
@@ -30,6 +35,14 @@ class Grid {
 
     [[nodiscard]] const Bounds& bounds() const { return bounds_; }
     [[nodiscard]] const Slice& field() const { return field_; }
+
+    // allows solver to inject complete streamline result directly
+    void setPrecomputedStreamlines(std::vector<Path> paths) {
+        precomputedStreamlines_ = std::move(paths);
+        hasPrecomputedStreamlines_ = true;
+    }
+
+    [[nodiscard]] bool hasPrecomputedStreamlines() const { return hasPrecomputedStreamlines_; }
 
     // Returns the grid cell (row, col) that the vector at (row, col) points
     // toward. Read-only; safe to call from multiple threads simultaneously.
