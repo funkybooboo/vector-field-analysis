@@ -56,8 +56,31 @@ After processing all cells, each grid cell belongs to exactly one streamline. Th
 By maintaining this parallel grid of streamline references and processing each cell once, the algorithm efficiently maps the entire topology of the field in a deterministic manner.
 
 \subsection{Serial CPU Implementation}
+The baseline implementation, \texttt{sequentialCPU}, serves as a reference for both correctness and performance metrics.
+It is implemented using modern C++17 standards \cite{cpp17} and processes the vector field grid in a single pass using nested loops to iterate through rows and columns in row-major order.
+For each cell $(i, j)$, the implementation invokes the \texttt{traceStreamlineStep} method, which calculates the target neighbor and updates the streamline grid.
 
 \subsection{Shared-Memory Parallelism CPU Implementation}
+To leverage multi-core architectures, we developed parallel implementations using POSIX Threads and OpenMP.
+A significant challenge in parallelizing the streamline tracing algorithm is the stateful nature of the streamline grid; multiple threads writing to or merging streamlines could result in race conditions.
+To address this, both shared-memory implementations employ a two-pass strategy:
+\begin{enumerate}
+	\item \textbf{Parallel Neighbor Precomputation:} The algorithm first calculates the destination neighbor for every cell in the grid.
+	      Since this step only reads from the vector field and writes to an independent intermediate buffer, it is perfectly parallelizable.
+	\item \textbf{Sequential Streamline Merging:} The precomputed neighbors are then used to perform the actual streamline tracing and merging.
+	      This pass remains sequential to ensure the integrity of the streamline data structures.
+
+\end{enumerate}
+
+\subsubsection{POSIX Threads (Pthreads)}
+The grid is partitioned into cunks where each thread is assigned a contiguous range of rows.
+This minimizes the overhead of thread management while ensuring that each thread operates on a disjoint memory region in the neighbor buffer.
+The implementation explicitly manages thread creation and joining, handling potential errors and ensuring that all threads terminate before proceeding to the sequential pass.
+
+\subsubsection{OpenMP}
+The OpenMP implementation (\texttt{openMP}) utilizes compiler directives to abstract the underlying thread management, adhering to the OpenMP 5.
+0 application program interface \cite{openmp50}.
+We employ \texttt{\#pragma omp parallel for} directive with a \texttt{collapse(2)} clause to allow for easy segmenatation and load balancing across our nested loops.
 
 \subsection{Massively Parallel GPU Acceleration with CUDA}
 
