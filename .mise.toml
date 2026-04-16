@@ -1,3 +1,6 @@
+[settings]
+jobs = 1
+
 [tools]
 cmake = "latest"
 ninja = "latest"
@@ -38,15 +41,15 @@ description = "Build everything"
 depends = ["configure"]
 run = "cmake --build build"
 
-[tasks."build:analyzer"]
-description = "Build analyzer"
-depends = ["configure"]
-run = "cmake --build build --target analyzer"
-
 [tasks."build:simulator"]
 description = "Build simulator"
 depends = ["configure"]
 run = "cmake --build build --target simulator"
+
+[tasks."build:analyzer"]
+description = "Build analyzer"
+depends = ["build:simulator"]
+run = "cmake --build build --target analyzer"
 
 [tasks."build:sanitize"]
 description = "Build with AddressSanitizer + UBSanitizer"
@@ -118,20 +121,17 @@ uvx gcovr -r . build-coverage/ \
 
 [tasks."run:simulator"]
 description = "Build and run the simulator"
-depends = ["build:simulator"]
-raw = true
+depends = ["build:analyzer"]
 run = "./build/bins/simulator/simulator configs/karman_street_128x64.toml"
 
 [tasks."run:analyzer"]
 description = "Generate field data then benchmark all analyzer impls (MPI_RANKS, ANALYZER_THREADS)"
-depends = ["build:analyzer", "run:simulator"]
-raw = true
+depends = ["run:simulator"]
 run = "mpirun -n ${MPI_RANKS:-4} --oversubscribe ./build/bins/analyzer/analyzer configs/karman_street_128x64.toml"
 
 [tasks."run:analyzer:mpi"]
 description = "Run MPI analyzer (MPI_RANKS defaults to 4)"
-depends = ["build:analyzer", "run:simulator"]
-raw = true
+depends = ["run:simulator"]
 run = "mpirun -n ${MPI_RANKS:-4} --oversubscribe ./build/bins/analyzer/analyzer configs/karman_street_128x64.toml"
 
 [tasks.demo]
