@@ -1,6 +1,6 @@
 # IEEE LaTeX Report Build System
 
-.PHONY: all clean view
+.PHONY: all clean view watch debug
 
 LATEXMK  := $(shell command -v latexmk  2>/dev/null)
 TECTONIC := $(shell command -v tectonic 2>/dev/null)

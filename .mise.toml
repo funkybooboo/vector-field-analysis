@@ -126,6 +126,11 @@ description = "Generate field data then benchmark all analyzer impls (MPI_RANKS,
 depends = ["build:analyzer", "run:simulator"]
 run = "mpirun -n ${MPI_RANKS:-4} --oversubscribe ./build/bins/analyzer/analyzer configs/karman_street_128x64.toml"
 
+[tasks."run:analyzer:mpi"]
+description = "Run MPI analyzer (MPI_RANKS defaults to 4)"
+depends = ["build:analyzer", "run:simulator"]
+run = "mpirun -n ${MPI_RANKS:-4} --oversubscribe ./build/bins/analyzer/analyzer configs/karman_street_128x64.toml"
+
 [tasks.demo]
 description = "Full pipeline: build, simulate, benchmark all solvers, then visualize"
 depends = ["run:analyzer"]
