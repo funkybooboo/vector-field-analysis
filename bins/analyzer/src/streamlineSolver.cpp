@@ -44,13 +44,13 @@ StreamlineSolver::reconstructPathsDSU(const Field::Grid& grid,
             owner[dest] = srcOwner;
             paths[static_cast<std::size_t>(srcOwner)].push_back(static_cast<int>(dest));
         } else if (destOwner != srcOwner) {
-            // Merge source streamline into destination streamline.
+            // Merge destination streamline into source streamline.
             // Match the reference logic of joining source into existing destination.
-            for (const int point : paths[static_cast<std::size_t>(srcOwner)]) {
-                paths[static_cast<std::size_t>(destOwner)].push_back(point);
-                owner[static_cast<std::size_t>(point)] = destOwner;
+            for (const int point : paths[static_cast<std::size_t>(destOwner)]) {
+                paths[static_cast<std::size_t>(srcOwner)].push_back(point);
+                owner[static_cast<std::size_t>(point)] = srcOwner;
             }
-            paths[static_cast<std::size_t>(srcOwner)].clear();
+            paths[static_cast<std::size_t>(destOwner)].clear();
         }
     }
 
