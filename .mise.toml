@@ -41,6 +41,17 @@ description = "Build everything"
 depends = ["configure"]
 run = "cmake --build build"
 
+[tasks."build:cuda"]
+description = "Build everything with CUDA enabled"
+run = """
+cmake -B build-cuda -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DENABLE_CUDA=ON \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+cmake --build build-cuda
+"""
+
 [tasks."build:simulator"]
 description = "Build simulator"
 depends = ["configure"]
@@ -99,6 +110,11 @@ description = "Run simulator tests"
 depends = ["build"]
 run = "ctest --test-dir build --output-on-failure -R simulator"
 
+[tasks."test:cuda"]
+description = "Run all tests for the CUDA build"
+depends = ["build:cuda"]
+run = "ctest --test-dir build-cuda --output-on-failure"
+
 [tasks."test:sanitize"]
 description = "Test with AddressSanitizer + UBSanitizer"
 depends = ["build:sanitize"]
@@ -133,6 +149,14 @@ run = "mpirun -n ${MPI_RANKS:-4} --oversubscribe ./build/bins/analyzer/analyzer 
 description = "Run MPI analyzer (MPI_RANKS defaults to 4)"
 depends = ["run:simulator"]
 run = "mpirun -n ${MPI_RANKS:-4} --oversubscribe ./build/bins/analyzer/analyzer configs/karman_street_128x64.toml"
+
+[tasks."run:cuda"]
+description = "Run CUDA analyzer using the Karman Street config"
+depends = ["build:cuda"]
+run = """
+./build-cuda/bins/simulator/simulator configs/karman_street_128x64_cuda.toml
+./build-cuda/bins/analyzer/analyzer configs/karman_street_128x64_cuda.toml
+"""
 
 [tasks.demo]
 description = "Full pipeline: build, simulate, benchmark all solvers, then visualize"
