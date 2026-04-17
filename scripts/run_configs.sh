@@ -19,7 +19,7 @@ VISUALIZER="$PROJECT_DIR/tools/visualize.py"
 CONFIGS_DIR="$PROJECT_DIR/configs"
 DATA_DIR="$PROJECT_DIR/data"
 
-# ── Resolve stems ─────────────────────────────────────────────────────────────
+# -- Resolve stems ------------------------------------------------------------
 
 if [[ $# -eq 0 ]]; then
   STEMS=()
@@ -36,7 +36,7 @@ else
   done
 fi
 
-# ── Build ─────────────────────────────────────────────────────────────────────
+# -- Build --------------------------------------------------------------------
 
 echo "==> Building..."
 if ! cmake -B "$PROJECT_DIR/build" -DCMAKE_BUILD_TYPE=Release -S "$PROJECT_DIR" \
@@ -51,7 +51,7 @@ fi
 echo "==> Build OK"
 echo
 
-# ── Per-config pipeline ───────────────────────────────────────────────────────
+# -- Per-config pipeline ------------------------------------------------------
 
 declare -A SIM_STATUS ANA_STATUS STATS_STATUS VIS_STATUS
 
@@ -116,7 +116,7 @@ for stem in "${STEMS[@]}"; do
   fi
 done
 
-# ── Summary ───────────────────────────────────────────────────────────────────
+# -- Summary ------------------------------------------------------------------
 
 echo
 printf "%-40s  %-10s %-10s %-10s %-10s\n" "CONFIG" "SIMULATOR" "ANALYZER" "STATS" "VISUALIZER"

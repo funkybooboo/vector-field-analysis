@@ -42,6 +42,7 @@
 
 # CMake build directories
 build/
+build_cuda/
 bins/*/build/
 libs/*/build/
 build-coverage/

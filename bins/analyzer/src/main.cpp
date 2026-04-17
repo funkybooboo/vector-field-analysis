@@ -109,8 +109,13 @@ static void printHelp() {
               << "Reads data/<config-stem>/field.h5 and writes data/<config-stem>/streams.h5.\n"
               << "See configs/ for example configs.\n"
               << "\n[analyzer] keys (all optional):\n"
-              << "  solver  = \"all\"   sequential | openmp | pthreads | mpi | all\n"
-              << "  threads = 0       thread count for pthreads (0 = hardware_concurrency)\n"
+              << "  solver               = \"all\"  sequential | openmp | pthreads | mpi | cuda | "
+                 "cuda_full | all\n"
+              << "                                (cuda/cuda_full require -DENABLE_CUDA=ON at "
+                 "build time)\n"
+              << "  threads              = 0      thread/rank count (0 = hardware_concurrency)\n"
+              << "  cuda_block_size      = 256    CUDA threads per block for cuda solver\n"
+              << "  cuda_full_block_size = 256    CUDA threads per block for cuda_full solver\n"
               << "\nFor MPI: mpirun -n N analyzer <config.toml>  with solver = \"mpi\"\n";
 }
 
@@ -131,86 +136,192 @@ static unsigned int resolveThreadCount(unsigned int requested) {
     return hw > 0 ? hw : 1;
 }
 
-static void runAll(const Field::TimeSeries& field, unsigned int threadCount, int mpiRank,
-                   int mpiSize, const std::string& outPath) {
-    // Non-MPI solvers run only on rank 0.
+static void runAll(const Field::TimeSeries& field, unsigned int threadCount,
+                   [[maybe_unused]] unsigned int cudaBlockSize,
+                   [[maybe_unused]] unsigned int cudaFullBlockSize, int mpiRank, int mpiSize,
+                   const std::string& outPath) {
+    // Parallel solvers need at least 2 workers to add signal over sequential.
+    const bool runPthreads = threadCount > 1;
+#ifdef _OPENMP
+    const bool runOpenmp = threadCount > 1;
+#endif
+#ifdef USE_MPI
+    const bool runMpi = mpiSize > 1;
+#endif
+
+    // Non-MPI solvers (sequential, openmp, pthreads, cuda) run only on rank 0.
     RunResult sequentialResult{};
-    RunResult openmpResult{};
     RunResult pthreadsResult{};
+#ifdef _OPENMP
+    RunResult openmpResult{};
+#endif
+#ifdef ENABLE_CUDA_SOLVER
+    RunResult cudaResult{};
+    RunResult cudaFullResult{};
+#endif
     if (mpiRank == 0) {
         auto sequentialSolver = makeSolver("sequential", threadCount);
-        auto openmpSolver = makeSolver("openmp", threadCount);
-        auto pthreadsSolver = makeSolver("pthreads", threadCount);
         sequentialResult = runSolver(*sequentialSolver, field);
-        openmpResult = runSolver(*openmpSolver, field);
-        pthreadsResult = runSolver(*pthreadsSolver, field);
+#ifdef _OPENMP
+        if (runOpenmp) {
+            auto openmpSolver = makeSolver("openmp", threadCount);
+            openmpResult = runSolver(*openmpSolver, field);
+        }
+#endif
+        if (runPthreads) {
+            auto pthreadsSolver = makeSolver("pthreads", threadCount);
+            pthreadsResult = runSolver(*pthreadsSolver, field);
+        }
+#ifdef ENABLE_CUDA_SOLVER
+        auto cudaSolver = makeSolver("cuda", threadCount, cudaBlockSize);
+        cudaResult = runSolver(*cudaSolver, field);
+        auto cudaFullSolver = makeSolver("cuda_full", threadCount, cudaFullBlockSize);
+        cudaFullResult = runSolver(*cudaFullSolver, field);
+#endif
     }
 
     // MPI solver: all ranks must participate (collective calls inside).
-    // Skip when running single-rank -- it falls back to sequential and adds no signal.
     RunResult mpiResult{};
-    const bool runMpi = mpiSize > 1;
+#ifdef USE_MPI
     if (runMpi) {
         auto mpi = makeSolver("mpi", threadCount);
         mpiResult = runSolver(*mpi, field);
     }
+#endif
 
     if (mpiRank == 0) {
+        // Build labels for solvers that will print a timing row.
+        // Skip-message-only solvers don't need a label, so they don't affect labelWidth.
         const std::string sequentialLabel = "sequential";
-        const std::string openmpLabel = "openmp (" + std::to_string(threadCount) + " thr)";
-        const std::string pthreadsLabel = "pthreads (" + std::to_string(threadCount) + " thr)";
-        const std::string mpiLabel = "mpi (" + std::to_string(mpiSize) + " rank(s))";
-
-        int labelWidth = static_cast<int>(std::max({sequentialLabel.size(), openmpLabel.size(),
-                                                    pthreadsLabel.size(), mpiLabel.size()})) +
-                         2;
-        std::cout << std::left << std::setw(labelWidth) << sequentialLabel
-                  << sequentialResult.elapsedMilliseconds << " ms\n"
-                  << std::setw(labelWidth) << openmpLabel << openmpResult.elapsedMilliseconds
-                  << " ms"
-                  << "  ("
-                  << (openmpResult.elapsedMilliseconds > 0
-                          ? sequentialResult.elapsedMilliseconds / openmpResult.elapsedMilliseconds
-                          : 0.0)
-                  << "x vs sequential)\n"
-                  << std::setw(labelWidth) << pthreadsLabel << pthreadsResult.elapsedMilliseconds
-                  << " ms"
-                  << "  ("
-                  << (pthreadsResult.elapsedMilliseconds > 0
-                          ? sequentialResult.elapsedMilliseconds /
-                                pthreadsResult.elapsedMilliseconds
-                          : 0.0)
-                  << "x vs sequential)\n";
+        std::vector<std::size_t> labelSizes = {sequentialLabel.size()};
+        if (runPthreads) {
+            labelSizes.push_back(
+                std::string("pthreads (" + std::to_string(threadCount) + " thr)").size());
+        }
+#ifdef _OPENMP
+        if (runOpenmp) {
+            labelSizes.push_back(
+                std::string("openmp (" + std::to_string(threadCount) + " thr)").size());
+        }
+#endif
+#ifdef USE_MPI
         if (runMpi) {
-            std::cout << std::setw(labelWidth) << mpiLabel << mpiResult.elapsedMilliseconds << " ms"
-                      << "  ("
-                      << (mpiResult.elapsedMilliseconds > 0
-                              ? sequentialResult.elapsedMilliseconds / mpiResult.elapsedMilliseconds
-                              : 0.0)
+            labelSizes.push_back(
+                std::string("mpi (" + std::to_string(mpiSize) + " rank(s))").size());
+        }
+#endif
+#ifdef ENABLE_CUDA_SOLVER
+        labelSizes.push_back(
+            std::string("cuda (blk=" + std::to_string(cudaBlockSize) + ")").size());
+        labelSizes.push_back(
+            std::string("cuda_full (blk=" + std::to_string(cudaFullBlockSize) + ")").size());
+#endif
+        const int labelWidth =
+            static_cast<int>(*std::max_element(labelSizes.begin(), labelSizes.end())) + 2;
+
+        const auto printTiming = [&](const std::string& label, double ms) {
+            std::cout << std::left << std::setw(labelWidth) << label << ms << " ms"
+                      << "  (" << (ms > 0 ? sequentialResult.elapsedMilliseconds / ms : 0.0)
                       << "x vs sequential)\n";
+        };
+
+        std::cout << std::left << std::setw(labelWidth) << sequentialLabel
+                  << sequentialResult.elapsedMilliseconds << " ms\n";
+
+#ifdef _OPENMP
+        if (runOpenmp) {
+            printTiming("openmp (" + std::to_string(threadCount) + " thr)",
+                        openmpResult.elapsedMilliseconds);
         } else {
-            std::cout << "(mpi skipped -- rerun with mpirun -n N for a multi-rank comparison)\n";
+            std::cout << "(openmp skipped -- thread count too low for parallel benefit)\n";
+        }
+#else
+        std::cout << "(openmp skipped -- not compiled with OpenMP support)\n";
+#endif
+
+        if (runPthreads) {
+            printTiming("pthreads (" + std::to_string(threadCount) + " thr)",
+                        pthreadsResult.elapsedMilliseconds);
+        } else {
+            std::cout << "(pthreads skipped -- thread count too low for parallel benefit)\n";
         }
 
-        verify(sequentialResult.streams, openmpResult.streams, "openmp");
-        verify(sequentialResult.streams, pthreadsResult.streams, "pthreads");
+#ifdef USE_MPI
+        if (runMpi) {
+            printTiming("mpi (" + std::to_string(mpiSize) + " rank(s))",
+                        mpiResult.elapsedMilliseconds);
+        } else {
+            std::cout << "(mpi skipped -- rank count too low for parallel benefit)\n";
+        }
+#else
+        std::cout << "(mpi skipped -- not compiled with MPI support)\n";
+#endif
+
+#ifdef ENABLE_CUDA_SOLVER
+        printTiming("cuda (blk=" + std::to_string(cudaBlockSize) + ")",
+                    cudaResult.elapsedMilliseconds);
+        printTiming("cuda_full (blk=" + std::to_string(cudaFullBlockSize) + ")",
+                    cudaFullResult.elapsedMilliseconds);
+#else
+        std::cout << "(cuda skipped -- rebuild with -DENABLE_CUDA=ON)\n";
+        std::cout << "(cuda_full skipped -- rebuild with -DENABLE_CUDA=ON)\n";
+#endif
+
+        if (runPthreads) {
+            verify(sequentialResult.streams, pthreadsResult.streams, "pthreads");
+        }
+#ifdef _OPENMP
+        if (runOpenmp) {
+            verify(sequentialResult.streams, openmpResult.streams, "openmp");
+        }
+#endif
+#ifdef USE_MPI
         if (runMpi) {
             verify(sequentialResult.streams, mpiResult.streams, "mpi");
         }
+#endif
+#ifdef ENABLE_CUDA_SOLVER
+        verify(sequentialResult.streams, cudaResult.streams, "cuda");
+        verify(sequentialResult.streams, cudaFullResult.streams, "cuda_full");
+#endif
 
         writeAndReport(outPath, sequentialResult.streams, field.bounds, field.gridSize());
     }
 }
 
 static void runOne(const std::string& solverName, const Field::TimeSeries& field,
-                   unsigned int threadCount, int mpiRank, int mpiSize, const std::string& outPath) {
+                   unsigned int threadCount, [[maybe_unused]] unsigned int cudaBlockSize,
+                   [[maybe_unused]] unsigned int cudaFullBlockSize, int mpiRank, int mpiSize,
+                   const std::string& outPath) {
     RunResult result{};
     if (solverName == "mpi") {
         auto solver = makeSolver(solverName, threadCount);
         result = runSolver(*solver, field);
     } else if (mpiRank == 0) {
+#ifdef ENABLE_CUDA_SOLVER
+        if (solverName == "cuda") {
+            auto solver = makeSolver(solverName, threadCount, cudaBlockSize);
+            result = runSolver(*solver, field);
+        } else if (solverName == "cuda_full") {
+            auto solver = makeSolver(solverName, threadCount, cudaFullBlockSize);
+            result = runSolver(*solver, field);
+        } else {
+            auto solver = makeSolver(solverName, threadCount);
+            result = runSolver(*solver, field);
+        }
+#else
+        if (solverName == "cuda" || solverName == "cuda_full") {
+            std::cerr << "Error: solver \"" << solverName
+                      << "\" requires rebuilding with -DENABLE_CUDA=ON\n";
+            return;
+        }
+        if ((solverName == "openmp" || solverName == "pthreads") && threadCount <= 1) {
+            std::cout << "(note: " << solverName << " with thread count " << threadCount
+                      << " offers no parallelism benefit over sequential)\n";
+        }
         auto solver = makeSolver(solverName, threadCount);
         result = runSolver(*solver, field);
+#endif
     } else {
         // Non-zero ranks: completed collective role in runSolver(); only rank 0 writes output.
         return;
@@ -222,6 +333,12 @@ static void runOne(const std::string& solverName, const Field::TimeSeries& field
             label += " (" + std::to_string(threadCount) + " thr)";
         } else if (solverName == "mpi") {
             label += " (" + std::to_string(mpiSize) + " rank(s))";
+#ifdef ENABLE_CUDA_SOLVER
+        } else if (solverName == "cuda") {
+            label += " (blk=" + std::to_string(cudaBlockSize) + ")";
+        } else if (solverName == "cuda_full") {
+            label += " (blk=" + std::to_string(cudaFullBlockSize) + ")";
+#endif
         }
         std::cout << label << "  " << result.elapsedMilliseconds << " ms\n";
 
@@ -273,8 +390,12 @@ int main(int argc, char* argv[]) {
         const AnalyzerConfig config = ConfigParser::parseAnalyzer(argv[1]);
         const std::string stem = std::filesystem::path(argv[1]).stem().string();
         const std::string fieldPath = "data/" + stem + "/field.h5";
-        const std::string outPath = "data/" + stem + "/streams.h5";
-        std::filesystem::create_directories("data/" + stem);
+        const std::string outPath =
+            config.output.empty() ? "data/" + stem + "/streams.h5" : config.output;
+        std::filesystem::create_directories(
+            std::filesystem::path(outPath).parent_path().empty()
+                ? "."
+                : std::filesystem::path(outPath).parent_path().string());
         const Field::TimeSeries field = FieldReader::read(fieldPath);
 
         if (field.frames.empty()) {
@@ -289,6 +410,9 @@ int main(int argc, char* argv[]) {
             threadCount = static_cast<unsigned int>(mpiSize);
         }
 
+        const unsigned int cudaBlockSize = config.cudaBlockSize;
+        const unsigned int cudaFullBlockSize = config.cudaFullBlockSize;
+
         if (mpiRank == 0) {
             const int numSteps = static_cast<int>(field.frames.size());
             const auto [width, height] = field.gridSize();
@@ -300,9 +424,10 @@ int main(int argc, char* argv[]) {
         }
 
         if (config.solver == "all") {
-            runAll(field, threadCount, mpiRank, mpiSize, outPath);
+            runAll(field, threadCount, cudaBlockSize, cudaFullBlockSize, mpiRank, mpiSize, outPath);
         } else {
-            runOne(config.solver, field, threadCount, mpiRank, mpiSize, outPath);
+            runOne(config.solver, field, threadCount, cudaBlockSize, cudaFullBlockSize, mpiRank,
+                   mpiSize, outPath);
         }
     } catch (const std::exception& e) {
         if (mpiRank == 0) {

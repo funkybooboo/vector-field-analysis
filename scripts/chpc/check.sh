@@ -10,28 +10,33 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$SCRIPT_DIR/../validate.sh"
 
-SOURCES=(
+# C++ sources: formatted + linted
+CPP_SOURCES=(
   "$PROJECT_DIR/bins/analyzer/src/main.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/vectorField.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/fieldReader.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/analyzerConfigParser.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/mpiCPU.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/openMP.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/pthreads.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/sequentialCPU.cpp"
+  "$PROJECT_DIR/bins/analyzer/src/configParser.cpp"
+  "$PROJECT_DIR/bins/analyzer/src/mpiStreamlineSolver.cpp"
+  "$PROJECT_DIR/bins/analyzer/src/openMpStreamlineSolver.cpp"
+  "$PROJECT_DIR/bins/analyzer/src/pthreadsStreamlineSolver.cpp"
+  "$PROJECT_DIR/bins/analyzer/src/sequentialStreamlineSolver.cpp"
   "$PROJECT_DIR/bins/analyzer/src/solverFactory.cpp"
   "$PROJECT_DIR/bins/analyzer/src/streamWriter.cpp"
   "$PROJECT_DIR/bins/simulator/src/main.cpp"
   "$PROJECT_DIR/bins/simulator/src/configParser.cpp"
   "$PROJECT_DIR/bins/simulator/src/fieldGenerator.cpp"
-  "$PROJECT_DIR/bins/simulator/src/fieldWriter.cpp"
+)
+
+# CUDA sources: formatted only (clang-tidy does not handle .cu without extra setup)
+CUDA_SOURCES=(
+  "$PROJECT_DIR/bins/analyzer/src/cudaFull.cu"
+  "$PROJECT_DIR/bins/analyzer/src/cudaFullStreamlineSolver.cu"
+  "$PROJECT_DIR/bins/analyzer/src/cudaStreamlineSolver.cu"
 )
 
 cd "$PROJECT_DIR"
 
 echo "==> fmt"
 fmt_failed=0
-for f in "${SOURCES[@]}"; do
+for f in "${CPP_SOURCES[@]}" "${CUDA_SOURCES[@]}"; do
   if ! clang-format "$f" | diff -u "$f" - > /dev/null; then
     echo "  FAIL: $f is not formatted (run: clang-format -i $f)"
     fmt_failed=1
@@ -41,7 +46,7 @@ done
 
 echo "==> lint"
 clang-tidy -p "$PROJECT_DIR/build" --config-file="$PROJECT_DIR/.clang-tidy" \
-  --warnings-as-errors='*' "${SOURCES[@]}"
+  --warnings-as-errors='*' "${CPP_SOURCES[@]}"
 
 echo "==> build"
 cmake --build build --parallel

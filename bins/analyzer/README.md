@@ -8,7 +8,7 @@ benchmarked side-by-side.
 
 ```sh
 analyzer <config.toml>                              # run with a config file
-mpirun -n 4 analyzer configs/karman_street_128x64.toml  # MPI solver, 4 ranks
+mpirun -n 4 analyzer configs/source_grid_divergent_512x512.toml  # MPI solver, 4 ranks
 mise run run:analyzer                               # build + simulate + benchmark (recommended)
 ```
 

@@ -1,6 +1,6 @@
 #include "configParser.hpp"
 
-#include "toml_include.hpp" // NOLINT(misc-include-cleaner) — wrapper sets TOML_EXCEPTIONS
+#include "toml_include.hpp" // NOLINT(misc-include-cleaner) -- wrapper sets TOML_EXCEPTIONS
 
 #include <stdexcept>
 #include <string>

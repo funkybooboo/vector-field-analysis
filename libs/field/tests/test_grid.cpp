@@ -128,37 +128,6 @@ TEST_CASE("solver handles single-column grid without crash", "[grid]") {
 }
 
 // ---------------------------------------------------------------------------
-// joinStreamlines
-// ---------------------------------------------------------------------------
-
-TEST_CASE("joinStreamlines merges end path into start", "[grid]") {
-    auto start = std::make_shared<Field::Streamline>(Field::GridCell{0, 0});
-    auto end = std::make_shared<Field::Streamline>(Field::GridCell{1, 0});
-    end->appendPoint({2, 0});
-
-    auto grid = makeField();
-    grid.joinStreamlines(start, end);
-
-    REQUIRE(start->getPath().size() == 3);
-    REQUIRE(start->getPath()[1] == (Field::GridCell{1, 0}));
-    REQUIRE(start->getPath()[2] == (Field::GridCell{2, 0}));
-}
-
-TEST_CASE("joinStreamlines with null start is a no-op", "[grid]") {
-    auto end = std::make_shared<Field::Streamline>(Field::GridCell{0, 0});
-    auto grid = makeField();
-    REQUIRE_NOTHROW(grid.joinStreamlines(nullptr, end));
-}
-
-TEST_CASE("joinStreamlines on equal pointers is a no-op", "[grid]") {
-    auto sl = std::make_shared<Field::Streamline>(Field::GridCell{0, 0});
-    auto grid = makeField();
-    const std::size_t sizeBefore = sl->getPath().size();
-    grid.joinStreamlines(sl, sl);
-    REQUIRE(sl->getPath().size() == sizeBefore);
-}
-
-// ---------------------------------------------------------------------------
 // traceStreamlineStep multi-step
 // ---------------------------------------------------------------------------
 

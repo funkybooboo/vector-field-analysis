@@ -4,7 +4,7 @@
 #include <highfive/highfive.hpp>
 #include <vector>
 
-// Internal — not part of the public API.
+// Internal -- not part of the public API.
 // [frame][row][col] layout for HDF5 read/write operations.
 using RawFieldData = std::vector<std::vector<std::vector<float>>>;
 

@@ -1,9 +1,8 @@
+#include "cudaFull.hpp"
 #include "cudaFullStreamlineSolver.hpp"
 
-#include "cudaFull.hpp"
-
 void CudaFullStreamlineSolver::computeTimeStep(Field::Grid& grid) {
-    const auto result = cudaFull::computeComponents(grid.field(), grid.bounds());
+    const auto result = cudaFull::computeComponents(grid.field(), grid.bounds(), blockSize_);
     auto paths = cudaFull::reconstructPaths(result);
     grid.setPrecomputedStreamlines(std::move(paths));
 }

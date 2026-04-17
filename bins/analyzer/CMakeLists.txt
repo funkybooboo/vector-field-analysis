@@ -1,7 +1,16 @@
-option(ENABLE_CUDA "Build analyzer CUDA solver" OFF)
+# Auto-detect the CUDA toolkit; honour an explicit -DENABLE_CUDA=ON/OFF override.
+find_package(CUDAToolkit QUIET)
+option(ENABLE_CUDA "Build analyzer CUDA solver" ${CUDAToolkit_FOUND})
 
 if(ENABLE_CUDA)
-  set(CMAKE_CUDA_ARCHITECTURES 52)
+  # Default to "native" for local dev (compiles only for the GPU present on the
+  # build machine). On CHPC login nodes -- which have no GPU -- pass the target
+  # architecture(s) explicitly:
+  #   cmake -B build -DCMAKE_CUDA_ARCHITECTURES="80;70;75;61"
+  # benchmark.sh and enqueue.sh do this automatically.
+  if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES native)
+  endif()
   enable_language(CUDA)
   find_package(CUDAToolkit REQUIRED)
 endif()
@@ -62,7 +71,7 @@ endif()
 
 find_package(OpenMP)
 if(OpenMP_FOUND)
-    target_link_libraries(analyzer_lib PRIVATE OpenMP::OpenMP_CXX)
+    target_link_libraries(analyzer_lib PUBLIC OpenMP::OpenMP_CXX)
 endif()
 
 add_executable(analyzer src/main.cpp)

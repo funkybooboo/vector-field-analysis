@@ -1,9 +1,9 @@
 #include "pthreadsStreamlineSolver.hpp"
 
-#include <pthread.h>
+#include "sequentialStreamlineSolver.hpp"
+
 #include <stdexcept>
 #include <utility>
-#include <vector>
 
 namespace {
 
@@ -15,36 +15,101 @@ std::pair<std::size_t, std::size_t> calculateRowSplit(std::size_t rowCount,
     return {rowCount / partitionCount, rowCount % partitionCount};
 }
 
-struct ThreadArgs {
-    const Field::Grid* grid;
-    Field::GridCell* neighbors;
-    int colCount;
-    std::size_t startRow;
-    std::size_t endRow;
-};
-
-// Pass 1 worker: reads neighbor directions for an assigned row range.
-// downstreamCell is const and reads no shared mutable state, so
-// concurrent calls across disjoint row ranges are race-free.
-void* computeNeighbors(void* arg) {
-    auto* task = static_cast<ThreadArgs*>(arg);
-    for (std::size_t row = task->startRow; row < task->endRow; row++) {
-        for (int col = 0; col < task->colCount; col++) {
-            task->neighbors[(row * static_cast<std::size_t>(task->colCount)) +
-                            static_cast<std::size_t>(col)] =
-                task->grid->downstreamCell(static_cast<int>(row), col);
-        }
-    }
-    return nullptr;
-}
-
 } // namespace
 
+// Worker thread: sleeps until a new generation of work is dispatched, processes
+// its assigned row range, then decrements the pending counter.
+void* PthreadsStreamlineSolver::workerLoop(void* arg) {
+    auto* ctx = static_cast<ThreadCtx*>(arg);
+    PthreadsStreamlineSolver* self = ctx->solver;
+    const unsigned int idx = ctx->index;
+    delete ctx;
+
+    unsigned int lastGen = 0;
+
+    pthread_mutex_lock(&self->mutex_);
+    while (true) {
+        while (self->workGeneration_ == lastGen && !self->shutdown_) {
+            pthread_cond_wait(&self->workReady_, &self->mutex_);
+        }
+        if (self->shutdown_) {
+            pthread_mutex_unlock(&self->mutex_);
+            return nullptr;
+        }
+        lastGen = self->workGeneration_;
+        const WorkItem item = self->work_[idx];
+        pthread_mutex_unlock(&self->mutex_);
+
+        for (std::size_t row = item.startRow; row < item.endRow; ++row) {
+            for (int col = 0; col < item.colCount; ++col) {
+                item.neighbors[(row * static_cast<std::size_t>(item.colCount)) +
+                               static_cast<std::size_t>(col)] =
+                    item.grid->downstreamCell(static_cast<int>(row), col);
+            }
+        }
+
+        pthread_mutex_lock(&self->mutex_);
+        if (--self->pendingCount_ == 0) {
+            pthread_cond_signal(&self->workDone_);
+        }
+        // remain locked for the next loop iteration
+    }
+}
+
 PthreadsStreamlineSolver::PthreadsStreamlineSolver(unsigned int threadCount)
-    : threadCount_(threadCount) {}
+    : threadCount_(threadCount) {
+    pthread_mutex_init(&mutex_, nullptr);
+    pthread_cond_init(&workReady_, nullptr);
+    pthread_cond_init(&workDone_, nullptr);
+
+    if (threadCount_ == 0) {
+        return;
+    }
+
+    pool_.resize(threadCount_);
+    work_.resize(threadCount_);
+
+    for (unsigned int i = 0; i < threadCount_; ++i) {
+        auto* ctx = new ThreadCtx{this, i};
+        const int err = pthread_create(&pool_[i], nullptr, workerLoop, ctx);
+        if (err != 0) {
+            // Signal shutdown and join already-created threads before throwing.
+            delete ctx;
+            pthread_mutex_lock(&mutex_);
+            shutdown_ = true;
+            pthread_cond_broadcast(&workReady_);
+            pthread_mutex_unlock(&mutex_);
+            for (unsigned int j = 0; j < i; ++j) {
+                pthread_join(pool_[j], nullptr);
+            }
+            pthread_mutex_destroy(&mutex_);
+            pthread_cond_destroy(&workReady_);
+            pthread_cond_destroy(&workDone_);
+            throw std::runtime_error("pthread_create failed with error code " +
+                                     std::to_string(err));
+        }
+    }
+}
+
+PthreadsStreamlineSolver::~PthreadsStreamlineSolver() {
+    pthread_mutex_lock(&mutex_);
+    shutdown_ = true;
+    pthread_cond_broadcast(&workReady_);
+    pthread_mutex_unlock(&mutex_);
+
+    for (auto& t : pool_) {
+        pthread_join(t, nullptr);
+    }
+
+    pthread_mutex_destroy(&mutex_);
+    pthread_cond_destroy(&workReady_);
+    pthread_cond_destroy(&workDone_);
+}
 
 void PthreadsStreamlineSolver::computeTimeStep(Field::Grid& grid) {
     if (threadCount_ == 0) {
+        SequentialStreamlineSolver fallback;
+        fallback.computeTimeStep(grid);
         return;
     }
 
@@ -58,55 +123,30 @@ void PthreadsStreamlineSolver::computeTimeStep(Field::Grid& grid) {
     }
 
     // Pass 1: parallel -- compute all (src, dest) neighbor pairs.
-    std::vector<Field::GridCell> neighbors(rowCount * static_cast<std::size_t>(colCount));
+    neighbors_.resize(rowCount * static_cast<std::size_t>(colCount));
 
-    auto rowSplit = calculateRowSplit(rowCount, threadCount_);
-    const std::size_t rowsPerThread = rowSplit.first;
-    const std::size_t remainderRows = rowSplit.second;
-
-    std::vector<pthread_t> threads(threadCount_);
-    std::vector<ThreadArgs> threadArgs(threadCount_);
+    auto [rowsPerThread, remainderRows] = calculateRowSplit(rowCount, threadCount_);
 
     std::size_t currentRow = 0;
-    for (unsigned int threadIndex = 0; threadIndex < threadCount_; threadIndex++) {
-        threadArgs[threadIndex].grid = &grid;
-        threadArgs[threadIndex].neighbors = neighbors.data();
-        threadArgs[threadIndex].colCount = colCount;
-        threadArgs[threadIndex].startRow = currentRow;
-
-        // Last thread receives remainder rows
-        if (threadIndex == threadCount_ - 1) {
-            threadArgs[threadIndex].endRow = currentRow + rowsPerThread + remainderRows;
-        } else {
-            threadArgs[threadIndex].endRow = currentRow + rowsPerThread;
-        }
+    for (unsigned int i = 0; i < threadCount_; ++i) {
+        work_[i].grid = &grid;
+        work_[i].neighbors = neighbors_.data();
+        work_[i].colCount = colCount;
+        work_[i].startRow = currentRow;
+        work_[i].endRow = currentRow + rowsPerThread + (i == threadCount_ - 1 ? remainderRows : 0);
         currentRow += rowsPerThread;
-
-        const int err = pthread_create(&threads[threadIndex], nullptr, computeNeighbors,
-                                       &threadArgs[threadIndex]);
-        if (err != 0) {
-            // Join all already-running threads before propagating the error so
-            // they don't outlive threadArgs and neighbors.
-            for (unsigned int j = 0; j < threadIndex; j++) {
-                pthread_join(threads[j], nullptr);
-            }
-            throw std::runtime_error("pthread_create failed with error code " +
-                                     std::to_string(err));
-        }
     }
 
-    for (unsigned int threadIndex = 0; threadIndex < threadCount_; threadIndex++) {
-        const int err = pthread_join(threads[threadIndex], nullptr);
-        if (err != 0) {
-            // Join remaining threads before propagating so they don't outlive threadArgs/neighbors.
-            for (unsigned int j = threadIndex + 1; j < threadCount_; j++) {
-                pthread_join(threads[j], nullptr);
-            }
-            throw std::runtime_error("pthread_join failed with error code " + std::to_string(err));
-        }
+    // Pass 1: dispatch neighbor computation to pool and wait.
+    pthread_mutex_lock(&mutex_);
+    pendingCount_ = threadCount_;
+    ++workGeneration_;
+    pthread_cond_broadcast(&workReady_);
+    while (pendingCount_ > 0) {
+        pthread_cond_wait(&workDone_, &mutex_);
     }
+    pthread_mutex_unlock(&mutex_);
 
     // Pass 2: sequential -- apply streamline merges using the precomputed pairs.
-    // traceStreamlineStep writes to streamlines_ and is not thread-safe.
-    applyNeighborPairs(grid, neighbors, static_cast<int>(rowCount), colCount);
+    applyNeighborPairs(grid, neighbors_, static_cast<int>(rowCount), colCount);
 }

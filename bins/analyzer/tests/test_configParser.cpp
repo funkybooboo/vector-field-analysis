@@ -89,3 +89,72 @@ TEST_CASE("parseAnalyzer throws on float threads value", "[config]") {
 TEST_CASE("parseAnalyzer throws on missing file", "[config]") {
     REQUIRE_THROWS(ConfigParser::parseAnalyzer("/tmp/does_not_exist_analyzer_test.toml"));
 }
+
+// ---------------------------------------------------------------------------
+// Block size defaults and parsing
+// ---------------------------------------------------------------------------
+
+TEST_CASE("parseAnalyzer returns default cudaBlockSize 256 when key absent", "[config]") {
+    TempFile tmp("# empty\n");
+    const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
+    REQUIRE(cfg.cudaBlockSize == 256);
+}
+
+TEST_CASE("parseAnalyzer returns default cudaFullBlockSize 256 when key absent", "[config]") {
+    TempFile tmp("# empty\n");
+    const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
+    REQUIRE(cfg.cudaFullBlockSize == 256);
+}
+
+TEST_CASE("parseAnalyzer reads cuda_block_size", "[config]") {
+    TempFile tmp("[analyzer]\ncuda_block_size = 512\n");
+    const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
+    REQUIRE(cfg.cudaBlockSize == 512);
+}
+
+TEST_CASE("parseAnalyzer reads cuda_full_block_size", "[config]") {
+    TempFile tmp("[analyzer]\ncuda_full_block_size = 128\n");
+    const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
+    REQUIRE(cfg.cudaFullBlockSize == 128);
+}
+
+TEST_CASE("parseAnalyzer accepts cuda_block_size = 1 (lower boundary)", "[config]") {
+    TempFile tmp("[analyzer]\ncuda_block_size = 1\n");
+    REQUIRE_NOTHROW(ConfigParser::parseAnalyzer(tmp.path.string()));
+}
+
+TEST_CASE("parseAnalyzer accepts cuda_block_size = 1024 (upper boundary)", "[config]") {
+    TempFile tmp("[analyzer]\ncuda_block_size = 1024\n");
+    REQUIRE_NOTHROW(ConfigParser::parseAnalyzer(tmp.path.string()));
+}
+
+TEST_CASE("parseAnalyzer throws on cuda_block_size = 0", "[config]") {
+    TempFile tmp("[analyzer]\ncuda_block_size = 0\n");
+    REQUIRE_THROWS_AS(ConfigParser::parseAnalyzer(tmp.path.string()), std::runtime_error);
+}
+
+TEST_CASE("parseAnalyzer throws on cuda_block_size = 1025", "[config]") {
+    TempFile tmp("[analyzer]\ncuda_block_size = 1025\n");
+    REQUIRE_THROWS_AS(ConfigParser::parseAnalyzer(tmp.path.string()), std::runtime_error);
+}
+
+TEST_CASE("parseAnalyzer throws on float cuda_block_size", "[config]") {
+    TempFile tmp("[analyzer]\ncuda_block_size = 4.5\n");
+    REQUIRE_THROWS_AS(ConfigParser::parseAnalyzer(tmp.path.string()), std::runtime_error);
+}
+
+// ---------------------------------------------------------------------------
+// Output field
+// ---------------------------------------------------------------------------
+
+TEST_CASE("parseAnalyzer reads output path", "[config]") {
+    TempFile tmp("[analyzer]\noutput = \"results/out.h5\"\n");
+    const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
+    REQUIRE(cfg.output == "results/out.h5");
+}
+
+TEST_CASE("parseAnalyzer output defaults to empty string when absent", "[config]") {
+    TempFile tmp("# empty\n");
+    const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
+    REQUIRE(cfg.output.empty());
+}

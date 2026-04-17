@@ -74,16 +74,32 @@ if [[ -n "$BENCHMARK_GPUS" ]]; then
 fi
 
 # --- Build via CMake ---
-# Use the project's normal CMake build so all include paths, definitions, and
-# link flags (HighFive/HDF5, toml++, MPI, etc.) are applied correctly.
 cmake_bin="$PROJECT_DIR/build/bins/$JOB_BIN/$JOB_BIN"
 
-echo "==> Building $JOB_BIN via CMake"
-if [[ ! -d "$PROJECT_DIR/build" ]]; then
-  echo "error: no cmake build directory found at $PROJECT_DIR/build" >&2
-  echo "error: configure and build the project with cmake before running this script" >&2
-  exit 1
-fi
+# Load CUDA so nvcc is in PATH for the configure + build steps.
+# shellcheck source=/dev/null
+source /etc/profile.d/lmod.sh 2>/dev/null || true
+module load "$CUDA_MODULE"
+
+# Collect unique numeric SM architectures from CONFIGS so the binary runs on
+# every GPU target without recompiling (fat binary / PTX fallback).
+cuda_archs=()
+for config in "${CONFIGS[@]}"; do
+  read -r _ _ _ _ arch <<< "$config"
+  cuda_archs+=("${arch#sm_}")
+done
+IFS=$'\n' unique_archs=($(printf "%s\n" "${cuda_archs[@]}" | sort -u))
+unset IFS
+cuda_archs_cmake=$(IFS=";"; echo "${unique_archs[*]}")
+
+echo "==> Configuring (CUDA architectures: $cuda_archs_cmake)"
+cmake -B "$PROJECT_DIR/build" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CUDA_ARCHITECTURES="$cuda_archs_cmake" \
+  -S "$PROJECT_DIR" \
+  > /dev/null
+
+echo "==> Building $JOB_BIN"
 cmake --build "$PROJECT_DIR/build" --target "$JOB_BIN" -- -j"$(nproc)"
 
 # --- Stage binary ---

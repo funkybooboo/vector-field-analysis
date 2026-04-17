@@ -51,7 +51,7 @@ mise run test    # run all tests
 | `mise run test:coverage` | Run tests and generate coverage report |
 | `mise run links` | Check for broken links in markdown files |
 | `mise run ci` | Full pipeline -- mirrors all GitHub Actions jobs |
-| `mise run run:simulator` | Build and run the simulator with `karman_street.toml` (writes `field.h5`) |
+| `mise run run:simulator` | Build and run the simulator with `source_grid_divergent_512x512.toml` (writes `source_grid_divergent_512x512.h5`) |
 | `mise run run:analyzer` | Run simulator then benchmark all solver impls under `mpirun -n $(nproc)` |
 | `mise run run:analyzer:mpi` | Run MPI solver only under mpirun (default 4 ranks; override with `NRANKS=N`) |
 | `mise run visualize` | Animate `field.h5` as a quiver plot |

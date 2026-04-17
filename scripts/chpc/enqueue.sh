@@ -27,14 +27,20 @@ cmake_bin="$PROJECT_DIR/build/bins/$JOB_BIN/$JOB_BIN"
 cd "$PROJECT_DIR"
 
 # --- Build via CMake ---
-# Use the project's normal CMake build so all include paths, definitions, and
-# link flags (HighFive/HDF5, toml++, MPI, etc.) are applied correctly.
+# Load CUDA so nvcc is in PATH for the configure + build steps.
+# shellcheck source=/dev/null
+source /etc/profile.d/lmod.sh 2>/dev/null || true
+module load "$CUDA_MODULE"
+
+cuda_arch_num="${CUDA_ARCH#sm_}"
+echo "==> Configuring (CUDA architecture: $cuda_arch_num)"
+cmake -B "$PROJECT_DIR/build" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CUDA_ARCHITECTURES="$cuda_arch_num" \
+  -S "$PROJECT_DIR" \
+  > /dev/null
+
 echo "==> Building $JOB_BIN via CMake"
-if [[ ! -d "$PROJECT_DIR/build" ]]; then
-  echo "error: no cmake build directory found at $PROJECT_DIR/build" >&2
-  echo "error: configure and build the project with cmake before running this script" >&2
-  exit 1
-fi
 cmake --build "$PROJECT_DIR/build" --target "$JOB_BIN" -- -j"$(nproc)"
 cp -f "$cmake_bin" "$bin"
 echo "  staged ${JOB_BIN}_run"

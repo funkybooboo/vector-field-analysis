@@ -39,9 +39,13 @@ mkdir -p "$(dirname "$gpu_output")"
 # correct file without modifying the shared base config.
 tmp_toml=$(mktemp /tmp/vfa_job_XXXXXX.toml)
 trap 'rm -f "$tmp_toml"' EXIT
-# Strip any existing output key, then insert output = "..." after [analyzer].
-sed '/^\s*output\s*=/d' "$JOB_INPUT" \
-  | sed '/^\[analyzer\]/a output = "'"$gpu_output"'"' \
-  > "$tmp_toml"
+# Strip any existing output key, then inject output = "..." under [analyzer].
+# If the config has no [analyzer] section, append one at the end.
+sed '/^\s*output\s*=/d' "$JOB_INPUT" > "$tmp_toml"
+if grep -q '^\[analyzer\]' "$tmp_toml"; then
+  sed -i '/^\[analyzer\]/a output = "'"$gpu_output"'"' "$tmp_toml"
+else
+  printf '\n[analyzer]\noutput = "%s"\n' "$gpu_output" >> "$tmp_toml"
+fi
 
 srun "$PROJECT_DIR/${JOB_BIN}_run" "$tmp_toml"

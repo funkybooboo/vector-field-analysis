@@ -106,28 +106,21 @@ _check_cuda_arch() {
 
 _check_job_name() {
   if [[ -z "${JOB_NAME:-}" ]]; then
-    echo "error: JOB_NAME is not set (e.g. hw5.2)" >&2
+    echo "error: JOB_NAME is not set (e.g. vfa)" >&2
     return 1
   fi
 }
 
 _check_job_bin() {
   if [[ -z "${JOB_BIN:-}" ]]; then
-    echo "error: JOB_BIN is not set (e.g. game_of_life)" >&2
-    return 1
-  fi
-}
-
-_check_job_src() {
-  if [[ -z "${JOB_SRC:-}" ]]; then
-    echo "error: JOB_SRC is not set (e.g. bins/game_of_life/game_of_life.cu)" >&2
+    echo "error: JOB_BIN is not set (e.g. analyzer)" >&2
     return 1
   fi
 }
 
 _check_job_input() {
   if [[ -z "${JOB_INPUT:-}" ]]; then
-    echo "error: JOB_INPUT is not set (e.g. input/gc_1024x1024-uint8.raw)" >&2
+    echo "error: JOB_INPUT is not set (e.g. configs/source_grid_divergent_512x512.toml)" >&2
     return 1
   fi
 }

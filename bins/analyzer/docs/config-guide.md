@@ -41,10 +41,10 @@ Run with `mpirun` (local) or `srun` (CHPC/Slurm):
 
 ```bash
 # Local -- all solvers with fair comparison (thread count adapts to rank count)
-mpirun -n 4 analyzer configs/karman_street_128x64.toml
+mpirun -n 4 analyzer configs/source_grid_divergent_512x512.toml
 
 # CHPC via Slurm
-srun -n 4 analyzer configs/karman_street_128x64.toml
+srun -n 4 analyzer configs/source_grid_divergent_512x512.toml
 ```
 
 Each rank reads the field file independently (works on shared filesystems like Lustre).

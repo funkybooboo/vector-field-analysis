@@ -14,13 +14,13 @@ uv = "latest"
 description = "Install system dependencies (HDF5, OpenMPI, cppcheck)"
 run = """
 if command -v apt-get &>/dev/null; then
-    sudo apt-get update -q && sudo apt-get install -y -q libhdf5-dev libopenmpi-dev openmpi-bin cppcheck
+    sudo apt-get update -q && sudo apt-get install -y -q libhdf5-dev libopenmpi-dev openmpi-bin cppcheck nvidia-cuda-toolkit
 elif command -v dnf &>/dev/null; then
-    sudo dnf update -q && sudo dnf install -y -q hdf5 openmpi-devel cppcheck
+    sudo dnf update -q && sudo dnf install -y -q hdf5 openmpi-devel cppcheck cuda-toolkit
 elif command -v pacman &>/dev/null; then
-    sudo pacman -S --needed hdf5 openmpi cppcheck
+    sudo pacman -S --needed hdf5 openmpi cppcheck cuda
 else
-    echo "Unsupported package manager -> install HDF5, OpenMPI, and cppcheck manually"
+    echo "Unsupported package manager -> install HDF5, OpenMPI, cppcheck, and CUDA Toolkit manually"
     exit 1
 fi
 """
@@ -119,22 +119,51 @@ uvx gcovr -r . build-coverage/ \
 [tasks."run:simulator"]
 description = "Build and run the simulator"
 depends = ["build:simulator"]
-run = "./build/bins/simulator/simulator configs/karman_street_128x64.toml"
+run = "./build/bins/simulator/simulator configs/source_grid_divergent_512x512.toml"
 
 [tasks."run:analyzer"]
 description = "Generate field data then benchmark all analyzer impls (MPI_RANKS, ANALYZER_THREADS)"
 depends = ["build:analyzer", "run:simulator"]
-run = "mpirun -n ${MPI_RANKS:-4} --oversubscribe ./build/bins/analyzer/analyzer configs/karman_street_128x64.toml"
+run = "mpirun -n ${MPI_RANKS:-$(nproc)} --oversubscribe ./build/bins/analyzer/analyzer configs/source_grid_divergent_512x512.toml"
 
 [tasks."run:analyzer:mpi"]
-description = "Run MPI analyzer (MPI_RANKS defaults to 4)"
+description = "Run MPI analyzer (MPI_RANKS defaults to nproc)"
 depends = ["build:analyzer", "run:simulator"]
-run = "mpirun -n ${MPI_RANKS:-4} --oversubscribe ./build/bins/analyzer/analyzer configs/karman_street_128x64.toml"
+run = "mpirun -n ${MPI_RANKS:-$(nproc)} --oversubscribe ./build/bins/analyzer/analyzer configs/source_grid_divergent_512x512.toml"
+
+[tasks."run:configs"]
+description = "Run all configs via scripts/run_configs.sh"
+run = "./scripts/run_configs.sh"
 
 [tasks.demo]
-description = "Full pipeline: build, simulate, benchmark all solvers, then visualize"
-depends = ["run:analyzer"]
-run = "uv run tools/visualize.py data/${STEM:-karman_street_128x64}/field.h5 --streams data/${STEM:-karman_street_128x64}/streams.h5"
+description = "Full pipeline: build, simulate, benchmark all solvers, stats, then visualize; tees output to data/<STEM>/"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+STEM=${STEM:-vortex_1024x1024}
+OUT=data/$STEM
+mkdir -p "$OUT"
+
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+  2>&1 | tee "$OUT/configure_output.txt"
+cmake --build build 2>&1 | tee "$OUT/build_output.txt"
+
+./build/bins/simulator/simulator configs/$STEM.toml \
+  > >(tee "$OUT/simulator_stdout.txt") \
+  2> >(tee "$OUT/simulator_stderr.txt" >&2)
+
+mpirun -n ${MPI_RANKS:-$(nproc)} --oversubscribe ./build/bins/analyzer/analyzer configs/$STEM.toml \
+  > >(tee "$OUT/analyzer_stdout.txt") \
+  2> >(tee "$OUT/analyzer_stderr.txt" >&2)
+
+uv run tools/stats.py "$OUT/field.h5" "$OUT/streams.h5" \
+  > >(tee "$OUT/stats_stdout.txt") \
+  2> >(tee "$OUT/stats_stderr.txt" >&2)
+
+uv run tools/visualize.py "$OUT/field.h5" --streams "$OUT/streams.h5" \
+  > >(tee "$OUT/visualizer_stdout.txt") \
+  2> >(tee "$OUT/visualizer_stderr.txt" >&2)
+"""
 
 # =============================================================================
 # Visualize / Stats
@@ -142,23 +171,23 @@ run = "uv run tools/visualize.py data/${STEM:-karman_street_128x64}/field.h5 --s
 
 [tasks.visualize]
 description = "Visualize field.h5 with quiver plot"
-run = "uv run tools/visualize.py data/${STEM:-karman_street_128x64}/field.h5"
+run = "uv run tools/visualize.py data/${STEM:-source_grid_divergent_512x512}/field.h5"
 
 [tasks."visualize:streams"]
 description = "Visualize field.h5 with streamlines overlaid"
-run = "uv run tools/visualize.py data/${STEM:-karman_street_128x64}/field.h5 --streams data/${STEM:-karman_street_128x64}/streams.h5"
+run = "uv run tools/visualize.py data/${STEM:-source_grid_divergent_512x512}/field.h5 --streams data/${STEM:-source_grid_divergent_512x512}/streams.h5"
 
 [tasks.stats]
 description = "Print stats for field.h5 and field.streams.h5"
-run = "uv run tools/stats.py data/${STEM:-karman_street_128x64}/field.h5 data/${STEM:-karman_street_128x64}/streams.h5"
+run = "uv run tools/stats.py data/${STEM:-source_grid_divergent_512x512}/field.h5 data/${STEM:-source_grid_divergent_512x512}/streams.h5"
 
 [tasks."stats:field"]
 description = "Print stats for field.h5"
-run = "uv run tools/stats.py data/${STEM:-karman_street_128x64}/field.h5"
+run = "uv run tools/stats.py data/${STEM:-source_grid_divergent_512x512}/field.h5"
 
 [tasks."stats:streams"]
 description = "Print stats for field.streams.h5"
-run = "uv run tools/stats.py data/${STEM:-karman_street_128x64}/streams.h5"
+run = "uv run tools/stats.py data/${STEM:-source_grid_divergent_512x512}/streams.h5"
 
 # =============================================================================
 # Quality
@@ -166,16 +195,16 @@ run = "uv run tools/stats.py data/${STEM:-karman_street_128x64}/streams.h5"
 
 [tasks.format]
 description = "Format all source files in place"
-run = "find bins libs -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i"
+run = "find bins libs -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' | xargs clang-format -i"
 
 [tasks."format:check"]
 description = "Check formatting without modifying files"
-run = "find bins libs -name '*.cpp' -o -name '*.hpp' | xargs clang-format --dry-run --Werror"
+run = "find bins libs -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' | xargs clang-format --dry-run --Werror"
 
 [tasks."ascii-check"]
 description = "Fail if any source file contains non-ASCII characters"
 run = """
-if grep -rn --include='*.cpp' --include='*.hpp' --include='*.toml' --include='*.cmake' --include='*.txt' -P '[\x80-\xFF]' bins libs cmake docs CMakeLists.txt .clang-tidy .clang-format; then
+if LC_ALL=C grep -rn --include='*.cpp' --include='*.hpp' --include='*.toml' --include='*.cmake' --include='*.txt' --include='*.sh' --include='*.py' -P '[\x80-\xFF]' bins libs cmake docs scripts CMakeLists.txt .clang-tidy .clang-format; then
     echo "Non-ASCII characters found."
     exit 1
 fi
@@ -200,10 +229,14 @@ cppcheck --enable=all --error-exitcode=1 \
   --suppress=normalCheckLevelMaxBranches \
   "--suppress=unusedStructMember:bins/simulator/src/fieldGenerator.cpp" \
   "--suppress=knownConditionTrueFalse:bins/analyzer/src/main.cpp" \
+  "--suppress=unusedFunction:libs/field/src/grid.hpp" \
+  "--suppress=duplicateCondition:bins/analyzer/src/main.cpp" \
   bins/ libs/
 # unusedStructMember: false positive -- RadialComponents members accessed via std::optional::operator->
 # normalCheckLevelMaxBranches: pthreads.cpp two-pass design exceeds branch analysis limit, not an error
 # knownConditionTrueFalse: intentional #ifdef USE_MPI pattern; always 0/1 in non-MPI build
+# unusedFunction grid.hpp: bounds/field/setPrecomputedStreamlines used in .cu files cppcheck does not analyze
+# duplicateCondition main.cpp: runPthreads and runOpenmp intentionally share threadCount>1 threshold
 """
 
 [tasks.links]
@@ -247,6 +280,10 @@ depends = [
 # Clean
 # =============================================================================
 
+[tasks."clean:cuda"]
+description = "Remove CUDA build directory"
+run = "rm -rf build_cuda"
+
 [tasks."clean:build"]
 description = "Remove main build directory"
 run = "rm -rf build"
@@ -265,4 +302,4 @@ run = "rm -rf data/ *.h5 *.pkl"
 
 [tasks.clean]
 description = "Remove all build artifacts"
-depends = ["clean:build", "clean:sanitize", "clean:coverage", "clean:data", "report:clean"]
+depends = ["clean:build", "clean:cuda", "clean:sanitize", "clean:coverage", "clean:data", "report:clean"]

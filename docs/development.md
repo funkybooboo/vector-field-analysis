@@ -109,8 +109,8 @@ mise run links            # check for broken links in all markdown files (lychee
 ### Simulator
 
 ```sh
-mise run run:simulator                              # build and run with karman_street.toml (writes field.h5)
-./build/bins/simulator/simulator bins/simulator/configs/vortex.toml  # run with a specific config
+mise run run:simulator                              # build and run with source_grid_divergent_512x512.toml (writes source_grid_divergent_512x512.h5)
+./build/bins/simulator/simulator configs/source_grid_divergent_512x512.toml  # run with a specific config
 ```
 
 ### Analyzer
