@@ -233,9 +233,9 @@ TEST_CASE("getStreamlines path contents match expected for uniform right-pointin
 // downstreamCell and traceStreamlineStep error paths
 // ---------------------------------------------------------------------------
 
-TEST_CASE("downstreamCell throws on empty grid", "[grid]") {
-    Field::Grid grid(Field::Bounds{0.0f, 2.0f, 0.0f, 2.0f}, Field::Slice{});
-    REQUIRE_THROWS_AS(grid.downstreamCell(0, 0), std::runtime_error);
+TEST_CASE("Grid constructor throws on empty grid", "[grid]") {
+    REQUIRE_THROWS_AS(Field::Grid(Field::Bounds{0.0f, 2.0f, 0.0f, 2.0f}, Field::Slice{}),
+                      std::runtime_error);
 }
 
 TEST_CASE("traceStreamlineStep throws when src row is out of bounds", "[grid]") {

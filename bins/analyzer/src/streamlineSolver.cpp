@@ -4,9 +4,9 @@
 #include <cstddef>
 #include <vector>
 
-std::vector<Field::Path> StreamlineSolver::reconstructPathsDSU(
-    const Field::Grid& grid,
-    const std::vector<Field::GridCell>& neighbors) {
+std::vector<Field::Path>
+StreamlineSolver::reconstructPathsDSU(const Field::Grid& grid,
+                                      const std::vector<Field::GridCell>& neighbors) {
 
     const std::size_t total = neighbors.size();
     if (total == 0) {

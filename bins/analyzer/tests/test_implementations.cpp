@@ -64,8 +64,7 @@ TEST_CASE("SequentialStreamlineSolver::computeTimeStep completes on uniform fiel
 }
 
 TEST_CASE("SequentialStreamlineSolver::computeTimeStep handles empty grid", "[impl][sequential]") {
-    auto grid = makeEmptyGrid();
-    REQUIRE_NOTHROW(SequentialStreamlineSolver{}.computeTimeStep(grid));
+    REQUIRE_THROWS_AS(makeEmptyGrid(), std::runtime_error);
 }
 
 // ---------------------------------------------------------------------------
@@ -99,8 +98,7 @@ TEST_CASE("PthreadsStreamlineSolver more threads than rows produces correct outp
 }
 
 TEST_CASE("PthreadsStreamlineSolver empty grid returns early", "[impl][pthreads]") {
-    auto grid = makeEmptyGrid();
-    REQUIRE_NOTHROW(PthreadsStreamlineSolver{4}.computeTimeStep(grid));
+    REQUIRE_THROWS_AS(makeEmptyGrid(), std::runtime_error);
 }
 
 // ---------------------------------------------------------------------------
@@ -113,8 +111,7 @@ TEST_CASE("OpenMpStreamlineSolver::computeTimeStep completes on uniform field", 
 }
 
 TEST_CASE("OpenMpStreamlineSolver::computeTimeStep handles empty grid", "[impl][openmp]") {
-    auto grid = makeEmptyGrid();
-    REQUIRE_NOTHROW(OpenMpStreamlineSolver{}.computeTimeStep(grid));
+    REQUIRE_THROWS_AS(makeEmptyGrid(), std::runtime_error);
 }
 
 // ---------------------------------------------------------------------------
@@ -133,8 +130,7 @@ TEST_CASE("MpiStreamlineSolver::computeTimeStep completes on uniform field", "[i
 }
 
 TEST_CASE("MpiStreamlineSolver::computeTimeStep handles empty grid", "[impl][mpi]") {
-    auto grid = makeEmptyGrid();
-    REQUIRE_NOTHROW(MpiStreamlineSolver{}.computeTimeStep(grid));
+    REQUIRE_THROWS_AS(makeEmptyGrid(), std::runtime_error);
 }
 
 // ---------------------------------------------------------------------------

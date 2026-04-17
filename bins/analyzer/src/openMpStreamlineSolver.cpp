@@ -30,7 +30,8 @@ void OpenMpStreamlineSolver::computeTimeStep(Field::Grid& grid) {
 
     // Pass 1: parallel -- each cell reads its neighbor direction from field_ (read-only).
     // downstreamCell is const and touches no shared mutable state.
-    const std::size_t total = static_cast<std::size_t>(rowCount) * static_cast<std::size_t>(colCount);
+    const std::size_t total =
+        static_cast<std::size_t>(rowCount) * static_cast<std::size_t>(colCount);
     std::vector<Field::GridCell> neighbors(total);
 
 #pragma omp parallel for schedule(static) collapse(2)
