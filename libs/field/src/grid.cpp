@@ -19,21 +19,50 @@ void Grid::initializeSuccessors() {
         throw std::runtime_error("Can't properly initialize zero-width field");
     }
 
-    successor.assign(static_cast<std::size_t>(rowCount),
-                     std::vector<std::size_t>(static_cast<std::size_t>(colCount)));
-
-    for (int i = 0; i < rowCount; i++) {
-        for (int j = 0; j < colCount; j++) {
-            successor[static_cast<std::size_t>(i)][static_cast<std::size_t>(j)] =
-                coordsToIndex(static_cast<std::size_t>(i), static_cast<std::size_t>(j));
-        }
+    const std::size_t total =
+        static_cast<std::size_t>(rowCount) * static_cast<std::size_t>(colCount);
+    for (std::size_t i = 0; i < total; ++i) {
+        successor_[i] = i;
     }
 }
 
 // converts a given coordinate into a unique index so that it can be looked up in a disjoint set
-std::size_t Grid::coordsToIndex(std::size_t row, std::size_t col) {
+std::size_t Grid::coordsToIndex(std::size_t row, std::size_t col) const {
     const std::size_t colCount = field_.empty() ? 0 : field_[0].size();
     return (row * colCount) + col;
+}
+
+// Path halving: make every other node in the path point to its grandparent.
+std::size_t Grid::findRoot(std::size_t x) const {
+    while (successor_[x] != x) {
+        // This is safe to do concurrently without further synchronization.
+        std::size_t parent = successor_[x].load();
+        std::size_t grandparent = successor_[parent].load();
+        successor_[x].store(grandparent);
+        x = grandparent;
+    }
+    return x;
+}
+
+void Grid::unite(std::size_t a, std::size_t b) {
+    while (true) {
+        a = findRoot(a);
+        b = findRoot(b);
+        if (a == b) {
+            return;
+        }
+
+        // Always merge the smaller index into the larger one to keep the DSU
+        // structure deterministic and avoid cycles.
+        if (a < b) {
+            std::swap(a, b);
+        }
+
+        std::size_t expected = b;
+        if (successor_[b].compare_exchange_weak(expected, a)) {
+            return;
+        }
+    }
 }
 
 GridCell Grid::downstreamCell(int row, int col) const {
@@ -75,8 +104,7 @@ GridCell Grid::downstreamCell(GridCell coords) const {
     return downstreamCell(coords.row, coords.col);
 }
 
-void Grid::joinStreamlines(std::shared_ptr<Streamline> start,
-                           std::shared_ptr<Streamline> end) {
+void Grid::joinStreamlines(std::shared_ptr<Streamline> start, std::shared_ptr<Streamline> end) {
     if (!start || !end) {
         return;
     }

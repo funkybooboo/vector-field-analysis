@@ -2,6 +2,7 @@
 #include "fieldTypes.hpp"
 #include "streamline.hpp"
 
+#include <atomic>
 #include <cstddef>
 #include <memory>
 #include <vector>
@@ -15,7 +16,7 @@ namespace Field {
 class Grid {
     const Bounds bounds_;
     Slice field_;
-    std::vector<std::vector<std::size_t>> successor;
+    std::unique_ptr<std::atomic<std::size_t>[]> successor_;
     std::vector<std::vector<std::shared_ptr<Streamline>>> streamlines_;
 
     // for externally computed streamline result
@@ -29,14 +30,19 @@ class Grid {
           field_(std::move(field)) {
         const std::size_t numRows = field_.size();
         const std::size_t numCols = numRows > 0 ? field_[0].size() : 0;
+        successor_ = std::make_unique<std::atomic<std::size_t>[]>(numRows * numCols);
         streamlines_.assign(numRows, std::vector<std::shared_ptr<Streamline>>(numCols, nullptr));
 
-        // initialize successors to allow for parralelized successor calculation.
+        // initialize successors to allow for parallel successor calculation.
         initializeSuccessors();
     }
 
-    std::size_t coordsToIndex(std::size_t row, std::size_t col);
+    std::size_t coordsToIndex(std::size_t row, std::size_t col) const;
     void initializeSuccessors();
+
+    // DSU functions for lock-free streamline merging (Pass 2)
+    std::size_t findRoot(std::size_t index) const;
+    void unite(std::size_t u, std::size_t v);
 
     [[nodiscard]] std::size_t rows() const { return field_.size(); }
     [[nodiscard]] std::size_t cols() const { return field_.empty() ? 0 : field_[0].size(); }
@@ -61,8 +67,7 @@ class Grid {
     // references. Null or self-merge arguments are silently ignored -- they
     // represent degenerate cases (uninitialized cell, vector pointing back to
     // itself) that produce no path.
-    void joinStreamlines(std::shared_ptr<Streamline> start,
-                         std::shared_ptr<Streamline> end);
+    void joinStreamlines(std::shared_ptr<Streamline> start, std::shared_ptr<Streamline> end);
 
     // Applies one streamline step: src extends toward dest (or merges if dest
     // is already claimed). NOT thread-safe -- call from one thread at a time.
