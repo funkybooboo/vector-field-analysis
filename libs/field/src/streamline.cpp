@@ -8,4 +8,16 @@ Streamline::Streamline(GridCell startPoint) {
     path_.push_back(startPoint);
 }
 
+std::shared_ptr<Streamline> Streamline::resolve() {
+    auto current = shared_from_this();
+    while (current->parent) {
+        current = current->parent;
+    }
+    return current;
+}
+
+void Streamline::absorb(Streamline& other) {
+    path_.splice(path_.end(), other.path_);
+}
+
 } // namespace Field

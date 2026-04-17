@@ -1,6 +1,7 @@
 #pragma once
 #include "vec2.hpp"
 
+#include <list>
 #include <vector>
 
 namespace Field {
@@ -18,7 +19,7 @@ struct GridCell {
 };
 
 // Ordered sequence of grid cells tracing a path through the field.
-using Path = std::vector<GridCell>;
+using Path = std::list<GridCell>;
 
 // Physical-space bounds of the vector field domain.
 struct Bounds {
