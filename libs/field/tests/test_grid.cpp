@@ -140,8 +140,8 @@ TEST_CASE("joinStreamlines merges end path into start", "[grid]") {
     grid.joinStreamlines(start, end);
 
     REQUIRE(start->getPath().size() == 3);
-    REQUIRE(start->getPath()[1] == (Field::GridCell{1, 0}));
-    REQUIRE(start->getPath()[2] == (Field::GridCell{2, 0}));
+    REQUIRE(*std::next(start->getPath().begin(), 1) == (Field::GridCell{1, 0}));
+    REQUIRE(*std::next(start->getPath().begin(), 2) == (Field::GridCell{2, 0}));
 }
 
 TEST_CASE("joinStreamlines with null start is a no-op", "[grid]") {
@@ -199,8 +199,8 @@ TEST_CASE("getStreamlines deduplicates cells sharing a streamline", "[grid][stre
     const auto lines = grid.getStreamlines();
     REQUIRE(lines.size() == 1);
     REQUIRE(lines[0].size() == 2);
-    REQUIRE(lines[0][0] == (Field::GridCell{0, 0}));
-    REQUIRE(lines[0][1] == (Field::GridCell{0, 1}));
+    REQUIRE(*lines[0].begin() == (Field::GridCell{0, 0}));
+    REQUIRE(*std::next(lines[0].begin()) == (Field::GridCell{0, 1}));
 }
 
 TEST_CASE("getStreamlines returns 3 streamlines after uniform right-pointing field trace",

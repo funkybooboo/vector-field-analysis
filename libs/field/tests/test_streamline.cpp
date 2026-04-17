@@ -6,8 +6,8 @@ TEST_CASE("StreamLine initialises with start point", "[streamline]") {
     Field::Streamline streamline(Field::GridCell{3, 5});
 
     REQUIRE(streamline.getPath().size() == 1);
-    REQUIRE(streamline.getPath()[0].row == 3);
-    REQUIRE(streamline.getPath()[0].col == 5);
+    REQUIRE(streamline.getPath().front().row == 3);
+    REQUIRE(streamline.getPath().front().col == 5);
 }
 
 TEST_CASE("Streamline path grows when points are appended", "[streamline]") {
@@ -16,6 +16,8 @@ TEST_CASE("Streamline path grows when points are appended", "[streamline]") {
     streamline.appendPoint({2, 0});
 
     REQUIRE(streamline.getPath().size() == 3);
-    REQUIRE(streamline.getPath()[1].row == 1);
-    REQUIRE(streamline.getPath()[2].row == 2);
+    auto it = streamline.getPath().begin();
+    REQUIRE(it->row == 0);
+    REQUIRE((++it)->row == 1);
+    REQUIRE((++it)->row == 2);
 }

@@ -354,7 +354,6 @@ std::vector<Field::Path> reconstructPaths(const Result& result) {
         emitted[static_cast<std::size_t>(streamId)] = true;
 
         Field::Path path;
-        path.reserve(paths[static_cast<std::size_t>(streamId)].size());
         for (const int point : paths[static_cast<std::size_t>(streamId)]) {
             path.push_back(toGridCell(point, result.cols));
         }
