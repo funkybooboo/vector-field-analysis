@@ -1,13 +1,9 @@
 #include "sequentialStreamlineSolver.hpp"
 
-#include "timing.hpp"
-
 #include <stdexcept>
 #include <vector>
 
 void SequentialStreamlineSolver::computeTimeStep(Field::Grid& grid) {
-
-    printTiming("SequentialStreamlineSolver");
 
     const int rowCount = static_cast<int>(grid.field().size());
     if (rowCount == 0) {
@@ -22,20 +18,13 @@ void SequentialStreamlineSolver::computeTimeStep(Field::Grid& grid) {
     std::vector<Field::GridCell> neighbors(static_cast<std::size_t>(rowCount) *
                                            static_cast<std::size_t>(colCount));
 
-    auto lastTime = getCurrentTimeMs();
     for (int row = 0; row < rowCount; row++) {
         for (int col = 0; col < colCount; col++) {
             neighbors[(static_cast<std::size_t>(row) * static_cast<std::size_t>(colCount)) +
                       static_cast<std::size_t>(col)] = grid.downstreamCell(row, col);
         }
     }
-    printTiming("Computing downstream", lastTime);
 
-    lastTime = getCurrentTimeMs();
     // apply streamline merges using the pre-computed pairs.
     applyNeighborPairs(grid, neighbors, rowCount, colCount);
-    printTiming("Computed downstream", lastTime);
-
-    lastTime = getCurrentTimeMs();
-    printTiming("Joined paths", lastTime);
 }

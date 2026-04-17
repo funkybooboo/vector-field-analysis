@@ -1,7 +1,5 @@
 #include "pthreadsStreamlineSolver.hpp"
 
-#include "timing.hpp"
-
 #include <pthread.h>
 #include <stdexcept>
 #include <utility>
@@ -60,8 +58,6 @@ PthreadsStreamlineSolver::PthreadsStreamlineSolver(unsigned int threadCount)
 
 void PthreadsStreamlineSolver::computeTimeStep(Field::Grid& grid) {
 
-    printTiming("PthreadsStreamlineSolver");
-
     if (threadCount_ == 0) {
         return;
     }
@@ -78,7 +74,6 @@ void PthreadsStreamlineSolver::computeTimeStep(Field::Grid& grid) {
     // Pass 1: parallel -- compute all (src, dest) neighbor pairs.
     std::vector<Field::GridCell> neighbors(rowCount * static_cast<std::size_t>(colCount));
 
-    auto lastTime = getCurrentTimeMs();
     auto rowSplit = calculateRowSplit(rowCount, threadCount_);
     const std::size_t rowsPerThread = rowSplit.first;
     const std::size_t remainderRows = rowSplit.second;
@@ -124,9 +119,7 @@ void PthreadsStreamlineSolver::computeTimeStep(Field::Grid& grid) {
             throw std::runtime_error("pthread_join failed with error code " + std::to_string(err));
         }
     }
-    printTiming("PthreadsStreamlineSolver: Finished Pass 1", lastTime);
 
-    lastTime = getCurrentTimeMs();
     // Pass 2a: Parallel Union-Find using lock-free atomics in Field::Grid.
     const std::size_t totalCells = rowCount * static_cast<std::size_t>(colCount);
     const std::size_t cellsPerThread = totalCells / threadCount_;
@@ -159,10 +152,7 @@ void PthreadsStreamlineSolver::computeTimeStep(Field::Grid& grid) {
     for (unsigned int threadIndex = 0; threadIndex < threadCount_; threadIndex++) {
         pthread_join(threads[threadIndex], nullptr);
     }
-    printTiming("PthreadsStreamlineSolver: Finished Pass 2a", lastTime);
 
-    lastTime = getCurrentTimeMs();
     // Pass 2b: Sequential reconstruction of deterministic paths.
     grid.setPrecomputedStreamlines(reconstructPathsDSU(grid, neighbors));
-    printTiming("PthreadsStreamlineSolver: Finished Pass 2b", lastTime);
 }

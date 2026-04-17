@@ -77,15 +77,61 @@ for stem in "${STEMS[@]}"; do
     continue
   fi
 
-  # Analyzer
-  if "$ANALYZER" "$config" \
-       > "$out/analyzer_stdout.txt" \
-       2> "$out/analyzer_stderr.txt"; then
-    ANA_STATUS[$stem]="OK"
-    printf "    analyzer   OK\n"
-  else
-    ANA_STATUS[$stem]="FAIL"
-    printf "    analyzer   FAIL (exit %d)\n" "$?"
+  # Analyzer (Scaling Study)
+  printf "    analyzer   scaling...\n"
+  ANA_STATUS[$stem]="OK"
+  
+  # Function to run a specific variant and extract timing
+  run_variant() {
+    local solver=$1
+    local workers=$2
+    local variant_name="${solver}_${workers}"
+    local log_file="$out/analyzer_${variant_name}.txt"
+    
+    # Create a temp config to force the solver/thread count
+    local tmp_toml=$(mktemp)
+    sed '/^\[analyzer\]/,$d' "$config" > "$tmp_toml"
+    printf "\n[analyzer]\nsolver = \"%s\"\nthreads = %d\n" "$solver" "$workers" >> "$tmp_toml"
+    
+    local cmd=()
+    if [[ "$solver" == "mpi" ]]; then
+      cmd=(mpirun -n "$workers" --oversubscribe "$ANALYZER" "$tmp_toml")
+    else
+      cmd=("$ANALYZER" "$tmp_toml")
+    fi
+
+    if "${cmd[@]}" > "$log_file" 2>&1; then
+      local ms=$(grep -E "^[a-z_]+.*[0-9.]+ ms" "$log_file" | awk '{print $(NF-1)}')
+      printf "      %-15s %10s ms\n" "$variant_name" "$ms"
+      rm -f "$tmp_toml"
+      return 0
+    else
+      printf "      %-15s FAIL\n" "$variant_name"
+      rm -f "$tmp_toml"
+      return 1
+    fi
+  }
+
+  # Sequential baseline
+  run_variant "sequential" 1 || ANA_STATUS[$stem]="FAIL"
+
+  # Pthreads Scaling
+  for t in 2 4 8; do
+    run_variant "pthreads" "$t" || ANA_STATUS[$stem]="FAIL"
+  done
+
+  # OpenMP Scaling
+  for t in 2 4 8; do
+    run_variant "openmp" "$t" || ANA_STATUS[$stem]="FAIL"
+  done
+
+  # MPI Scaling
+  for p in 1 2 4; do
+    run_variant "mpi" "$p" || ANA_STATUS[$stem]="FAIL"
+  done
+
+  if [[ "${ANA_STATUS[$stem]}" == "FAIL" ]]; then
+    printf "    analyzer   FAIL (one or more variants failed)\n"
     STATS_STATUS[$stem]="SKIP"
     VIS_STATUS[$stem]="SKIP"
     continue
