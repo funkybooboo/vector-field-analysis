@@ -127,8 +127,7 @@ void MpiStreamlineSolver::computeTimeStep(Field::Grid& grid) {
                 displacements.data(), MPI_INT, 0, MPI_COMM_WORLD);
 
     // Pass 2 (sequential on rank 0): apply all (src, dest) pairs to build streamlines.
-    // traceStreamlineStep writes to streamlines_ and is not thread-safe, so this must be
-    // sequential.  Only rank 0 has the full allPairs, so only rank 0 does this pass.
+    // DSU logic avoids shared_ptr overhead during the merge pass.
     if (rank == 0) {
         if (allPairs.size() % kCellPairPackSize != 0) {
             std::cerr << "rank 0: fatal: gathered pairs buffer size " << allPairs.size()
@@ -136,11 +135,23 @@ void MpiStreamlineSolver::computeTimeStep(Field::Grid& grid) {
             MPI_Abort(MPI_COMM_WORLD, 1);
         }
         const std::size_t totalPairs = allPairs.size() / kCellPairPackSize;
+        std::vector<Field::GridCell> neighbors(grid.rows() * grid.cols());
+
         for (std::size_t pairIndex = 0; pairIndex < totalPairs; pairIndex++) {
             const std::size_t base = pairIndex * kCellPairPackSize;
-            grid.traceStreamlineStep({allPairs[base + 0], allPairs[base + 1]},
-                                     {allPairs[base + 2], allPairs[base + 3]});
+            const int srcRow = allPairs[base + 0];
+            const int srcCol = allPairs[base + 1];
+            const int destRow = allPairs[base + 2];
+            const int destCol = allPairs[base + 3];
+
+            const std::size_t srcIndex = grid.coordsToIndex(srcRow, srcCol);
+            const std::size_t destIndex = grid.coordsToIndex(destRow, destCol);
+
+            neighbors[srcIndex] = {destRow, destCol};
+            grid.unite(srcIndex, destIndex);
         }
+
+        grid.setPrecomputedStreamlines(reconstructPathsDSU(grid, neighbors));
     }
 #else
     SequentialStreamlineSolver fallback;

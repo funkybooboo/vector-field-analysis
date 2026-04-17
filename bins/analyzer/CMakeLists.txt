@@ -13,6 +13,7 @@ add_library(analyzer_lib STATIC
     src/pthreadsStreamlineSolver.cpp
     src/sequentialStreamlineSolver.cpp
     src/solverFactory.cpp
+    src/streamlineSolver.cpp
     src/streamWriter.cpp
     src/timing.cpp
 )
