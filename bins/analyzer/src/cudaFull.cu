@@ -320,8 +320,7 @@ std::vector<Field::Path> reconstructPaths(const Result& result) {
 
     for (int idx = 0; idx < total; ++idx) {
         const int streamId = owner[static_cast<std::size_t>(idx)];
-        if (streamId < 0 ||
-            emitted[static_cast<std::size_t>(streamId)] ||
+        if (streamId < 0 || emitted[static_cast<std::size_t>(streamId)] ||
             paths[static_cast<std::size_t>(streamId)].empty()) {
             continue;
         }

@@ -21,21 +21,6 @@ struct DeviceGridCell {
     int col;
 };
 
-// Pass 2 of the two-pass algorithm: apply precomputed neighbor pairs sequentially.
-// traceStreamlineStep is thread-safe via atomic union-find; keeping this sequential
-// is a design choice — GPU parallelism was already used in Pass 1.
-void applyNeighborPairs(Field::Grid& grid, const std::vector<Field::GridCell>& neighbors,
-                        int rowCount, int colCount) {
-    for (int row = 0; row < rowCount; row++) {
-        for (int col = 0; col < colCount; col++) {
-            grid.traceStreamlineStep(
-                {row, col},
-                neighbors[(static_cast<std::size_t>(row) * static_cast<std::size_t>(colCount)) +
-                          static_cast<std::size_t>(col)]);
-        }
-    }
-}
-
 // helper for CUDA failures
 inline void cudaCheck(cudaError_t err, const char* what) {
     if (err != cudaSuccess) {
@@ -51,8 +36,7 @@ __device__ int clampInt(int value, int lo, int hi) {
 // For each grid cell, compute the downstream neighbor that its vector points toward.
 // This kernel only performs pass 1 of the solver:
 //   source cell -> downstream destination cell
-// Pass 2 runs on the CPU via applyNeighborPairs (sequential by design — the GPU
-// already saturated parallelism in Pass 1; adding GPU atomics for Pass 2 is not needed).
+// Pass 2 runs on the CPU via StreamlineSolver::applyNeighborPairs.
 __global__ void computeNeighborsKernel(const DeviceVec2* field, int rows, int cols, float xMin,
                                        float xMax, float yMin, float yMax,
                                        DeviceGridCell* neighbors) {
