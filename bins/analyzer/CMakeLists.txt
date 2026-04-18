@@ -3,13 +3,12 @@ find_package(CUDAToolkit QUIET)
 option(ENABLE_CUDA "Build analyzer CUDA solver" ${CUDAToolkit_FOUND})
 
 if(ENABLE_CUDA)
-  # Default to "native" for local dev (compiles only for the GPU present on the
-  # build machine). On CHPC login nodes -- which have no GPU -- pass the target
-  # architecture(s) explicitly:
-  #   cmake -B build -DCMAKE_CUDA_ARCHITECTURES="80;70;75;61"
-  # benchmark.sh and enqueue.sh do this automatically.
+  # Default to common architectures so the build works on machines without a
+  # GPU (e.g. CI runners). For local dev, override with the GPU present:
+  #   cmake -B build -DCMAKE_CUDA_ARCHITECTURES=native
+  # benchmark.sh and enqueue.sh do this automatically for CHPC nodes.
   if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES native)
+    set(CMAKE_CUDA_ARCHITECTURES 70 75 80 86)
   endif()
   enable_language(CUDA)
   find_package(CUDAToolkit REQUIRED)

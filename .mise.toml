@@ -231,14 +231,11 @@ cppcheck --enable=all --error-exitcode=1 \
   "--suppress=unusedStructMember:bins/simulator/src/fieldGenerator.cpp" \
   "--suppress=knownConditionTrueFalse:bins/analyzer/src/main.cpp" \
   "--suppress=unusedFunction:libs/field/src/grid.hpp" \
-  "--suppress=unusedFunction:bins/analyzer/src/timing.cpp" \
-  "--suppress=duplicateCondition:bins/analyzer/src/main.cpp" \
   bins/ libs/
 # unusedStructMember: false positive -- RadialComponents members accessed via std::optional::operator->
 # normalCheckLevelMaxBranches: pthreads.cpp two-pass design exceeds branch analysis limit, not an error
 # knownConditionTrueFalse: intentional #ifdef USE_MPI pattern; always 0/1 in non-MPI build
 # unusedFunction grid.hpp: bounds/field/setPrecomputedStreamlines used in .cu files cppcheck does not analyze
-# duplicateCondition main.cpp: runPthreads and runOpenmp intentionally share threadCount>1 threshold
 """
 
 [tasks.links]
