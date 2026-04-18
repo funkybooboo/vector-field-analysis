@@ -95,6 +95,7 @@ run = "make test-sanitize"
 description = "Run tests and generate coverage report"
 run = """
 make test-coverage
+mkdir -p coverage
 uvx gcovr -r . build-coverage/ \
   --filter 'bins/.*' \
   --filter 'libs/.*' \
