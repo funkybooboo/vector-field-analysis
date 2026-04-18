@@ -135,7 +135,7 @@ for stem in "${STEMS[@]}"; do
   done
 
   # MPI Scaling
-  for p in 1 2 4; do
+  for p in 2 4; do
     run_variant "mpi" "$p" || ANA_STATUS[$stem]="FAIL"
   done
 

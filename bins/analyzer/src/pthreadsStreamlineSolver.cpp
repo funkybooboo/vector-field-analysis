@@ -1,53 +1,136 @@
 #include "pthreadsStreamlineSolver.hpp"
 
 #include <pthread.h>
+#include <algorithm>
+#include <chrono>
+#include <iostream>
+#include <numeric>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
 namespace {
 
-std::pair<std::size_t, std::size_t> calculateRowSplit(std::size_t rowCount,
-                                                      std::size_t partitionCount) {
-    if (partitionCount == 0) {
-        throw std::invalid_argument("partitionCount must be greater than 0");
-    }
-    return {rowCount / partitionCount, rowCount % partitionCount};
-}
-
 struct ThreadArgs {
     Field::Grid* grid;
     Field::GridCell* neighbors;
+    std::size_t* roots;
+    std::size_t* indices;
     int colCount;
-    std::size_t startRow;
-    std::size_t endRow;
-    std::size_t totalCells;
+    unsigned int threadIndex;
+    unsigned int threadCount;
+    pthread_barrier_t* barrier;
+    std::vector<Field::Path>* localPaths;
 };
 
-// Pass 1 worker: reads neighbor directions for an assigned row range.
-void* computeNeighbors(void* arg) {
+void* workerFunc(void* arg) {
     auto* task = static_cast<ThreadArgs*>(arg);
-    for (std::size_t row = task->startRow; row < task->endRow; row++) {
-        for (int col = 0; col < task->colCount; col++) {
-            task->neighbors[(row * static_cast<std::size_t>(task->colCount)) +
-                            static_cast<std::size_t>(col)] =
-                task->grid->downstreamCell(static_cast<int>(row), col);
+    const std::size_t rowCount = task->grid->rows();
+    const int colCount = task->colCount;
+    const std::size_t totalCells = rowCount * static_cast<std::size_t>(colCount);
+
+    // Pass 1: compute all (src, dest) neighbor pairs.
+    {
+        const std::size_t rowsPerThread = rowCount / task->threadCount;
+        const std::size_t remainderRows = rowCount % task->threadCount;
+        const std::size_t startRow = task->threadIndex * rowsPerThread + std::min(static_cast<std::size_t>(task->threadIndex), remainderRows);
+        const std::size_t endRow = startRow + rowsPerThread + (task->threadIndex < remainderRows ? 1 : 0);
+
+        for (std::size_t row = startRow; row < endRow; row++) {
+            for (int col = 0; col < colCount; col++) {
+                task->neighbors[(row * static_cast<std::size_t>(colCount)) +
+                                static_cast<std::size_t>(col)] =
+                    task->grid->downstreamCell(static_cast<int>(row), col);
+            }
         }
     }
-    return nullptr;
-}
 
-// Pass 2a worker: performs lock-free DSU union for an assigned cell range.
-void* uniteNeighbors(void* arg) {
-    auto* task = static_cast<ThreadArgs*>(arg);
-    const std::size_t start = task->startRow; // Reusing fields for flat cell range
-    const std::size_t end = task->endRow;
-    for (std::size_t i = start; i < end; ++i) {
-        const std::size_t srcIndex = i;
-        const std::size_t destIndex =
-            task->grid->coordsToIndex(task->neighbors[i].row, task->neighbors[i].col);
-        task->grid->unite(srcIndex, destIndex);
+    // Barrier 1: wait for all neighbors to be computed.
+    pthread_barrier_wait(task->barrier);
+
+    // Pass 2a: Parallel Union-Find.
+    {
+        const std::size_t cellsPerThread = totalCells / task->threadCount;
+        const std::size_t remainderCells = totalCells % task->threadCount;
+        const std::size_t startCell = task->threadIndex * cellsPerThread + std::min(static_cast<std::size_t>(task->threadIndex), remainderCells);
+        const std::size_t endCell = startCell + cellsPerThread + (task->threadIndex < remainderCells ? 1 : 0);
+
+        for (std::size_t i = startCell; i < endCell; ++i) {
+            const std::size_t srcIndex = i;
+            const std::size_t destIndex =
+                task->grid->coordsToIndex(task->neighbors[i].row, task->neighbors[i].col);
+            task->grid->unite(srcIndex, destIndex);
+        }
     }
+
+    // Barrier 2: wait for all unite operations to complete.
+    pthread_barrier_wait(task->barrier);
+
+    // Pass 2b part 1: Compute roots for all cells in parallel.
+    {
+        const std::size_t cellsPerThread = totalCells / task->threadCount;
+        const std::size_t remainderCells = totalCells % task->threadCount;
+        const std::size_t startCell = task->threadIndex * cellsPerThread + std::min(static_cast<std::size_t>(task->threadIndex), remainderCells);
+        const std::size_t endCell = startCell + cellsPerThread + (task->threadIndex < remainderCells ? 1 : 0);
+
+        for (std::size_t i = startCell; i < endCell; ++i) {
+            task->roots[i] = task->grid->findRoot(i);
+        }
+    }
+
+    // Barrier 3: wait for all roots to be computed.
+    pthread_barrier_wait(task->barrier);
+
+    // Pass 2b part 2: Thread 0 sorts indices by root.
+    // (A parallel sort would be better, but std::sort is O(N log N) and already fast).
+    if (task->threadIndex == 0) {
+        std::iota(task->indices, task->indices + totalCells, 0);
+        std::sort(task->indices, task->indices + totalCells, [&](std::size_t a, std::size_t b) {
+            return task->roots[a] < task->roots[b];
+        });
+    }
+
+    // Barrier 4: wait for sorting to complete.
+    pthread_barrier_wait(task->barrier);
+
+    // Pass 2b part 3: Create paths from segments in parallel.
+    {
+        // Each thread identifies segments within its range of the sorted indices.
+        const std::size_t segmentsPerThread = totalCells / task->threadCount;
+        const std::size_t remainderSegments = totalCells % task->threadCount;
+        const std::size_t startIdx = task->threadIndex * segmentsPerThread + std::min(static_cast<std::size_t>(task->threadIndex), remainderSegments);
+        const std::size_t endIdx = startIdx + segmentsPerThread + (task->threadIndex < remainderSegments ? 1 : 0);
+
+        if (startIdx < endIdx) {
+            std::size_t currentStart = startIdx;
+            
+            // Adjust currentStart so we don't start in the middle of a segment 
+            // owned by the previous thread, unless we are the first thread.
+            if (task->threadIndex > 0) {
+                while (currentStart < endIdx && task->roots[task->indices[currentStart]] == task->roots[task->indices[currentStart - 1]]) {
+                    currentStart++;
+                }
+            }
+
+            while (currentStart < endIdx) {
+                std::size_t segmentEnd = currentStart + 1;
+                while (segmentEnd < totalCells && task->roots[task->indices[segmentEnd]] == task->roots[task->indices[currentStart]]) {
+                    segmentEnd++;
+                }
+
+                // This thread owns the segment starting at currentStart.
+                Field::Path path;
+                for (std::size_t j = currentStart; j < segmentEnd; ++j) {
+                    std::size_t idx = task->indices[j];
+                    path.push_back({static_cast<int>(idx / colCount), static_cast<int>(idx % colCount)});
+                }
+                task->localPaths->push_back(std::move(path));
+
+                currentStart = segmentEnd;
+            }
+        }
+    }
+
     return nullptr;
 }
 
@@ -57,102 +140,49 @@ PthreadsStreamlineSolver::PthreadsStreamlineSolver(unsigned int threadCount)
     : threadCount_(threadCount) {}
 
 void PthreadsStreamlineSolver::computeTimeStep(Field::Grid& grid) {
-
-    if (threadCount_ == 0) {
-        return;
-    }
+    if (threadCount_ == 0) return;
 
     const std::size_t rowCount = grid.rows();
-    if (rowCount == 0) {
-        return;
-    }
+    if (rowCount == 0) return;
     const int colCount = static_cast<int>(grid.cols());
-    if (colCount == 0) {
-        return;
-    }
+    const std::size_t totalCells = rowCount * static_cast<std::size_t>(colCount);
 
-    // Pass 1: parallel -- compute all (src, dest) neighbor pairs.
-    std::vector<Field::GridCell> neighbors(rowCount * static_cast<std::size_t>(colCount));
-
-    auto rowSplit = calculateRowSplit(rowCount, threadCount_);
-    const std::size_t rowsPerThread = rowSplit.first;
-    const std::size_t remainderRows = rowSplit.second;
-
+    std::vector<Field::GridCell> neighbors(totalCells);
+    std::vector<std::size_t> roots(totalCells);
+    std::vector<std::size_t> indices(totalCells);
     std::vector<pthread_t> threads(threadCount_);
     std::vector<ThreadArgs> threadArgs(threadCount_);
+    std::vector<std::vector<Field::Path>> localPathsCollection(threadCount_);
 
-    std::size_t currentRow = 0;
-    for (unsigned int threadIndex = 0; threadIndex < threadCount_; threadIndex++) {
-        threadArgs[threadIndex].grid = &grid;
-        threadArgs[threadIndex].neighbors = neighbors.data();
-        threadArgs[threadIndex].colCount = colCount;
-        threadArgs[threadIndex].startRow = currentRow;
+    pthread_barrier_t barrier;
+    if (pthread_barrier_init(&barrier, nullptr, threadCount_) != 0) {
+        throw std::runtime_error("pthread_barrier_init failed");
+    }
 
-        // Last thread receives remainder rows
-        if (threadIndex == threadCount_ - 1) {
-            threadArgs[threadIndex].endRow = currentRow + rowsPerThread + remainderRows;
-        } else {
-            threadArgs[threadIndex].endRow = currentRow + rowsPerThread;
-        }
-        currentRow += rowsPerThread;
-
-        const int err = pthread_create(&threads[threadIndex], nullptr, computeNeighbors,
-                                       &threadArgs[threadIndex]);
-        if (err != 0) {
-            // Join all already-running threads before propagating the error so
-            // they don't outlive threadArgs and neighbors.
-            for (unsigned int j = 0; j < threadIndex; j++) {
+    for (unsigned int i = 0; i < threadCount_; i++) {
+        threadArgs[i] = {&grid, neighbors.data(), roots.data(), indices.data(), colCount, i, threadCount_, &barrier, &localPathsCollection[i]};
+        if (pthread_create(&threads[i], nullptr, workerFunc, &threadArgs[i]) != 0) {
+            // Clean up already created threads
+            for (unsigned int j = 0; j < i; j++) {
+                pthread_cancel(threads[j]);
                 pthread_join(threads[j], nullptr);
             }
-            throw std::runtime_error("pthread_create failed with error code " +
-                                     std::to_string(err));
+            pthread_barrier_destroy(&barrier);
+            throw std::runtime_error("pthread_create failed");
         }
     }
 
-    for (unsigned int threadIndex = 0; threadIndex < threadCount_; threadIndex++) {
-        const int err = pthread_join(threads[threadIndex], nullptr);
-        if (err != 0) {
-            // Join remaining threads before propagating so they don't outlive threadArgs/neighbors.
-            for (unsigned int j = threadIndex + 1; j < threadCount_; j++) {
-                pthread_join(threads[j], nullptr);
-            }
-            throw std::runtime_error("pthread_join failed with error code " + std::to_string(err));
-        }
+    for (unsigned int i = 0; i < threadCount_; i++) {
+        pthread_join(threads[i], nullptr);
     }
 
-    // Pass 2a: Parallel Union-Find using lock-free atomics in Field::Grid.
-    const std::size_t totalCells = rowCount * static_cast<std::size_t>(colCount);
-    const std::size_t cellsPerThread = totalCells / threadCount_;
-    const std::size_t remainderCells = totalCells % threadCount_;
+    pthread_barrier_destroy(&barrier);
 
-    std::size_t currentCell = 0;
-    for (unsigned int threadIndex = 0; threadIndex < threadCount_; threadIndex++) {
-        threadArgs[threadIndex].grid = &grid;
-        threadArgs[threadIndex].neighbors = neighbors.data();
-        threadArgs[threadIndex].colCount = colCount;
-        threadArgs[threadIndex].startRow = currentCell; // Reusing startRow for startCell
-
-        if (threadIndex == threadCount_ - 1) {
-            threadArgs[threadIndex].endRow = currentCell + cellsPerThread + remainderCells;
-        } else {
-            threadArgs[threadIndex].endRow = currentCell + cellsPerThread;
-        }
-        currentCell = threadArgs[threadIndex].endRow;
-
-        const int err = pthread_create(&threads[threadIndex], nullptr, uniteNeighbors,
-                                       &threadArgs[threadIndex]);
-        if (err != 0) {
-            for (unsigned int j = 0; j < threadIndex; j++) {
-                pthread_join(threads[j], nullptr);
-            }
-            throw std::runtime_error("pthread_create (Pass 2a) failed: " + std::to_string(err));
-        }
+    // Final merge of paths from all threads.
+    std::vector<Field::Path> finalPaths;
+    for (auto& local : localPathsCollection) {
+        finalPaths.insert(finalPaths.end(), std::make_move_iterator(local.begin()), std::make_move_iterator(local.end()));
     }
-
-    for (unsigned int threadIndex = 0; threadIndex < threadCount_; threadIndex++) {
-        pthread_join(threads[threadIndex], nullptr);
-    }
-
-    // Pass 2b: Sequential reconstruction of deterministic paths.
-    grid.setPrecomputedStreamlines(reconstructPathsDSU(grid, neighbors));
+    grid.setPrecomputedStreamlines(std::move(finalPaths));
 }
+
