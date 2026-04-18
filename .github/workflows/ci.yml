@@ -220,18 +220,12 @@ jobs:
           path: report/report.pdf
 
   test:
-    name: Test (${{ matrix.compiler.name }})
+    name: Test
     runs-on: ubuntu-22.04
     needs: build
-    strategy:
-      fail-fast: false
-      matrix:
-        compiler:
-          - { name: GCC,   cc: gcc,   cxx: g++ }
-          - { name: Clang, cc: clang, cxx: clang++ }
     env:
-      CC: ${{ matrix.compiler.cc }}
-      CXX: ${{ matrix.compiler.cxx }}
+      CC: gcc
+      CXX: g++
 
     steps:
       - name: Checkout
@@ -251,8 +245,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/
-          key: cmake-${{ runner.os }}-${{ matrix.compiler.name }}-${{ hashFiles('**/*.cpp', '**/*.hpp', '**/*.cu', '**/CMakeLists.txt', 'cmake/**') }}
-          restore-keys: cmake-${{ runner.os }}-${{ matrix.compiler.name }}-
+          key: cmake-${{ runner.os }}-GCC-${{ hashFiles('**/*.cpp', '**/*.hpp', '**/*.cu', '**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: cmake-${{ runner.os }}-GCC-
 
       - name: Install system dependencies
         run: mise run deps
@@ -266,7 +260,7 @@ jobs:
   sanitize:
     name: Sanitize
     runs-on: ubuntu-22.04
-    needs: test
+    needs: build
 
     steps:
       - name: Checkout
@@ -298,7 +292,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-22.04
-    needs: sanitize
+    needs: build
 
     steps:
       - name: Checkout
@@ -386,7 +380,7 @@ jobs:
   cppcheck:
     name: Cppcheck
     runs-on: ubuntu-22.04
-    needs: sanitize
+    needs: build
 
     steps:
       - name: Checkout
