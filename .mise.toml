@@ -100,6 +100,12 @@ uvx gcovr -r . build-coverage/ \
   --filter 'libs/.*' \
   --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
   --print-summary
+mkdir -p coverage
+uvx gcovr -r . build-coverage/ \
+  --filter 'bins/.*' \
+  --filter 'libs/.*' \
+  --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
+  --html-details coverage/index.html
 """
 
 # =============================================================================
@@ -250,13 +256,13 @@ depends = [
   "format:check",
   "ascii-check",
   "spell",
-  "cppcheck",
   "links",
+  "report:build",
   "test",
   "test:sanitize",
   "lint",
   "test:coverage",
-  "report:build",
+  "cppcheck",
 ]
 
 # =============================================================================
