@@ -3,8 +3,8 @@
 #include "fieldReader.hpp"
 #include "formatBytes.hpp"
 #include "solverFactory.hpp"
-#include "streamlineSolver.hpp"
 #include "streamWriter.hpp"
+#include "streamlineSolver.hpp"
 #include "timing.hpp"
 
 #ifdef USE_MPI
@@ -96,22 +96,17 @@ static void writeAndReport(const std::string& outPath,
     std::cout << "\n";
 }
 
-static void verifyAll(const RunResult& sequential,
-                      const RunResult& pthreads,
+static void verifyAll(const RunResult& sequential, const RunResult& pthreads,
                       [[maybe_unused]] const RunResult& openmp,
-                      [[maybe_unused]] const RunResult& mpi,
-                      [[maybe_unused]] const RunResult& cuda,
-                      [[maybe_unused]] const RunResult& cudaFull,
-                      bool runParallel,
+                      [[maybe_unused]] const RunResult& mpi, [[maybe_unused]] const RunResult& cuda,
+                      [[maybe_unused]] const RunResult& cudaFull, bool runParallel,
                       [[maybe_unused]] bool runMpi) {
     if (runParallel) {
         verify(sequential.streams, pthreads.streams, "pthreads");
-    }
 #ifdef _OPENMP
-    if (runParallel) {
         verify(sequential.streams, openmp.streams, "openmp");
-    }
 #endif
+    }
 #ifdef USE_MPI
     if (runMpi) {
         verify(sequential.streams, mpi.streams, "mpi");
@@ -134,6 +129,14 @@ void runAll(const Field::TimeSeries& field, unsigned int threadCount,
     [[maybe_unused]] const bool runMpi = false;
 #endif
 
+#ifdef USE_MPI
+    RunResult mpiResult{};
+    if (runMpi) {
+        auto mpi = makeSolver("mpi", threadCount);
+        mpiResult = runSolver(*mpi, field);
+    }
+#endif
+
     RunResult sequentialResult{};
     RunResult pthreadsResult{};
 #ifdef _OPENMP
@@ -146,13 +149,11 @@ void runAll(const Field::TimeSeries& field, unsigned int threadCount,
     if (mpiRank == 0) {
         auto sequentialSolver = makeSolver("sequential", threadCount);
         sequentialResult = runSolver(*sequentialSolver, field);
-#ifdef _OPENMP
         if (runParallel) {
+#ifdef _OPENMP
             auto openmpSolver = makeSolver("openmp", threadCount);
             openmpResult = runSolver(*openmpSolver, field);
-        }
 #endif
-        if (runParallel) {
             auto pthreadsSolver = makeSolver("pthreads", threadCount);
             pthreadsResult = runSolver(*pthreadsSolver, field);
         }
@@ -162,29 +163,16 @@ void runAll(const Field::TimeSeries& field, unsigned int threadCount,
         auto cudaFullSolver = makeSolver("cuda_full", threadCount, cudaFullBlockSize);
         cudaFullResult = runSolver(*cudaFullSolver, field);
 #endif
-    }
-
-    RunResult mpiResult{};
-#ifdef USE_MPI
-    if (runMpi) {
-        auto mpi = makeSolver("mpi", threadCount);
-        mpiResult = runSolver(*mpi, field);
-    }
-#endif
-
-    if (mpiRank == 0) {
         const std::string sequentialLabel = "sequential";
         std::vector<std::size_t> labelSizes = {sequentialLabel.size()};
         if (runParallel) {
             labelSizes.push_back(
                 std::string("pthreads (" + std::to_string(threadCount) + " thr)").size());
-        }
 #ifdef _OPENMP
-        if (runParallel) {
             labelSizes.push_back(
                 std::string("openmp (" + std::to_string(threadCount) + " thr)").size());
-        }
 #endif
+        }
 #ifdef USE_MPI
         if (runMpi) {
             labelSizes.push_back(
@@ -269,8 +257,8 @@ void runAll(const Field::TimeSeries& field, unsigned int threadCount,
     }
 }
 
-void runOne(const std::string& solverName, const Field::TimeSeries& field,
-            unsigned int threadCount, [[maybe_unused]] unsigned int cudaBlockSize,
+void runOne(const std::string& solverName, const Field::TimeSeries& field, unsigned int threadCount,
+            [[maybe_unused]] unsigned int cudaBlockSize,
             [[maybe_unused]] unsigned int cudaFullBlockSize, int mpiRank, int mpiSize,
             const std::string& outPath) {
     RunResult result{};
