@@ -17,6 +17,22 @@ if(ENABLE_CUDA)
   endif()
   enable_language(CUDA)
   find_package(CUDAToolkit REQUIRED)
+
+  # FindCUDAToolkit resolves librt via find_library(), which on glibc 2.34+
+  # (Ubuntu 22.04+) returns the linker-script stub librt.a -- a text file
+  # that nvlink cannot process. Replace it with -lrt so nvlink skips it as
+  # a host-only flag. CUDA::cudart (dynamic) also links cudart_static_deps,
+  # so this patch is required even when not explicitly linking cudart_static.
+  if(UNIX AND NOT APPLE)
+    get_target_property(_rt_libs CUDA::cudart_static_deps INTERFACE_LINK_LIBRARIES)
+    if(_rt_libs)
+      string(REGEX REPLACE "[^;]*/librt\\.a"      "-lrt"      _rt_libs "${_rt_libs}")
+      string(REGEX REPLACE "[^;]*/libpthread\\.a" "-lpthread" _rt_libs "${_rt_libs}")
+      string(REGEX REPLACE "[^;]*/libdl\\.a"      "-ldl"      _rt_libs "${_rt_libs}")
+      set_target_properties(CUDA::cudart_static_deps PROPERTIES
+                            INTERFACE_LINK_LIBRARIES "${_rt_libs}")
+    endif()
+  endif()
 endif()
 
 add_library(analyzer_lib STATIC
@@ -35,7 +51,7 @@ if(ENABLE_CUDA)
   # Build CUDA kernels in a separate static library and resolve device symbols
   # here, before HDF5 / MPI / OpenMP enter the link closure. This prevents
   # their glibc 2.34+ stub .a files (libpthread.a, libdl.a, librt.a) from
-  # being passed to nvlink — the stub .a files are linker-script stubs that
+  # being passed to nvlink -- the stub .a files are linker-script stubs that
   # the host linker understands but nvlink cannot process.
   #
   # CUDA kernels only depend on field (for Grid/Vec types) and CUDA::cudart,
