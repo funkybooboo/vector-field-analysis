@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-#include <optional>
+#include <string>
 
-int64_t getCurrentTimeMs();
-void printTiming(const char* message, std::optional<int64_t> lastTime = std::nullopt);
+void printTiming(const std::string& label, double ms, int labelWidth, double sequentialMs);

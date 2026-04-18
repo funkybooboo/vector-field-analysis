@@ -26,9 +26,16 @@ if(ENABLE_CUDA)
   if(UNIX AND NOT APPLE)
     get_target_property(_rt_libs CUDA::cudart_static_deps INTERFACE_LINK_LIBRARIES)
     if(_rt_libs)
-      string(REGEX REPLACE "[^;]*/librt\\.a"      "-lrt"      _rt_libs "${_rt_libs}")
-      string(REGEX REPLACE "[^;]*/libpthread\\.a" "-lpthread" _rt_libs "${_rt_libs}")
-      string(REGEX REPLACE "[^;]*/libdl\\.a"      "-ldl"      _rt_libs "${_rt_libs}")
+      # Strip the stub .a paths entirely -- we link CUDA::cudart (dynamic), so
+      # these host-only deps are already baked into libcudart.so and do not need
+      # to appear on the link line.  Passing them as -l flags would cause nvlink
+      # to find the same stubs during device linking and emit "Skipping
+      # incompatible" warnings for every architecture.
+      string(REGEX REPLACE "[^;]*/librt\\.a;?"      "" _rt_libs "${_rt_libs}")
+      string(REGEX REPLACE "[^;]*/libpthread\\.a;?" "" _rt_libs "${_rt_libs}")
+      string(REGEX REPLACE "[^;]*/libdl\\.a;?"      "" _rt_libs "${_rt_libs}")
+      string(REGEX REPLACE ";+"                     ";" _rt_libs "${_rt_libs}")
+      string(REGEX REPLACE "^;|;$"                  "" _rt_libs "${_rt_libs}")
       set_target_properties(CUDA::cudart_static_deps PROPERTIES
                             INTERFACE_LINK_LIBRARIES "${_rt_libs}")
     endif()
@@ -40,6 +47,7 @@ add_library(analyzer_lib STATIC
     src/mpiStreamlineSolver.cpp
     src/openMpStreamlineSolver.cpp
     src/pthreadsStreamlineSolver.cpp
+    src/runner.cpp
     src/sequentialStreamlineSolver.cpp
     src/solverFactory.cpp
     src/streamlineSolver.cpp

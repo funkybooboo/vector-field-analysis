@@ -343,41 +343,46 @@ TEST_CASE("getStreamlines returns non-empty result after any solver on non-empty
 // Near-zero magnitude field: solvers must not crash or produce NaN
 // ---------------------------------------------------------------------------
 
-TEST_CASE("all solvers handle near-zero magnitude field without crash", "[impl][consistency]") {
-    // A field where every vector has magnitude 1e-7 -- exercises the singularity path
+static Field::Grid makeNearZeroGrid() {
     const Vector::Vec2 tiny(1e-7f, 0.0f);
-    auto makeNearZeroGrid = [&] {
-        return Field::Grid{Field::Bounds{0.0f, 2.0f, 0.0f, 2.0f},
-                           Field::Slice(3, std::vector<Vector::Vec2>(3, tiny))};
-    };
-    {
-        auto grid = makeNearZeroGrid();
-        REQUIRE_NOTHROW(SequentialStreamlineSolver{}.computeTimeStep(grid));
-        REQUIRE_FALSE(grid.getStreamlines().empty());
-    }
-    {
-        auto grid = makeNearZeroGrid();
-        REQUIRE_NOTHROW(OpenMpStreamlineSolver{}.computeTimeStep(grid));
-        REQUIRE_FALSE(grid.getStreamlines().empty());
-    }
-    {
-        auto grid = makeNearZeroGrid();
-        REQUIRE_NOTHROW(PthreadsStreamlineSolver{2}.computeTimeStep(grid));
-        REQUIRE_FALSE(grid.getStreamlines().empty());
-    }
-#ifdef ENABLE_CUDA_SOLVER
-    {
-        auto grid = makeNearZeroGrid();
-        REQUIRE_NOTHROW(CudaStreamlineSolver{}.computeTimeStep(grid));
-        REQUIRE_FALSE(grid.getStreamlines().empty());
-    }
-    {
-        auto grid = makeNearZeroGrid();
-        REQUIRE_NOTHROW(CudaFullStreamlineSolver{}.computeTimeStep(grid));
-        REQUIRE_FALSE(grid.getStreamlines().empty());
-    }
-#endif
+    return Field::Grid{Field::Bounds{0.0f, 2.0f, 0.0f, 2.0f},
+                       Field::Slice(3, std::vector<Vector::Vec2>(3, tiny))};
 }
+
+TEST_CASE("sequential solver handles near-zero magnitude field without crash",
+          "[impl][consistency]") {
+    auto grid = makeNearZeroGrid();
+    REQUIRE_NOTHROW(SequentialStreamlineSolver{}.computeTimeStep(grid));
+    REQUIRE_FALSE(grid.getStreamlines().empty());
+}
+
+TEST_CASE("openmp solver handles near-zero magnitude field without crash", "[impl][consistency]") {
+    auto grid = makeNearZeroGrid();
+    REQUIRE_NOTHROW(OpenMpStreamlineSolver{}.computeTimeStep(grid));
+    REQUIRE_FALSE(grid.getStreamlines().empty());
+}
+
+TEST_CASE("pthreads solver handles near-zero magnitude field without crash",
+          "[impl][consistency]") {
+    auto grid = makeNearZeroGrid();
+    REQUIRE_NOTHROW(PthreadsStreamlineSolver{2}.computeTimeStep(grid));
+    REQUIRE_FALSE(grid.getStreamlines().empty());
+}
+
+#ifdef ENABLE_CUDA_SOLVER
+TEST_CASE("cuda solver handles near-zero magnitude field without crash", "[impl][consistency]") {
+    auto grid = makeNearZeroGrid();
+    REQUIRE_NOTHROW(CudaStreamlineSolver{}.computeTimeStep(grid));
+    REQUIRE_FALSE(grid.getStreamlines().empty());
+}
+
+TEST_CASE("cuda full solver handles near-zero magnitude field without crash",
+          "[impl][consistency]") {
+    auto grid = makeNearZeroGrid();
+    REQUIRE_NOTHROW(CudaFullStreamlineSolver{}.computeTimeStep(grid));
+    REQUIRE_FALSE(grid.getStreamlines().empty());
+}
+#endif
 
 TEST_CASE("all solvers handle single-row grid without crash", "[impl][consistency]") {
     auto make = [] {

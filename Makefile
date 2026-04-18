@@ -38,6 +38,7 @@ build-simulator: configure
 
 build-sanitize:
 	$(CMAKE_BASE) -B $(BUILD_SANITIZE) -DCMAKE_BUILD_TYPE=Debug \
+	  -DENABLE_CUDA=OFF \
 	  '-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie' \
 	  '-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined -no-pie'
 	cmake --build $(BUILD_SANITIZE)

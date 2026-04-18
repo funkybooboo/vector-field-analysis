@@ -57,12 +57,14 @@ detected; disabled gracefully when absent (e.g. on CPU-only CI runners).
 > **Note:** On glibc 2.34+ (Ubuntu 22.04+), `libpthread.a`, `libdl.a`, and
 > `librt.a` are linker-script stubs that nvlink cannot process during CUDA
 > separable compilation. HDF5 (via HighFive), MPI, and OpenMP all inject
-> full-path references to these stubs into their CMake targets. The fix is
-> `analyzer_cuda_kernels`: a separate static library containing only the
-> `.cu` sources, with `CUDA_RESOLVE_DEVICE_SYMBOLS ON` so device linking
-> happens before HDF5/MPI/OpenMP enter the closure. `analyzer_lib` links
-> `analyzer_cuda_kernels` for the CUDA functionality but carries no
-> separable-compilation device link step of its own.
+> full-path references to these stubs into their CMake targets. The fix has
+> two parts: (1) `analyzer_cuda_kernels` is a separate static library
+> containing only the `.cu` sources, with `CUDA_RESOLVE_DEVICE_SYMBOLS ON`
+> so device linking happens before HDF5/MPI/OpenMP enter the closure; (2)
+> the stub paths are stripped entirely from `CUDA::cudart_static_deps` (an
+> internal target that even dynamic `CUDA::cudart` pulls in) -- since we
+> link the dynamic cudart, these host-only deps are already baked into
+> `libcudart.so` and need not appear on the link line at all.
 
 ### cppcheck
 
