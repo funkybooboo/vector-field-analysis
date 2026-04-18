@@ -24,21 +24,31 @@ if(ENABLE_CUDA)
   # a host-only flag. CUDA::cudart (dynamic) also links cudart_static_deps,
   # so this patch is required even when not explicitly linking cudart_static.
   if(UNIX AND NOT APPLE)
-    get_target_property(_rt_libs CUDA::cudart_static_deps INTERFACE_LINK_LIBRARIES)
-    if(_rt_libs)
-      # Strip the stub .a paths entirely -- we link CUDA::cudart (dynamic), so
-      # these host-only deps are already baked into libcudart.so and do not need
-      # to appear on the link line.  Passing them as -l flags would cause nvlink
-      # to find the same stubs during device linking and emit "Skipping
-      # incompatible" warnings for every architecture.
-      string(REGEX REPLACE "[^;]*/librt\\.a;?"      "" _rt_libs "${_rt_libs}")
-      string(REGEX REPLACE "[^;]*/libpthread\\.a;?" "" _rt_libs "${_rt_libs}")
-      string(REGEX REPLACE "[^;]*/libdl\\.a;?"      "" _rt_libs "${_rt_libs}")
-      string(REGEX REPLACE ";+"                     ";" _rt_libs "${_rt_libs}")
-      string(REGEX REPLACE "^;|;$"                  "" _rt_libs "${_rt_libs}")
-      set_target_properties(CUDA::cudart_static_deps PROPERTIES
-                            INTERFACE_LINK_LIBRARIES "${_rt_libs}")
-    endif()
+    # Strip glibc 2.34+ stub .a files from every CUDA imported target that may
+    # carry them. The stubs are host-only linker scripts; nvlink cannot process
+    # them and emits "Skipping incompatible" warnings for every architecture.
+    # libcudart.so already bakes in the real dl/rt/pthread symbols, so the .a
+    # paths are redundant on the device-link line regardless.
+    macro(_strip_stub_libs _target)
+      get_target_property(_ill ${_target} INTERFACE_LINK_LIBRARIES)
+      if(_ill)
+        string(REGEX REPLACE "[^;]*/librt\\.a;?"      "" _ill "${_ill}")
+        string(REGEX REPLACE "[^;]*/libpthread\\.a;?" "" _ill "${_ill}")
+        string(REGEX REPLACE "[^;]*/libdl\\.a;?"      "" _ill "${_ill}")
+        string(REGEX REPLACE ";+"                     ";" _ill "${_ill}")
+        string(REGEX REPLACE "^;|;$"                  "" _ill "${_ill}")
+        set_target_properties(${_target} PROPERTIES INTERFACE_LINK_LIBRARIES "${_ill}")
+      endif()
+    endmacro()
+
+    foreach(_cuda_tgt IN ITEMS
+        CUDA::cudart
+        CUDA::cudart_static
+        CUDA::cudart_static_deps)
+      if(TARGET ${_cuda_tgt})
+        _strip_stub_libs(${_cuda_tgt})
+      endif()
+    endforeach()
   endif()
 endif()
 
