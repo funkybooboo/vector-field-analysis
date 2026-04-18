@@ -11,8 +11,11 @@
 #include <cuda_runtime.h>
 
 static bool hasCudaDevice() {
-    // cudaFree(nullptr) forces full device initialization; fails if no usable compute device
-    return cudaFree(nullptr) == cudaSuccess;
+    void* p = nullptr;
+    bool ok = cudaMalloc(&p, 1) == cudaSuccess;
+    if (ok)
+        cudaFree(p);
+    return ok;
 }
 #endif
 
