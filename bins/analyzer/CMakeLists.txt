@@ -8,7 +8,7 @@ if(ENABLE_CUDA)
   #   cmake -B build -DCMAKE_CUDA_ARCHITECTURES=native
   # benchmark.sh and enqueue.sh do this automatically for CHPC nodes.
   if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 70 75 80 86)
+    set(CMAKE_CUDA_ARCHITECTURES 60 61 70 75 80 86 89 90)
   endif()
   enable_language(CUDA)
   find_package(CUDAToolkit REQUIRED)
@@ -102,6 +102,7 @@ if(ENABLE_CUDA AND UNIX AND NOT APPLE)
     endfunction()
     _fix_glibc_stubs_for_nvlink(MPI::MPI_CXX)
     _fix_glibc_stubs_for_nvlink(OpenMP::OpenMP_CXX)
+    _fix_glibc_stubs_for_nvlink(CUDA::cudart_static)
 endif()
 
 add_executable(analyzer src/main.cpp)
