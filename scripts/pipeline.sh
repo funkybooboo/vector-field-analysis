@@ -12,6 +12,8 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+[[ -f "$PROJECT_DIR/.env" ]] && source "$PROJECT_DIR/.env"
+
 SIMULATOR="$PROJECT_DIR/build/bins/simulator/simulator"
 ANALYZER="$PROJECT_DIR/build/bins/analyzer/analyzer"
 STATS="$PROJECT_DIR/tools/stats.py"

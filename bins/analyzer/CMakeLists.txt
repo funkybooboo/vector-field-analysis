@@ -32,81 +32,64 @@ add_library(analyzer_lib STATIC
 )
 
 if(ENABLE_CUDA)
-  target_sources(analyzer_lib PRIVATE
-                 src/cudaStreamlineSolver.cu
-                 src/cudaFull.cu
-                 src/cudaFullStreamlineSolver.cu
-               )
+  # Build CUDA kernels in a separate static library and resolve device symbols
+  # here, before HDF5 / MPI / OpenMP enter the link closure. This prevents
+  # their glibc 2.34+ stub .a files (libpthread.a, libdl.a, librt.a) from
+  # being passed to nvlink — the stub .a files are linker-script stubs that
+  # the host linker understands but nvlink cannot process.
+  #
+  # CUDA kernels only depend on field (for Grid/Vec types) and CUDA::cudart,
+  # both of which are stub-free, so the device link step is clean.
+  add_library(analyzer_cuda_kernels STATIC
+      src/cudaStreamlineSolver.cu
+      src/cudaFull.cu
+      src/cudaFullStreamlineSolver.cu
+  )
+  target_include_directories(analyzer_cuda_kernels PUBLIC
+      ${CMAKE_CURRENT_SOURCE_DIR}/src
+  )
+  target_link_libraries(analyzer_cuda_kernels PUBLIC CUDA::cudart PRIVATE field)
+  set_target_properties(analyzer_cuda_kernels PROPERTIES
+      CUDA_SEPARABLE_COMPILATION ON
+      CUDA_RESOLVE_DEVICE_SYMBOLS ON
+      CUDA_STANDARD 17
+      CUDA_STANDARD_REQUIRED ON
+  )
+  target_compile_options(analyzer_cuda_kernels PRIVATE
+      $<$<COMPILE_LANGUAGE:CUDA>:-allow-unsupported-compiler>
+  )
+  target_compile_definitions(analyzer_cuda_kernels PUBLIC ENABLE_CUDA_SOLVER=1)
 endif()
 
 target_include_directories(analyzer_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-if(ENABLE_CUDA)
-  # Wrap every host-only dep in $<HOST_LINK:...> so nvlink does not receive
-  # their transitive glibc 2.34+ stub .a files (libpthread.a, libdl.a,
-  # librt.a) during the device link step. This covers HDF5 (via HighFive),
-  # MPI, OpenMP, and anything else that carries pthread/dl/rt dependencies.
-  target_link_libraries(analyzer_lib
-    PUBLIC
-      $<HOST_LINK:field>
-      $<HOST_LINK:field_io>
-      $<HOST_LINK:HighFive>
-    PRIVATE
-      $<HOST_LINK:utils>
-      $<HOST_LINK:tomlplusplus::tomlplusplus>
-  )
-else()
-  target_link_libraries(analyzer_lib
-    PUBLIC
-      field
-      field_io
-      HighFive
-    PRIVATE
-      utils
-      tomlplusplus::tomlplusplus
-  )
-endif()
+target_link_libraries(analyzer_lib
+  PUBLIC
+    field
+    field_io
+    HighFive
+
+  PRIVATE
+    utils
+    tomlplusplus::tomlplusplus
+)
 
 if(ENABLE_CUDA)
-  target_link_libraries(analyzer_lib PUBLIC
-                        CUDA::cudart
-  )
-  target_compile_definitions(analyzer_lib PUBLIC
-                             ENABLE_CUDA_SOLVER=1
-  )
-  set_target_properties(analyzer_lib PROPERTIES
-                        CUDA_SEPARABLE_COMPILATION ON
-                        CUDA_STANDARD 17
-                        CUDA_STANDARD_REQUIRED ON
-  )
-  # nvidia-cuda-toolkit 11.5.1 (Ubuntu 22.04) does not officially support
-  # GCC 11. This flag suppresses the host-compiler version check; the code
-  # itself is valid C++17.
-  target_compile_options(analyzer_lib PRIVATE
-      $<$<COMPILE_LANGUAGE:CUDA>:-allow-unsupported-compiler>
-  )
+  target_link_libraries(analyzer_lib PUBLIC analyzer_cuda_kernels)
 endif()
 
 find_package(MPI)
 if(MPI_FOUND)
     # USE_MPI must be PUBLIC so main.cpp (which links analyzer_lib) sees the definition.
     target_compile_definitions(analyzer_lib PUBLIC USE_MPI)
-    if(ENABLE_CUDA)
-        target_link_libraries(analyzer_lib PUBLIC $<HOST_LINK:MPI::MPI_CXX>)
-    else()
-        target_link_libraries(analyzer_lib PUBLIC MPI::MPI_CXX)
-    endif()
+    target_link_libraries(analyzer_lib PUBLIC MPI::MPI_CXX)
 endif()
 
 find_package(OpenMP)
 if(OpenMP_FOUND)
-    if(ENABLE_CUDA)
-        target_link_libraries(analyzer_lib PUBLIC $<HOST_LINK:OpenMP::OpenMP_CXX>)
-    else()
-        target_link_libraries(analyzer_lib PUBLIC OpenMP::OpenMP_CXX)
-    endif()
+    target_link_libraries(analyzer_lib PUBLIC OpenMP::OpenMP_CXX)
 endif()
 
 add_executable(analyzer src/main.cpp)
