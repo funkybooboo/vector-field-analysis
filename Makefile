@@ -45,6 +45,7 @@ build-sanitize:
 
 build-coverage:
 	$(CMAKE_BASE) -B $(BUILD_COVERAGE) -DCMAKE_BUILD_TYPE=Debug \
+	  -DENABLE_CUDA=OFF \
 	  '-DCMAKE_CXX_FLAGS=--coverage' \
 	  '-DCMAKE_EXE_LINKER_FLAGS=--coverage'
 	cmake --build $(BUILD_COVERAGE)
