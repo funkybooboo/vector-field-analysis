@@ -34,6 +34,13 @@ jobs:
       - name: Install mise
         uses: jdx/mise-action@v4.0.1
 
+      - name: Cache build
+        uses: actions/cache@v4
+        with:
+          path: build/
+          key: cmake-${{ runner.os }}-${{ matrix.compiler.name }}-${{ hashFiles('**/*.cpp', '**/*.hpp', '**/*.cu', '**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: cmake-${{ runner.os }}-${{ matrix.compiler.name }}-
+
       - name: Install system dependencies
         run: mise run deps
 
@@ -43,7 +50,7 @@ jobs:
   test:
     name: Test (${{ matrix.compiler.name }})
     runs-on: ubuntu-22.04
-    needs: build
+    needs: [build, format, ascii-check, spell, links]
     strategy:
       fail-fast: false
       matrix:
@@ -61,6 +68,13 @@ jobs:
       - name: Install mise
         uses: jdx/mise-action@v4.0.1
 
+      - name: Cache build
+        uses: actions/cache@v4
+        with:
+          path: build/
+          key: cmake-${{ runner.os }}-${{ matrix.compiler.name }}-${{ hashFiles('**/*.cpp', '**/*.hpp', '**/*.cu', '**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: cmake-${{ runner.os }}-${{ matrix.compiler.name }}-
+
       - name: Install system dependencies
         run: mise run deps
 
@@ -73,6 +87,7 @@ jobs:
   sanitize:
     name: Sanitize
     runs-on: ubuntu-22.04
+    needs: test
 
     steps:
       - name: Checkout
@@ -80,6 +95,13 @@ jobs:
 
       - name: Install mise
         uses: jdx/mise-action@v4.0.1
+
+      - name: Cache sanitize build
+        uses: actions/cache@v4
+        with:
+          path: build-sanitize/
+          key: cmake-sanitize-${{ runner.os }}-${{ hashFiles('**/*.cpp', '**/*.hpp', '**/*.cu', '**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: cmake-sanitize-${{ runner.os }}-
 
       - name: Install system dependencies
         run: mise run deps
@@ -118,6 +140,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-22.04
+    needs: sanitize
 
     steps:
       - name: Checkout
@@ -125,6 +148,13 @@ jobs:
 
       - name: Install mise
         uses: jdx/mise-action@v4.0.1
+
+      - name: Cache build
+        uses: actions/cache@v4
+        with:
+          path: build/
+          key: cmake-${{ runner.os }}-GCC-${{ hashFiles('**/*.cpp', '**/*.hpp', '**/*.cu', '**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: cmake-${{ runner.os }}-GCC-
 
       - name: Install system dependencies
         run: mise run deps
@@ -152,6 +182,7 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-22.04
+    needs: lint
 
     steps:
       - name: Checkout
@@ -159,6 +190,13 @@ jobs:
 
       - name: Install mise
         uses: jdx/mise-action@v4.0.1
+
+      - name: Cache coverage build
+        uses: actions/cache@v4
+        with:
+          path: build-coverage/
+          key: cmake-coverage-${{ runner.os }}-${{ hashFiles('**/*.cpp', '**/*.hpp', '**/*.cu', '**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: cmake-coverage-${{ runner.os }}-
 
       - name: Install system dependencies
         run: mise run deps
@@ -169,6 +207,7 @@ jobs:
   cppcheck:
     name: Cppcheck
     runs-on: ubuntu-22.04
+    needs: coverage
 
     steps:
       - name: Checkout
@@ -186,6 +225,7 @@ jobs:
   todo:
     name: TODO to Issue
     runs-on: ubuntu-22.04
+    needs: cppcheck
     if: github.event_name == 'push'
     permissions:
       issues: write
@@ -215,6 +255,7 @@ jobs:
   latex:
     name: Build LaTeX Report
     runs-on: ubuntu-24.04
+    needs: cppcheck
 
     steps:
       - name: Checkout
