@@ -76,24 +76,32 @@ if(MPI_FOUND)
     target_link_libraries(analyzer_lib PUBLIC MPI::MPI_CXX)
 endif()
 
-# On glibc 2.34+ (Ubuntu 22.04+), libpthread.a is an empty stub that nvlink
-# cannot process during CUDA device linking. Point FindOpenMP at the real
-# versioned shared library before it runs its search.
-if(ENABLE_CUDA AND UNIX AND NOT APPLE AND NOT DEFINED OpenMP_pthread_LIBRARY)
-    find_file(OpenMP_pthread_LIBRARY
-        NAMES libpthread.so.0
-        PATHS
-            /usr/lib/x86_64-linux-gnu
-            /usr/lib/aarch64-linux-gnu
-            /usr/lib64
-            /usr/lib
-        NO_DEFAULT_PATH
-    )
-endif()
-
 find_package(OpenMP)
 if(OpenMP_FOUND)
     target_link_libraries(analyzer_lib PUBLIC OpenMP::OpenMP_CXX)
+endif()
+
+if(ENABLE_CUDA AND UNIX AND NOT APPLE)
+    # On glibc 2.34+ (Ubuntu 22.04+), libpthread.a / libdl.a / librt.a are
+    # linker-script stubs that the host linker understands but nvlink cannot
+    # process during CUDA device linking. Replace any full-path .a stubs in
+    # the MPI and OpenMP imported targets with -l flags that nvlink accepts.
+    function(_fix_glibc_stubs_for_nvlink tgt)
+        if(NOT TARGET ${tgt})
+            return()
+        endif()
+        foreach(prop INTERFACE_LINK_LIBRARIES IMPORTED_LINK_INTERFACE_LIBRARIES)
+            get_target_property(libs ${tgt} ${prop})
+            if(libs)
+                string(REGEX REPLACE "[^;]*/libpthread\\.a" "-lpthread" libs "${libs}")
+                string(REGEX REPLACE "[^;]*/libdl\\.a"     "-ldl"      libs "${libs}")
+                string(REGEX REPLACE "[^;]*/librt\\.a"     "-lrt"      libs "${libs}")
+                set_target_properties(${tgt} PROPERTIES ${prop} "${libs}")
+            endif()
+        endforeach()
+    endfunction()
+    _fix_glibc_stubs_for_nvlink(MPI::MPI_CXX)
+    _fix_glibc_stubs_for_nvlink(OpenMP::OpenMP_CXX)
 endif()
 
 add_executable(analyzer src/main.cpp)
