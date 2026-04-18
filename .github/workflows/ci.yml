@@ -145,6 +145,21 @@ jobs:
       - name: Run cppcheck
         run: mise run cppcheck
 
+  todo:
+    name: TODO to Issue
+    runs-on: ubuntu-22.04
+    if: github.event_name == 'push'
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create issues from TODOs
+        uses: alstr/todo-to-issue-action@v5
+
   links:
     name: Link Check
     runs-on: ubuntu-22.04
