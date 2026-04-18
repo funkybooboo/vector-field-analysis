@@ -6,10 +6,26 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
 jobs:
   build:
-    name: Build
+    name: Build (${{ matrix.compiler.name }})
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler:
+          - { name: GCC,   cc: gcc,   cxx: g++ }
+          - { name: Clang, cc: clang, cxx: clang++ }
+    env:
+      CC: ${{ matrix.compiler.cc }}
+      CXX: ${{ matrix.compiler.cxx }}
 
     steps:
       - name: Checkout
@@ -25,9 +41,18 @@ jobs:
         run: mise run build
 
   test:
-    name: Test
+    name: Test (${{ matrix.compiler.name }})
     runs-on: ubuntu-22.04
     needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler:
+          - { name: GCC,   cc: gcc,   cxx: g++ }
+          - { name: Clang, cc: clang, cxx: clang++ }
+    env:
+      CC: ${{ matrix.compiler.cc }}
+      CXX: ${{ matrix.compiler.cxx }}
 
     steps:
       - name: Checkout
@@ -45,8 +70,8 @@ jobs:
       - name: Test
         run: mise run test
 
-  format:
-    name: Format
+  sanitize:
+    name: Sanitize
     runs-on: ubuntu-22.04
 
     steps:
@@ -58,6 +83,20 @@ jobs:
 
       - name: Install system dependencies
         run: mise run deps
+
+      - name: Test with sanitizers
+        run: mise run test:sanitize
+
+  format:
+    name: Format
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
 
       - name: Check formatting
         run: mise run format:check
@@ -79,7 +118,6 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-22.04
-    needs: build
 
     steps:
       - name: Checkout
@@ -144,6 +182,35 @@ jobs:
 
       - name: Run cppcheck
         run: mise run cppcheck
+
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-22.04
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
+      - name: Install system dependencies
+        run: mise run deps
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: c-cpp
+
+      - name: Build
+        run: mise run build
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
 
   todo:
     name: TODO to Issue

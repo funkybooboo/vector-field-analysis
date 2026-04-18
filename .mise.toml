@@ -270,6 +270,7 @@ depends = [
   "cppcheck",
   "links",
   "test",
+  "test:sanitize",
   "lint",
   "test:coverage",
   "report:build",
