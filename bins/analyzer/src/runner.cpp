@@ -21,6 +21,11 @@
 namespace {
 using Clock = std::chrono::steady_clock;
 
+struct RunResult {
+    std::vector<std::vector<Field::Path>> streams;
+    double elapsedMilliseconds = 0.0;
+};
+
 RunResult runSolver(StreamlineSolver& solver, const Field::TimeSeries& field) {
     RunResult result;
 
