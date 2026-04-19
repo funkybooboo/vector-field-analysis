@@ -1,5 +1,6 @@
 #include "pthreadsStreamlineSolver.hpp"
 
+#include "sequentialStreamlineSolver.hpp"
 #include "streamlineSolver.hpp"
 
 #include <pthread.h>
@@ -117,8 +118,11 @@ PthreadsStreamlineSolver::PthreadsStreamlineSolver(unsigned int threadCount)
     : threadCount_(threadCount) {}
 
 void PthreadsStreamlineSolver::computeTimeStep(Field::Grid& grid) {
-    if (threadCount_ == 0)
+    if (threadCount_ == 0) {
+        SequentialStreamlineSolver fallback;
+        fallback.computeTimeStep(grid);
         return;
+    }
 
     const std::size_t rowCount = grid.rows();
     const int colCount = static_cast<int>(grid.cols());

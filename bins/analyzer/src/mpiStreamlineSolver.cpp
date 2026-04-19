@@ -107,11 +107,11 @@ void MpiStreamlineSolver::computeTimeStep(Field::Grid& grid) {
             StreamlineSolver::sortCellsByRoot(roots, totalCells);
 
         const std::size_t cellsPerRank = totalCells / static_cast<std::size_t>(size);
-        const std::size_t remainder = totalCells % static_cast<std::size_t>(size);
+        const std::size_t cellRemainder = totalCells % static_cast<std::size_t>(size);
         const std::size_t startIdx = static_cast<std::size_t>(rank) * cellsPerRank +
-                                     std::min(static_cast<std::size_t>(rank), remainder);
+                                     std::min(static_cast<std::size_t>(rank), cellRemainder);
         const std::size_t endIdx =
-            startIdx + cellsPerRank + (static_cast<std::size_t>(rank) < remainder ? 1 : 0);
+            startIdx + cellsPerRank + (static_cast<std::size_t>(rank) < cellRemainder ? 1 : 0);
 
         const std::vector<Field::Path> localPaths = StreamlineSolver::buildPathsForRange(
             roots, indices, totalCells, colCount, startIdx, endIdx, static_cast<std::size_t>(rank));
