@@ -32,6 +32,9 @@ class StreamlineSolver {
                                                        std::size_t threadIdx);
 
   protected:
+    // Sequential O(n) path reconstruction using owner-array. Does not call
+    // findRoot or require the DSU to be fully converged -- safe to call after
+    // unite() passes or directly on the neighbors array alone.
     static std::vector<Field::Path>
     reconstructPathsDSU(const Field::Grid& grid, const std::vector<Field::GridCell>& neighbors);
 };

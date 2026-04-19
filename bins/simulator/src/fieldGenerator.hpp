@@ -2,13 +2,13 @@
 #include "fieldTypes.hpp"
 #include "simulatorConfig.hpp"
 
-#include <functional>
 #include <cstddef>
+#include <functional>
 
 namespace FieldGenerator {
 
 // Streaming variant: calls onFrame(stepIndex, slice) for each frame in order.
-// Holds only one frame in memory at a time — use this for large grids.
+// Holds only one frame in memory at a time -- use this for large grids.
 void generateTimeSeries(const SimulatorConfig& config,
                         std::function<void(std::size_t, const Field::Slice&)> onFrame);
 

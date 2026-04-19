@@ -48,27 +48,6 @@ static Field::Grid makeEmptyGrid() {
 }
 
 // ---------------------------------------------------------------------------
-// traceStreamlineStep(src, dest) -- two-arg API
-// ---------------------------------------------------------------------------
-
-TEST_CASE("traceStreamlineStep(src,dest) extends into unclaimed cell", "[vectorfield]") {
-    auto grid = makeGrid();
-    REQUIRE_NOTHROW(grid.traceStreamlineStep({0, 0}, {0, 1}));
-}
-
-TEST_CASE("traceStreamlineStep(src,dest) merges when dest is already claimed", "[vectorfield]") {
-    auto grid = makeGrid();
-    grid.traceStreamlineStep({0, 0}, {0, 1});
-    REQUIRE_NOTHROW(grid.traceStreamlineStep({0, 2}, {0, 1}));
-}
-
-TEST_CASE("traceStreamlineStep(src,dest) src pointing at itself is a no-op merge",
-          "[vectorfield]") {
-    auto grid = makeGrid();
-    REQUIRE_NOTHROW(grid.traceStreamlineStep({0, 0}, {0, 0}));
-}
-
-// ---------------------------------------------------------------------------
 // SequentialStreamlineSolver
 // ---------------------------------------------------------------------------
 

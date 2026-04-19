@@ -68,7 +68,7 @@ From your local machine:
 ./scripts/local/push.sh
 ```
 
-This rsyncs everything except `build/`, `logs/`, `output/`, and `.env`.
+This rsyncs everything except `build/`, `data/`, and `.env`.
 
 ---
 
@@ -163,7 +163,7 @@ From your local machine:
 ./scripts/local/pull.sh
 ```
 
-This rsyncs `data/` and `logs/` from CHPC to local.
+This rsyncs `data/` from CHPC to local.
 
 ---
 
@@ -178,7 +178,7 @@ mise run visualize:streams
 ## 11. Clean up on CHPC
 
 ```sh
-make clean       # removes build/, data/, logs/
+make clean       # removes build/ and data/
 ```
 
 ---

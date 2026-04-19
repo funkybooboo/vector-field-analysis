@@ -3,14 +3,14 @@
 # Run on the CHPC login node.
 #
 # Usage:
-#   ./scripts/chpc/monitor.sh            # status table + last 20 lines of all logs
-#   ./scripts/chpc/monitor.sh karman     # live tail a specific stem's log
+#   ./scripts/chpc/monitor.sh            # status table + last 10 lines of all logs
+#   ./scripts/chpc/monitor.sh karman     # live tail a specific stem's job log
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-LOG_DIR="$PROJECT_DIR/logs"
+DATA_DIR="$PROJECT_DIR/data"
 CONFIGS_DIR="$PROJECT_DIR/configs"
 # shellcheck source=/dev/null
 [[ -f "$PROJECT_DIR/.env" ]] && source "$PROJECT_DIR/.env"
@@ -19,7 +19,7 @@ JOB_NAME="${JOB_NAME:-vfa}"
 # -- Live tail for a specific stem --------------------------------------------
 
 if [[ $# -eq 1 ]]; then
-	log="$LOG_DIR/$1/stdout.log"
+	log="$DATA_DIR/$1/stdout.log"
 	if [[ ! -f "$log" ]]; then
 		echo "error: no log found at $log" >&2
 		exit 1
@@ -46,11 +46,9 @@ while IFS= read -r line; do
 	name=$(awk '{print $2}' <<<"$line")
 	state=$(awk '{print $3}' <<<"$line")
 	elapsed=$(awk '{print $4}' <<<"$line")
-	# Strip job name prefix to recover stem
 	stem="${name#"${JOB_NAME}"_}"
 	JOB_STATE["$stem"]="$state"
 	JOB_ELAPSED["$stem"]="$elapsed"
-	# Estimated start for pending jobs
 	if [[ "$state" == "PENDING" ]]; then
 		est=$(squeue --start -j "$jobid" --format="%S" --noheader 2>/dev/null | head -1 || true)
 		JOB_START["$stem"]="${est:-unknown}"
@@ -61,10 +59,9 @@ done < <(squeue -u "$USER" --format="%i %j %T %M %D" --noheader 2>/dev/null)
 declare -A SACCT_STATE SACCT_ELAPSED
 
 while IFS='|' read -r name state elapsed; do
-	name="${name%%_[0-9]*}" # strip any array suffix
+	name="${name%%_[0-9]*}"
 	stem="${name#"${JOB_NAME}"_}"
 	[[ -z "$stem" || "$stem" == "$name" ]] && continue
-	# Only record if not already seen as active
 	if [[ -z "${JOB_STATE[$stem]:-}" ]]; then
 		SACCT_STATE["$stem"]="$state"
 		SACCT_ELAPSED["$stem"]="$elapsed"
@@ -72,6 +69,18 @@ while IFS='|' read -r name state elapsed; do
 done < <(sacct -u "$USER" --starttime=today \
 	--format="JobName,State,Elapsed" --noheader --parsable2 2>/dev/null |
 	grep "^${JOB_NAME}_" || true)
+
+# Build a NOTE string showing output file presence and any stderr errors
+stage_note() {
+	local stem="$1"
+	local dir="$DATA_DIR/$stem"
+	local notes=()
+	[[ -f "$dir/field.h5" ]] && notes+=("sim:done")
+	[[ -f "$dir/streams.h5" ]] && notes+=("ana:done")
+	[[ -f "$dir/simulator_stderr.txt" && -s "$dir/simulator_stderr.txt" ]] && notes+=("sim:ERR")
+	[[ -f "$dir/analyzer_stderr.txt" && -s "$dir/analyzer_stderr.txt" ]] && notes+=("ana:ERR")
+	printf "%s" "${notes[*]}"
+}
 
 # Print table
 printf "\n==> status\n"
@@ -84,14 +93,15 @@ for stem in "${STEMS[@]}"; do
 		elapsed="${JOB_ELAPSED[$stem]}"
 		note=""
 		[[ "$state" == "PENDING" ]] && note="est. start: ${JOB_START[$stem]:-unknown}"
+		[[ "$state" == "RUNNING" ]] && note="$(stage_note "$stem")"
 	elif [[ -n "${SACCT_STATE[$stem]:-}" ]]; then
 		state="${SACCT_STATE[$stem]}"
 		elapsed="${SACCT_ELAPSED[$stem]}"
-		note=""
-	elif [[ -f "$LOG_DIR/$stem/stdout.log" ]]; then
+		note="$(stage_note "$stem")"
+	elif [[ -f "$DATA_DIR/$stem/stdout.log" ]]; then
 		state="UNKNOWN"
 		elapsed="-"
-		note="log exists but no job record found"
+		note="$(stage_note "$stem")"
 	else
 		state="NOT RUN"
 		elapsed="-"
@@ -105,8 +115,18 @@ done
 echo ""
 echo "==> logs"
 for stem in "${STEMS[@]}"; do
-	log="$LOG_DIR/$stem/stdout.log"
-	[[ -f "$log" ]] || continue
-	printf "\n--- %s ---\n" "$stem"
-	tail -n 20 "$log"
+	dir="$DATA_DIR/$stem"
+	[[ -d "$dir" ]] || continue
+	printed_header=0
+	for label in simulator_stdout simulator_stderr analyzer_stdout analyzer_stderr; do
+		log="$dir/${label}.txt"
+		[[ -f "$log" ]] || continue
+		[[ "$label" == *_stderr && ! -s "$log" ]] && continue
+		if [[ $printed_header -eq 0 ]]; then
+			printf "\n--- %s ---\n" "$stem"
+			printed_header=1
+		fi
+		printf "  [%s]\n" "$label"
+		tail -n 10 "$log" | sed 's/^/    /'
+	done
 done

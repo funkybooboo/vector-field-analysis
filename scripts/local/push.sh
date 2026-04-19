@@ -17,15 +17,10 @@ validate_or_die _check_user _check_host _check_project
 REMOTE="${CHPC_USER}@${CHPC_HOST}:${CHPC_PROJECT}"
 
 rsync -avz --progress \
-	--exclude='output/' \
-	--exclude='logs/' \
+	--exclude='data/' \
 	--exclude='build/' \
 	--exclude='build-coverage/' \
 	--exclude='.cache/' \
 	--exclude='*.o' \
-	--exclude='analyzer' \
-	--exclude='analyzer_sm*' \
-	--exclude='simulator' \
-	--exclude='simulator_sm*' \
 	--exclude='.env' \
 	"$PROJECT_DIR/" "$REMOTE"

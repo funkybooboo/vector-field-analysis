@@ -99,7 +99,7 @@ See [`pipeline.md`](pipeline.md) for a detailed walkthrough.
 **Path:** `bins/analyzer/src/`
 
 Reads the HDF5 output and traces streamlines through every cell in each time step's field.
-Supports four parallel solver implementations that can be benchmarked side-by-side.
+Supports five parallel solver implementations that can be benchmarked side-by-side.
 
 | Source file | Role |
 |-------------|------|
@@ -116,7 +116,7 @@ Supports four parallel solver implementations that can be benchmarked side-by-si
 
 **Streamline tracing algorithm** (in `Field::Grid`):
 
-All four solver implementations follow the same two-pass design per time step:
+All solver implementations follow the same two-pass design per time step:
 
 - **Pass 1 (parallelisable)** -- each cell calls `downstreamCell(row, col)`, which returns
   the grid index of the nearest cell in the direction the vector points. This method is
@@ -127,8 +127,9 @@ All four solver implementations follow the same two-pass design per time step:
   is not thread-safe. Each call either extends the current streamline (destination
   unclaimed) or merges two converging paths via `joinStreamlines`.
 
-When `solver = "all"`, all four implementations run on the same field data and timings are
-printed side-by-side. All results are verified against the sequential reference.
+When `solver = "benchmark"` (default), all available implementations run on the same field
+data and timings are printed side-by-side. Each result is verified against the sequential
+reference, and only one implementation's data is held in memory at a time.
 
 **Third-party dependencies:**
 

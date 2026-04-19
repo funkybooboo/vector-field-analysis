@@ -96,153 +96,96 @@ static void writeAndReport(const std::string& outPath,
     std::cout << "\n";
 }
 
-static void verifyAll(const RunResult& sequential, const RunResult& pthreads,
-                      [[maybe_unused]] const RunResult& openmp,
-                      [[maybe_unused]] const RunResult& mpi, [[maybe_unused]] const RunResult& cuda,
-                      bool runParallel, [[maybe_unused]] bool runMpi) {
-    if (runParallel) {
-        verify(sequential.streams, pthreads.streams, "pthreads");
+void runBenchmark(const Field::TimeSeries& field, const std::vector<unsigned int>& benchmarkThreads,
+                  [[maybe_unused]] const std::vector<unsigned int>& benchmarkCudaBlockSizes,
+                  int mpiRank, int mpiSize, const std::string& outPath) {
+    // Compute label width upfront for aligned output.
+    std::vector<std::size_t> labelSizes = {std::string("sequential (1t)").size()};
+    for (unsigned int t : benchmarkThreads) {
+        const std::string ts = std::to_string(t);
+        labelSizes.push_back(std::string("pthreads (" + ts + "t)").size());
 #ifdef _OPENMP
-        verify(sequential.streams, openmp.streams, "openmp");
+        labelSizes.push_back(std::string("openmp (" + ts + "t)").size());
 #endif
     }
 #ifdef USE_MPI
-    if (runMpi) {
-        verify(sequential.streams, mpi.streams, "mpi");
+    if (mpiSize > 1) {
+        labelSizes.push_back(std::string("mpi (" + std::to_string(mpiSize) + " ranks)").size());
     }
 #endif
 #ifdef ENABLE_CUDA_SOLVER
-    verify(sequential.streams, cuda.streams, "cuda");
+    for (unsigned int blk : benchmarkCudaBlockSizes) {
+        labelSizes.push_back(std::string("cuda (blk=" + std::to_string(blk) + ")").size());
+    }
 #endif
-}
+    const int labelWidth =
+        static_cast<int>(*std::max_element(labelSizes.begin(), labelSizes.end())) + 2;
 
-void runAll(const Field::TimeSeries& field, unsigned int threadCount,
-            [[maybe_unused]] unsigned int cudaBlockSize, int mpiRank, int mpiSize,
-            const std::string& outPath) {
-    const bool runParallel = threadCount > 1;
-#ifdef USE_MPI
-    const bool runMpi = mpiSize > 1;
-#else
-    [[maybe_unused]] const bool runMpi = false;
-#endif
-
-#ifdef USE_MPI
+    // MPI must run first -- all ranks must participate before rank 0 diverges.
     RunResult mpiResult{};
-    if (runMpi) {
-        auto mpi = makeSolver("mpi", threadCount);
-        mpiResult = runSolver(*mpi, field);
+#ifdef USE_MPI
+    if (mpiSize > 1) {
+        auto mpiSolver = makeSolver("mpi", static_cast<unsigned int>(mpiSize));
+        mpiResult = runSolver(*mpiSolver, field);
     }
 #endif
 
-    RunResult sequentialResult{};
-    RunResult pthreadsResult{};
-#ifdef _OPENMP
-    RunResult openmpResult{};
-#endif
-#ifdef ENABLE_CUDA_SOLVER
-    RunResult cudaResult{};
-#endif
-    if (mpiRank == 0) {
-        auto sequentialSolver = makeSolver("sequential", threadCount);
-        sequentialResult = runSolver(*sequentialSolver, field);
-        if (runParallel) {
-#ifdef _OPENMP
-            auto openmpSolver = makeSolver("openmp", threadCount);
-            openmpResult = runSolver(*openmpSolver, field);
-#endif
-            auto pthreadsSolver = makeSolver("pthreads", threadCount);
-            pthreadsResult = runSolver(*pthreadsSolver, field);
-        }
-#ifdef ENABLE_CUDA_SOLVER
-        auto cudaSolver = makeSolver("cuda", threadCount, cudaBlockSize);
-        cudaResult = runSolver(*cudaSolver, field);
-#endif
-        const std::string sequentialLabel = "sequential";
-        std::vector<std::size_t> labelSizes = {sequentialLabel.size()};
-        if (runParallel) {
-            labelSizes.push_back(
-                std::string("pthreads (" + std::to_string(threadCount) + " thr)").size());
-#ifdef _OPENMP
-            labelSizes.push_back(
-                std::string("openmp (" + std::to_string(threadCount) + " thr)").size());
-#endif
-        }
-#ifdef USE_MPI
-        if (runMpi) {
-            labelSizes.push_back(
-                std::string("mpi (" + std::to_string(mpiSize) + " rank(s))").size());
-        }
-#endif
-#ifdef ENABLE_CUDA_SOLVER
-        labelSizes.push_back(
-            std::string("cuda (blk=" + std::to_string(cudaBlockSize) + ")").size());
-#endif
-        const int labelWidth =
-            static_cast<int>(*std::max_element(labelSizes.begin(), labelSizes.end())) + 2;
-
-        std::cout << std::left << std::setw(labelWidth) << sequentialLabel
-                  << sequentialResult.elapsedMilliseconds << " ms\n";
-
-#ifdef _OPENMP
-        if (runParallel) {
-            printTiming("openmp (" + std::to_string(threadCount) + " thr)",
-                        openmpResult.elapsedMilliseconds, labelWidth,
-                        sequentialResult.elapsedMilliseconds);
-        } else {
-            std::cout << "(openmp skipped -- thread count too low for parallel benefit)\n";
-        }
-#else
-        std::cout << "(openmp skipped -- not compiled with OpenMP support)\n";
-#endif
-
-        if (runParallel) {
-            printTiming("pthreads (" + std::to_string(threadCount) + " thr)",
-                        pthreadsResult.elapsedMilliseconds, labelWidth,
-                        sequentialResult.elapsedMilliseconds);
-        } else {
-            std::cout << "(pthreads skipped -- thread count too low for parallel benefit)\n";
-        }
-
-#ifdef USE_MPI
-        if (runMpi) {
-            printTiming("mpi (" + std::to_string(mpiSize) + " rank(s))",
-                        mpiResult.elapsedMilliseconds, labelWidth,
-                        sequentialResult.elapsedMilliseconds);
-        } else {
-            std::cout << "(mpi skipped -- rank count too low for parallel benefit)\n";
-        }
-#else
-        std::cout << "(mpi skipped -- not compiled with MPI support)\n";
-#endif
-
-#ifdef ENABLE_CUDA_SOLVER
-        printTiming("cuda (blk=" + std::to_string(cudaBlockSize) + ")",
-                    cudaResult.elapsedMilliseconds, labelWidth,
-                    sequentialResult.elapsedMilliseconds);
-#else
-        std::cout << "(cuda skipped -- rebuild with -DENABLE_CUDA=ON)\n";
-#endif
-
-        verifyAll(sequentialResult, pthreadsResult,
-#ifdef _OPENMP
-                  openmpResult,
-#else
-                  RunResult{},
-#endif
-#ifdef USE_MPI
-                  mpiResult,
-#else
-                  RunResult{},
-#endif
-#ifdef ENABLE_CUDA_SOLVER
-                  cudaResult,
-#else
-                  RunResult{},
-#endif
-                  runParallel, runMpi);
-
-        writeAndReport(outPath, sequentialResult.streams, field.bounds, field.gridSize());
+    if (mpiRank != 0) {
+        return;
     }
+
+    // Sequential is the reference for all verifications.
+    RunResult seqResult;
+    {
+        auto seq = makeSolver("sequential", 1);
+        seqResult = runSolver(*seq, field);
+    }
+    std::cout << std::left << std::setw(labelWidth) << "sequential (1t)"
+              << seqResult.elapsedMilliseconds << " ms\n";
+
+    // Verify and print MPI now that we have the sequential reference.
+#ifdef USE_MPI
+    if (mpiSize > 1) {
+        verify(seqResult.streams, mpiResult.streams, "mpi (" + std::to_string(mpiSize) + " ranks)");
+        printTiming("mpi (" + std::to_string(mpiSize) + " ranks)", mpiResult.elapsedMilliseconds,
+                    labelWidth, seqResult.elapsedMilliseconds);
+        mpiResult.streams.clear();
+        mpiResult.streams.shrink_to_fit();
+    }
+#endif
+
+    for (unsigned int t : benchmarkThreads) {
+        const std::string ts = std::to_string(t);
+        {
+            auto solver = makeSolver("pthreads", t);
+            auto result = runSolver(*solver, field);
+            verify(seqResult.streams, result.streams, "pthreads (" + ts + "t)");
+            printTiming("pthreads (" + ts + "t)", result.elapsedMilliseconds, labelWidth,
+                        seqResult.elapsedMilliseconds);
+        }
+#ifdef _OPENMP
+        {
+            auto solver = makeSolver("openmp", t);
+            auto result = runSolver(*solver, field);
+            verify(seqResult.streams, result.streams, "openmp (" + ts + "t)");
+            printTiming("openmp (" + ts + "t)", result.elapsedMilliseconds, labelWidth,
+                        seqResult.elapsedMilliseconds);
+        }
+#endif
+    }
+
+#ifdef ENABLE_CUDA_SOLVER
+    for (unsigned int blk : benchmarkCudaBlockSizes) {
+        auto solver = makeSolver("cuda", 1, blk);
+        auto result = runSolver(*solver, field);
+        verify(seqResult.streams, result.streams, "cuda (blk=" + std::to_string(blk) + ")");
+        printTiming("cuda (blk=" + std::to_string(blk) + ")", result.elapsedMilliseconds,
+                    labelWidth, seqResult.elapsedMilliseconds);
+    }
+#endif
+
+    std::cout << "[all verified vs sequential]\n";
+    writeAndReport(outPath, seqResult.streams, field.bounds, field.gridSize());
 }
 
 void runOne(const std::string& solverName, const Field::TimeSeries& field, unsigned int threadCount,

@@ -31,9 +31,6 @@ StreamlineSolver::buildPathsForRange(const std::vector<std::size_t>& roots,
 
     std::size_t currentStart = startIdx;
 
-    // Skip leading elements that belong to the same root as the tail of the
-    // previous thread's range, so each root is owned by exactly one thread.
-    // Guard: threadIdx==0 implies startIdx==0; currentStart-1 would underflow.
     if (threadIdx > 0) {
         while (currentStart < endIdx &&
                roots[indices[currentStart]] == roots[indices[currentStart - 1]])
@@ -42,8 +39,6 @@ StreamlineSolver::buildPathsForRange(const std::vector<std::size_t>& roots,
 
     while (currentStart < endIdx) {
         std::size_t segmentEnd = currentStart + 1;
-        // Scan to the true end of this root's segment -- may extend past endIdx,
-        // which is correct: this thread owns all cells of any root it starts.
         while (segmentEnd < totalCells &&
                roots[indices[segmentEnd]] == roots[indices[currentStart]])
             ++segmentEnd;

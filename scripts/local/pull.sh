@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rsync results from CHPC back to local. Fetches output/ and logs/.
+# Rsync results from CHPC back to local. Fetches data/.
 # Run from your local machine.
 # Configure via .env at the project root.
 
@@ -17,9 +17,7 @@ validate_or_die _check_user _check_host _check_project
 REMOTE="${CHPC_USER}@${CHPC_HOST}:${CHPC_PROJECT}"
 
 rsync -avz --progress \
-	--include='output/' \
-	--include='output/**' \
-	--include='logs/' \
-	--include='logs/**' \
+	--include='data/' \
+	--include='data/**' \
 	--exclude='*' \
 	"$REMOTE/" "$PROJECT_DIR"

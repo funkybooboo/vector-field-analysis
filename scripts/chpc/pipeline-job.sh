@@ -25,64 +25,21 @@ echo "host: $(hostname)"
 echo "stem: $STEM"
 echo ""
 
+mkdir -p "$PROJECT_DIR/data/$STEM"
+
 echo "=== simulator ==="
-"$PROJECT_DIR/simulator_run" "configs/$STEM.toml"
+"$PROJECT_DIR/build/bins/simulator/simulator" "configs/$STEM.toml" \
+	>"$PROJECT_DIR/data/$STEM/simulator_stdout.txt" \
+	2>"$PROJECT_DIR/data/$STEM/simulator_stderr.txt"
 
 echo ""
 echo "=== analyzer ==="
 
-_seq_ms=""
-
-run_variant() {
-	local solver=$1 workers=$2
-	local variant_name="${solver}_${workers}"
-	local out="$PROJECT_DIR/data/$STEM"
-	local log_file="$out/analyzer_${variant_name}.txt"
-	local streams_out="$out/streams_${variant_name}.h5"
-
-	local tmp_toml="$out/${STEM}.toml"
-	sed '/^\[analyzer\]/,$d' "$PROJECT_DIR/configs/$STEM.toml" >"$tmp_toml"
-	if [[ "$solver" == "cuda" ]]; then
-		printf "\n[analyzer]\nsolver = \"cuda\"\ncuda_block_size = %d\noutput = \"%s\"\n" \
-			"$workers" "$streams_out" >>"$tmp_toml"
-	else
-		printf "\n[analyzer]\nsolver = \"%s\"\nthreads = %d\noutput = \"%s\"\n" \
-			"$solver" "$workers" "$streams_out" >>"$tmp_toml"
-	fi
-
-	if [[ "$solver" == "mpi" ]]; then
-		srun --mpi=pmix -n "$workers" "$PROJECT_DIR/analyzer_run" "$tmp_toml" \
-			>"$log_file" 2>&1
-	else
-		"$PROJECT_DIR/analyzer_run" "$tmp_toml" >"$log_file" 2>&1
-	fi
-	local status=$?
-
-	rm -f "$tmp_toml"
-	if [[ $status -eq 0 ]]; then
-		local ms
-		ms=$(grep -oE '[0-9.]+ ms' "$log_file" | tail -1 | awk '{print $1}')
-		if [[ "$solver" == "sequential" ]]; then
-			_seq_ms="$ms"
-			printf "  %-20s %10s ms\n" "$variant_name" "$ms"
-		elif [[ -n "$_seq_ms" && -n "$ms" ]]; then
-			local ratio
-			ratio=$(awk "BEGIN {if ($ms > 0) printf \"%.2f\", $_seq_ms / $ms; else print \"?\"}")
-			printf "  %-20s %10s ms  (${ratio}x vs sequential)\n" "$variant_name" "$ms"
-		else
-			printf "  %-20s %10s ms\n" "$variant_name" "$ms"
-		fi
-		ln -sf "$(basename "$streams_out")" "$out/streams.h5"
-		return 0
-	else
-		printf "  %-20s FAIL\n" "$variant_name"
-		return 1
-	fi
-}
-
-mkdir -p "$PROJECT_DIR/data/$STEM"
-run_variant "sequential" 1
-for t in 2 4 8; do run_variant "pthreads" "$t" || true; done
-for t in 2 4 8; do run_variant "openmp" "$t" || true; done
-for p in 2 4; do run_variant "mpi" "$p" || true; done
-for b in 64 128 256 512; do run_variant "cuda" "$b" || true; done
+tmp_toml="$PROJECT_DIR/data/$STEM/${STEM}_benchmark.toml"
+sed '/^\[analyzer\]/,$d' "$PROJECT_DIR/configs/$STEM.toml" >"$tmp_toml"
+printf '\n[analyzer]\nsolver = "benchmark"\noutput = "%s"\n' \
+	"$PROJECT_DIR/data/$STEM/streams.h5" >>"$tmp_toml"
+srun --mpi=pmix -n "$SLURM_NTASKS" "$PROJECT_DIR/build/bins/analyzer/analyzer" "$tmp_toml" \
+	>"$PROJECT_DIR/data/$STEM/analyzer_stdout.txt" \
+	2>"$PROJECT_DIR/data/$STEM/analyzer_stderr.txt"
+rm -f "$tmp_toml"

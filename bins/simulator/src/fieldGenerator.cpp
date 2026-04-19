@@ -241,9 +241,8 @@ Field::TimeSeries generateTimeSeries(const SimulatorConfig& config) {
     result.bounds = config.bounds;
     result.frames.resize(numSteps, Field::Slice(height, std::vector<Vector::Vec2>(width)));
 
-    generateTimeSeries(config, [&](std::size_t step, const Field::Slice& slice) {
-        result.frames[step] = slice;
-    });
+    generateTimeSeries(
+        config, [&](std::size_t step, const Field::Slice& slice) { result.frames[step] = slice; });
 
     return result;
 }

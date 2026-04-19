@@ -15,16 +15,25 @@
 #include <thread>
 
 static void printHelp() {
-    std::cout << "Usage: analyzer <config.toml>\n"
-              << "\nRuns vector field streamline analysis using the given TOML config file.\n"
-              << "Reads data/<config-stem>/field.h5 and writes data/<config-stem>/streams.h5.\n"
-              << "See configs/ for example configs.\n"
-              << "\n[analyzer] keys (all optional):\n"
-              << "  solver          = \"all\"  sequential | openmp | pthreads | mpi | cuda | all\n"
-              << "                            (cuda requires -DENABLE_CUDA=ON at build time)\n"
-              << "  threads         = 0      thread/rank count (0 = hardware_concurrency)\n"
-              << "  cuda_block_size = 256    CUDA threads per block\n"
-              << "\nFor MPI: mpirun -n N analyzer <config.toml>  with solver = \"mpi\"\n";
+    std::cout
+        << "Usage: analyzer <config.toml>\n"
+        << "\nRuns vector field streamline analysis using the given TOML config file.\n"
+        << "Reads data/<config-stem>/field.h5 and writes data/<config-stem>/streams.h5.\n"
+        << "See configs/ for example configs.\n"
+        << "\n[analyzer] keys (all optional):\n"
+        << "  solver                   = \"benchmark\"\n"
+        << "                             sequential | openmp | pthreads | mpi | cuda | benchmark\n"
+        << "                             (cuda requires -DENABLE_CUDA=ON at build time)\n"
+        << "  threads                  = 0      thread/rank count for single-solver modes\n"
+        << "                                    (0 = hardware_concurrency)\n"
+        << "  cuda_block_size          = 256    CUDA threads per block (single-solver mode)\n"
+        << "  benchmark_threads        = [2,4,8]  thread counts for pthreads/openmp in benchmark\n"
+        << "  benchmark_cuda_block_sizes = [64,128,256,512]  block sizes for cuda in benchmark\n"
+        << "\nbenchmark mode runs all available implementations and verifies output vs "
+           "sequential.\n"
+        << "To include MPI in the benchmark: mpirun -n N analyzer <config.toml>\n"
+        << "For a single solver:             mpirun -n N analyzer <config.toml>  with solver = "
+           "\"mpi\"\n";
 }
 
 static unsigned int resolveThreadCount(unsigned int requested) {
@@ -100,16 +109,6 @@ int main(int argc, char* argv[]) {
             throw std::runtime_error("field file contains no time steps: " + fieldPath);
         }
 
-        // Resolve thread count from config, then adapt for fair comparison in "all" mode:
-        // if MPI is active, align thread count to rank count so every parallel solver
-        // (openmp, pthreads, mpi) works with the same number of workers.
-        unsigned int threadCount = resolveThreadCount(config.threadCount);
-        if (config.solver == "all" && mpiSize > 1) {
-            threadCount = static_cast<unsigned int>(mpiSize);
-        }
-
-        const unsigned int cudaBlockSize = config.cudaBlockSize;
-
         if (mpiRank == 0) {
             const int numSteps = static_cast<int>(field.frames.size());
             const auto [width, height] = field.gridSize();
@@ -120,10 +119,13 @@ int main(int argc, char* argv[]) {
                       << "Steps:   " << numSteps << "\n\n";
         }
 
-        if (config.solver == "all") {
-            runAll(field, threadCount, cudaBlockSize, mpiRank, mpiSize, outPath);
+        if (config.solver == "benchmark") {
+            runBenchmark(field, config.benchmarkThreads, config.benchmarkCudaBlockSizes, mpiRank,
+                         mpiSize, outPath);
         } else {
-            runOne(config.solver, field, threadCount, cudaBlockSize, mpiRank, mpiSize, outPath);
+            const unsigned int threadCount = resolveThreadCount(config.threadCount);
+            runOne(config.solver, field, threadCount, config.cudaBlockSize, mpiRank, mpiSize,
+                   outPath);
         }
     } catch (const std::exception& e) {
         if (mpiRank == 0) {

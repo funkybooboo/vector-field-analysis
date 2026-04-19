@@ -136,7 +136,7 @@ run = "./scripts/pipeline.sh"
 
 [tasks.demo]
 description = "Full pipeline for one config stem: build, simulate, analyze, stats, visualize (STEM, MPI_RANKS)"
-run = "./scripts/local/pipeline.sh ${STEM:-vortex_256x256}"
+run = "./scripts/local/pipeline.sh ${STEM:-vortex_128x128}"
 
 # =============================================================================
 # Visualize / Stats
@@ -144,23 +144,23 @@ run = "./scripts/local/pipeline.sh ${STEM:-vortex_256x256}"
 
 [tasks.visualize]
 description = "Visualize field.h5 with quiver plot"
-run = "uv run tools/visualize.py data/${STEM:-vortex_256x256}/field.h5"
+run = "uv run tools/visualize.py data/${STEM:-vortex_128x128}/field.h5"
 
 [tasks."visualize:streams"]
 description = "Visualize field.h5 with streamlines overlaid"
-run = "uv run tools/visualize.py data/${STEM:-vortex_256x256}/field.h5 --streams data/${STEM:-vortex_256x256}/streams.h5"
+run = "uv run tools/visualize.py data/${STEM:-vortex_128x128}/field.h5 --streams data/${STEM:-vortex_128x128}/streams.h5"
 
 [tasks.stats]
 description = "Print stats for field.h5 and field.streams.h5"
-run = "uv run tools/stats.py data/${STEM:-vortex_256x256}/field.h5 data/${STEM:-vortex_256x256}/streams.h5"
+run = "uv run tools/stats.py data/${STEM:-vortex_128x128}/field.h5 data/${STEM:-vortex_128x128}/streams.h5"
 
 [tasks."stats:field"]
 description = "Print stats for field.h5"
-run = "uv run tools/stats.py data/${STEM:-vortex_256x256}/field.h5"
+run = "uv run tools/stats.py data/${STEM:-vortex_128x128}/field.h5"
 
 [tasks."stats:streams"]
 description = "Print stats for field.streams.h5"
-run = "uv run tools/stats.py data/${STEM:-vortex_256x256}/streams.h5"
+run = "uv run tools/stats.py data/${STEM:-vortex_128x128}/streams.h5"
 
 # =============================================================================
 # Quality

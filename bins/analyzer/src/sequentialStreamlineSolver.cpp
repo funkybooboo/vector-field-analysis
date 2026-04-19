@@ -4,7 +4,13 @@
 
 void SequentialStreamlineSolver::computeTimeStep(Field::Grid& grid) {
     const std::size_t rowCount = grid.rows();
+    if (rowCount == 0) {
+        return;
+    }
     const std::size_t colCount = grid.cols();
+    if (colCount == 0) {
+        return;
+    }
     const std::size_t total = rowCount * colCount;
     std::vector<Field::GridCell> neighbors(total);
 

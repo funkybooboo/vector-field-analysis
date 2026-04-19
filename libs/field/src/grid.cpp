@@ -4,7 +4,6 @@
 #include <cmath>
 #include <cstddef>
 #include <stdexcept>
-#include <unordered_set>
 
 namespace Field {
 
@@ -113,79 +112,8 @@ GridCell Grid::downstreamCell(GridCell coords) const {
     return downstreamCell(coords.row, coords.col);
 }
 
-void Grid::joinStreamlines(const std::shared_ptr<Streamline>& start,
-                           const std::shared_ptr<Streamline>& end) {
-    if (!start || !end) {
-        return;
-    }
-
-    auto rootStart = start->resolve();
-    auto rootEnd = end->resolve();
-
-    if (rootStart == rootEnd || rootEnd->getPath().empty()) {
-        return;
-    }
-
-    // O(1) merge: transfers the entire list from end to start.
-    rootStart->absorb(*rootEnd);
-    rootEnd->parent = rootStart;
-}
-
-// Greedy one-step forward trace: extend src's streamline to dest, or merge the
-// two streamlines if dest is already claimed. Not thread-safe -- callers are
-// responsible for calling this sequentially (see downstreamCell for
-// the parallel-safe read step).
-void Grid::traceStreamlineStep(GridCell src, GridCell dest) {
-    if (streamlines_.empty()) {
-        streamlines_.assign(rows_, std::vector<std::shared_ptr<Streamline>>(cols_, nullptr));
-    }
-    const auto gridRowCount = rows_;
-    const auto gridColCount = cols_;
-    if (static_cast<std::size_t>(src.row) >= gridRowCount ||
-        static_cast<std::size_t>(src.col) >= gridColCount ||
-        static_cast<std::size_t>(dest.row) >= gridRowCount ||
-        static_cast<std::size_t>(dest.col) >= gridColCount) {
-        throw std::out_of_range("traceStreamlineStep: cell coordinates out of grid bounds");
-    }
-
-    auto& srcSlot =
-        streamlines_[static_cast<std::size_t>(src.row)][static_cast<std::size_t>(src.col)];
-    if (srcSlot == nullptr) {
-        srcSlot = std::make_shared<Streamline>(src);
-    }
-    auto srcStream = srcSlot->resolve();
-
-    auto& destSlot =
-        streamlines_[static_cast<std::size_t>(dest.row)][static_cast<std::size_t>(dest.col)];
-    if (destSlot == nullptr) {
-        // Destination is unclaimed: extend the source's streamline into it.
-        destSlot = srcStream;
-        srcStream->appendPoint(dest);
-    } else {
-        // Destination already belongs to another streamline: the two lines
-        // converge here, so merge them into one.
-        joinStreamlines(srcStream, destSlot);
-    }
-}
-
 std::vector<Path> Grid::getStreamlines() const {
-    if (hasPrecomputedStreamlines_) {
-        return precomputedStreamlines_;
-    }
-
-    std::unordered_set<Streamline*> seen;
-    std::vector<Path> result;
-    for (const auto& row : streamlines_) {
-        for (const auto& cell : row) {
-            if (cell) {
-                auto root = cell->resolve();
-                if (!root->getPath().empty() && seen.insert(root.get()).second) {
-                    result.push_back(root->getPath());
-                }
-            }
-        }
-    }
-    return result;
+    return precomputedStreamlines_;
 }
 
 } // namespace Field

@@ -129,3 +129,8 @@ type     = "source"
 center_x =  1.8
 center_y =  0.0
 strength =  1.2
+
+[analyzer]
+solver = "benchmark"
+benchmark_threads = [2, 4, 8]
+benchmark_cuda_block_sizes = [64, 128, 256, 512]

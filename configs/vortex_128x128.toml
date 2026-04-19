@@ -18,3 +18,8 @@ ymax = 1.0
 type = "vortex"
 strength = 1.0
 magnitude = 1.0
+
+[analyzer]
+solver = "benchmark"
+benchmark_threads = [2, 4, 8]
+benchmark_cuda_block_sizes = [64, 128, 256, 512]

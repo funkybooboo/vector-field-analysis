@@ -108,7 +108,7 @@ void MySolver::computeTimeStep(Field::Grid& grid) {
 ```cpp
 // bins/analyzer/src/analyzerConfig.hpp
 inline constexpr std::array<std::string_view, 7> kValidSolvers = {   // was 6
-    "sequential", "openmp", "pthreads", "mpi", "cuda", "mysolver", "all"
+    "sequential", "openmp", "pthreads", "mpi", "cuda", "benchmark", "mysolver"
 };
 ```
 
@@ -184,26 +184,27 @@ Thread count is controlled by the `ANALYZER_THREADS` env var (see `.env.example`
 
 ---
 
-## Including in `solver = "all"` Mode
+## Including in `benchmark` Mode
 
-`all` mode runs every solver on rank 0 and prints side-by-side timings. To include yours:
+`benchmark` mode runs every solver and prints side-by-side timings. To include yours:
 
-1. Add it to the `runAll()` function in `main.cpp` following the pattern of the existing solvers.
-2. Call `verify()` against the sequential reference result to confirm correctness.
+1. Add it to the `runBenchmark()` function in `runner.cpp` following the pattern of existing solvers.
+2. Call `verify()` against the sequential reference result inside a scoped block so the result is freed before the next solver runs.
 
-If your solver is MPI-aware (collective calls required), it must participate across all ranks -- see `MpiStreamlineSolver` as the reference.
+If your solver is MPI-aware (collective calls required), it must run before the sequential
+solver so all ranks participate -- see `MpiStreamlineSolver` as the reference.
 
 ---
 
 ## Thread Count
 
-`makeSolver(name, threadCount)` receives the resolved thread count from `main.cpp`.
-Resolution order:
+In single-solver mode (`solver = "mysolver"`), `makeSolver(name, threadCount)` receives the
+resolved thread count from `main.cpp`. Resolution order:
 
 1. `threads` key in the TOML config (if non-zero)
 2. `ANALYZER_THREADS` environment variable
 3. `std::thread::hardware_concurrency()`
 4. 1 (final fallback)
 
-In `solver = "all"` mode with an active MPI run, `threadCount` is automatically aligned to
-`mpiSize` so all parallel solvers use the same number of workers.
+In `benchmark` mode, thread counts come from `config.benchmarkThreads` (default `[2, 4, 8]`)
+and are iterated automatically.

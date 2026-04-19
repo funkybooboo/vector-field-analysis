@@ -21,7 +21,7 @@ validate_or_die \
 	_check_openmpi_module _check_hdf5_module _check_cuda_module
 
 CONFIGS_DIR="$PROJECT_DIR/configs"
-LOG_DIR="$PROJECT_DIR/logs"
+DATA_DIR="$PROJECT_DIR/data"
 JOB_NAME="${JOB_NAME:-vfa}"
 
 # -- Resolve stems ------------------------------------------------------------
@@ -73,18 +73,13 @@ cmake -B "$PROJECT_DIR/build" \
 echo "==> Building"
 cmake --build "$PROJECT_DIR/build" --target simulator analyzer -- -j"$(nproc)"
 
-echo "==> Staging binaries"
-cp -f "$PROJECT_DIR/build/bins/simulator/simulator" "$PROJECT_DIR/simulator_run"
-cp -f "$PROJECT_DIR/build/bins/analyzer/analyzer" "$PROJECT_DIR/analyzer_run"
-echo "  staged simulator_run  analyzer_run"
-
 # -- Submit -------------------------------------------------------------------
 
 echo ""
 echo "==> Submitting jobs"
 for stem in "${STEMS[@]}"; do
-	mkdir -p "$LOG_DIR/$stem"
-	rm -f "$LOG_DIR/$stem/stdout.log" "$LOG_DIR/$stem/stderr.log"
+	mkdir -p "$DATA_DIR/$stem"
+	rm -f "$DATA_DIR/$stem/stdout.log" "$DATA_DIR/$stem/stderr.log"
 
 	account_flag=()
 	if [[ "$CHPC_ACCOUNT" != "none" ]]; then
@@ -99,13 +94,13 @@ for stem in "${STEMS[@]}"; do
 		--ntasks="$CHPC_NTASKS" \
 		--time="$CHPC_TIME" \
 		--job-name="${JOB_NAME}_${stem}" \
-		--output="$LOG_DIR/$stem/stdout.log" \
-		--error="$LOG_DIR/$stem/stderr.log" \
+		--output="$DATA_DIR/$stem/stdout.log" \
+		--error="$DATA_DIR/$stem/stderr.log" \
 		--export="STEM=$stem,PROJECT_DIR=$PROJECT_DIR,OPENMPI_MODULE=$OPENMPI_MODULE,HDF5_MODULE=$HDF5_MODULE,CUDA_MODULE=$CUDA_MODULE,CUDA_BLOCK_SIZE=${CUDA_BLOCK_SIZE:-256}" \
 		"$SCRIPT_DIR/pipeline-job.sh" |
 		awk '{print $NF}')
 
-	echo "  [$stem] job $job_id -> logs/$stem/"
+	echo "  [$stem] job $job_id -> data/$stem/"
 done
 
 echo ""

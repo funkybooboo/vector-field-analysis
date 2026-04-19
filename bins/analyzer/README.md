@@ -8,12 +8,13 @@ side-by-side.
 
 ```sh
 analyzer <config.toml>                              # run with a config file
-mpirun -n 4 analyzer configs/source_grid_divergent_512x512.toml  # MPI solver, 4 ranks
+mpirun -n 4 analyzer configs/source_grid_divergent_512x512.toml  # benchmark with 4 MPI ranks
 mise run run:analyzer                               # build + simulate + benchmark (recommended)
 ```
 
-The `[analyzer]` table in the config is optional -- defaults to `solver = "all"`, which
-benchmarks all four implementations and prints timings side-by-side.
+The `[analyzer]` table in the config is optional -- defaults to `solver = "benchmark"`, which
+runs all available implementations, times each, verifies output against sequential, and prints
+a side-by-side speedup table.
 
 ## What It Does
 

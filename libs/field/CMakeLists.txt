@@ -1,6 +1,5 @@
 add_library(field STATIC
     src/vec2.cpp
-    src/streamline.cpp
     src/grid.cpp
 )
 

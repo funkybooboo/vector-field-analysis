@@ -39,8 +39,10 @@ defaults apply when absent.
 
 ```
 AnalyzerConfig
-  +-- solver      ("sequential" | "openmp" | "pthreads" | "mpi" | "all")
-  +-- threadCount (pthreads/openmp thread count; 0 = hardware_concurrency)
+  +-- solver                  ("sequential" | "openmp" | "pthreads" | "mpi" | "cuda" | "benchmark")
+  +-- threadCount             (pthreads/openmp/mpi thread count in single-solver mode; 0 = hardware_concurrency)
+  +-- benchmarkThreads        (thread counts to iterate in benchmark mode; default [2, 4, 8])
+  +-- benchmarkCudaBlockSizes (CUDA block sizes to iterate in benchmark mode; default [64, 128, 256, 512])
 ```
 
 I/O paths are derived from the config filename stem at runtime and are not stored in
@@ -125,18 +127,20 @@ Single loop over all `(row, col)` pairs; both passes merged into one sequential 
 
 ---
 
-## `all` Mode: Fair Comparison
+## `benchmark` Mode
 
-When `solver = "all"`, `main.cpp` runs every implementation and prints timings side-by-side.
-To keep the comparison apples-to-apples:
+When `solver = "benchmark"`, `runner.cpp` runs every available implementation and prints a
+speedup table. Each result is verified against the sequential reference before the next
+implementation runs (one implementation's data in memory at a time).
 
-- **Thread adaptation** -- if MPI is active (`mpiSize > 1`), `threadCount` is set to `mpiSize`
-  before any solver runs. This ensures openmp, pthreads, and mpi all use the same number of
-  workers regardless of what the config's `threads` key says.
+- **MPI runs first** -- all ranks must participate in the MPI collective before rank 0 diverges
+  to run the single-process solvers. If launched without `mpirun` (single rank), MPI is skipped.
 
-- **MPI skip** -- if the binary is invoked without `mpirun` (single-rank), the MPI solver is
-  skipped and a hint is printed. A single-rank MPI run falls back internally to sequential,
-  so including it would just duplicate the sequential result and mislead.
+- **Thread counts from config** -- `benchmark_threads` (default `[2, 4, 8]`) controls which
+  thread counts are tested for `pthreads` and `openmp`. Each count gets its own row in the table.
+
+- **CUDA block sizes from config** -- `benchmark_cuda_block_sizes` (default `[64, 128, 256, 512]`)
+  controls which block sizes are tested. Each gets its own row.
 
 - **`mise run run:analyzer`** launches with `mpirun -n $MPI_RANKS` (see `.env.example`) so MPI
   always participates with a consistent rank count.

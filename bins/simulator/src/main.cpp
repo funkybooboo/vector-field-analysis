@@ -53,14 +53,14 @@ int main(int argc, char* argv[]) {
 
         const Field::GridSize gridSize{config.grid.width, config.grid.height};
         const auto numSteps = static_cast<std::size_t>(config.steps);
-        FieldWriter::StreamingWriter writer(outPath, config.bounds, gridSize, numSteps,
-                                           typeLabel, config.dt, config.viscosity);
+        FieldWriter::StreamingWriter writer(outPath, config.bounds, gridSize, numSteps, typeLabel,
+                                            config.dt, config.viscosity);
 
         std::cout << "Generating..." << std::flush;
         const auto startTime = std::chrono::steady_clock::now();
-        FieldGenerator::generateTimeSeries(config, [&](std::size_t step, const Field::Slice& slice) {
-            writer.writeFrame(step, slice);
-        });
+        FieldGenerator::generateTimeSeries(
+            config,
+            [&](std::size_t step, const Field::Slice& slice) { writer.writeFrame(step, slice); });
         const double ms =
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startTime)
                 .count();

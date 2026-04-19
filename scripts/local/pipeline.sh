@@ -89,63 +89,25 @@ for stem in "${STEMS[@]}"; do
 		continue
 	fi
 
-	# Analyzer (scaling study)
-	printf "    analyzer   scaling...\n"
+	# Analyzer (benchmark -- all variants in one call)
+	printf "    analyzer   benchmarking...\n"
 	ANA_STATUS[$stem]="OK"
-	_seq_ms=""
-
-	run_variant() {
-		local solver=$1 workers=$2
-		local variant_name="${solver}_${workers}"
-		local log_file="$out/analyzer_${variant_name}.txt"
-		local streams_out="$out/streams_${variant_name}.h5"
-
-		local tmp_toml="$out/${stem}.toml"
-		sed '/^\[analyzer\]/,$d' "$config" >"$tmp_toml"
-		printf "\n[analyzer]\nsolver = \"%s\"\nthreads = %d\noutput = \"%s\"\n" \
-			"$solver" "$workers" "$streams_out" >>"$tmp_toml"
-
-		local cmd=()
-		if [[ "$solver" == "mpi" ]]; then
-			cmd=(mpirun -n "$workers" --oversubscribe "$ANALYZER" "$tmp_toml")
-		else
-			cmd=("$ANALYZER" "$tmp_toml")
-		fi
-
-		if "${cmd[@]}" >"$log_file" 2>&1; then
-			local ms
-			ms=$(grep -oE '[0-9.]+ ms' "$log_file" | tail -1 | awk '{print $1}')
-			if [[ "$solver" == "sequential" ]]; then
-				_seq_ms="$ms"
-				printf "      %-20s %10s ms\n" "$variant_name" "$ms"
-			elif [[ -n "$_seq_ms" && -n "$ms" ]]; then
-				local ratio
-				ratio=$(awk "BEGIN {if ($ms > 0) printf \"%.2f\", $_seq_ms / $ms; else print \"?\"}")
-				printf "      %-20s %10s ms  (${ratio}x vs sequential)\n" "$variant_name" "$ms"
-			else
-				printf "      %-20s %10s ms\n" "$variant_name" "$ms"
-			fi
-			ln -sf "$(basename "$streams_out")" "$out/streams.h5"
-			rm -f "$tmp_toml"
-			return 0
-		else
-			printf "      %-20s FAIL\n" "$variant_name"
-			rm -f "$tmp_toml"
-			return 1
-		fi
-	}
-
-	run_variant "sequential" 1 || ANA_STATUS[$stem]="FAIL"
-	for t in 2 4 8; do run_variant "pthreads" "$t" || ANA_STATUS[$stem]="FAIL"; done
-	for t in 2 4 8; do run_variant "openmp" "$t" || ANA_STATUS[$stem]="FAIL"; done
-	for p in 2 4; do run_variant "mpi" "$p" || ANA_STATUS[$stem]="FAIL"; done
-
-	if [[ "${ANA_STATUS[$stem]}" == "FAIL" ]]; then
-		printf "    analyzer   FAIL (one or more variants failed)\n"
+	tmp_toml="$out/${stem}_benchmark.toml"
+	sed '/^\[analyzer\]/,$d' "$config" >"$tmp_toml"
+	printf '\n[analyzer]\nsolver = "benchmark"\noutput = "%s"\n' "$out/streams.h5" >>"$tmp_toml"
+	if mpirun -n 4 --oversubscribe "$ANALYZER" "$tmp_toml" \
+		> >(tee "$out/analyzer_stdout.txt") \
+		2> >(tee "$out/analyzer_stderr.txt" >&2); then
+		printf "    analyzer   OK\n"
+	else
+		ANA_STATUS[$stem]="FAIL"
+		printf "    analyzer   FAIL\n"
+		rm -f "$tmp_toml"
 		STATS_STATUS[$stem]="SKIP"
 		VIS_STATUS[$stem]="SKIP"
 		continue
 	fi
+	rm -f "$tmp_toml"
 
 	# Stats
 	if uv run "$STATS" "$out/field.h5" "$out/streams.h5" \

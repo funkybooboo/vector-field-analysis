@@ -33,4 +33,6 @@ x_expression = "0.5 * sinh(2 * pi * (y + 0.28)) / (cosh(2 * pi * (y + 0.28)) - c
 y_expression = "-0.5 * sin(2 * pi * (x - 0.55 * t + 0.5)) / (cosh(2 * pi * (y + 0.28)) - cos(2 * pi * (x - 0.55 * t + 0.5)) + 0.08)"
 
 [analyzer]
-solver = "cuda"
+solver = "benchmark"
+benchmark_threads = [2, 4, 8]
+benchmark_cuda_block_sizes = [64, 128, 256, 512]

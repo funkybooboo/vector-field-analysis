@@ -60,12 +60,5 @@ compile_commands.json
 
 # Local environment
 .env
-logs/
-output/
-
-# Staged CHPC binaries
-simulator_run
-analyzer_run
-.idea/
 .idea/
 /build-cuda

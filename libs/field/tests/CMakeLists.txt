@@ -1,6 +1,5 @@
 add_executable(field_tests
     test_vec2.cpp
-    test_streamline.cpp
     test_grid.cpp
     test_fieldTypes.cpp
 )
