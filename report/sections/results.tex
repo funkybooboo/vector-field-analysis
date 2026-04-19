@@ -26,10 +26,10 @@ This study compares the performance of POSIX threads (Pthreads) against OpenMP a
 	\begin{tabular}{|l|c|c|}
 		\hline
 		\textbf{\# Threads} & \textbf{POSIX Threads Runtime (ms)} & \textbf{OpenMP Runtime (ms)} \\ \hline
-		1 (Serial)          &                                     &                              \\ \hline
-		2                   &                                     &                              \\ \hline
-		4                   &                                     &                              \\ \hline
-		8                   &                                     &                              \\ \hline
+		1 (Serial)          & 1706.96                             & 1706.96                      \\ \hline
+		2                   & 1670.89                             & 1646.21                      \\ \hline
+		4                   & 1701.03                             & 1645.43                      \\ \hline
+		8                   & 1721.48                             & 1638.58                      \\ \hline
 		16                  &                                     &                              \\ \hline
 	\end{tabular}
 \end{table}
@@ -47,16 +47,15 @@ This advantage was particularly evident at the 4-thread count, where OpenMP's in
 	\label{tab:gpu_block_size}
 	\begin{tabular}{|l|r|r|}
 		\hline
-		\textbf{Block Size} & \textbf{Runtime (s)} & \textbf{Speedup} \\ \hline
-		$128 \times 128 $   &                      &                  \\ \hline
-		$256 \times 256 $   &                      &                  \\ \hline
-		$512 \times 512 $   &                      &                  \\ \hline
+		\textbf{Block Size} & \textbf{Runtime (ms)} & \textbf{Speedup} \\ \hline
+		$128 \times 128 $   &                       &                  \\ \hline
+		$256 \times 256 $   &                       &                  \\ \hline
+		$512 \times 512 $   &                       &                  \\ \hline
 	\end{tabular}
 \end{table}
 
 The GPU performance analysis demonstrates that increasing the block size from 128 to 256 threads provides a substantial performance boost, reducing runtime from 549.
-4 ms to 471.
-2 ms.
+4 ms to 471.2 ms.
 This improvement suggests that a block size of 256 better utilizes the GPU's streaming multiprocessors and improves latency hiding.
 Moving to a block size of 512 threads yielded a much smaller improvement, reaching 468.6 ms, indicating that the system is approaching a point of diminishing returns where occupancy is already high enough to saturate the available hardware resources.
 
@@ -71,13 +70,12 @@ Moving to a block size of 512 threads yielded a much smaller improvement, reachi
 		\hline
 		\textbf{Nodes} & \textbf{Distributed CPU Runtime (s)} & \textbf{Distributed GPU Runtime (s)} \\ \hline
 		2 Nodes        &                                      &                                      \\ \hline
-		4 Nodes        &                                      &                                      \\ \hline
+		4 Nodes        & 2.73                                 &                                      \\ \hline
 	\end{tabular}
 \end{table}
 
-The distributed-memory as a underperformed in comaprison to it's shared memory counterparts.
-While the neighbor calculation phase was able to be scaled effectively due to the isolated calculations.
-The parallel path merging phase relies heavily on acessing data from the other parts of the vector filed when working across the boundaries.
+The distributed-memory implementation underperformed in comparison to its shared memory counterparts.
+While the neighbor calculation phase was able to be scaled effectively due to the isolated calculations, the parallel path merging phase relies heavily on accessing data from other parts of the vector field when working across the boundaries.
 This high overhead stems from the requirement to reconcile streamline connectivity across process boundaries.
 Because each node only possesses local knowledge of its assigned sub-grid, resolving global paths requires iterative synchronization to converge the distributed Disjoint Set Union (DSU) structure.
 As the node count increases, the latency associated with these global reductions and data transfers becomes a dominant factor, limiting the overall scalability of both the distributed CPU and hybrid MPI+CUDA implementations.
@@ -93,11 +91,11 @@ Table \ref{tab:perf_summary} provides a high-level comparison of the runtime and
 	\begin{tabular}{|l|r|r|}
 		\hline
 		\textbf{Technology} & \textbf{Runtime (ms)} & \textbf{Speedup} \\ \hline
-		Serial              &                       & 1.0              \\ \hline
-		Pthreads            &                       &                  \\ \hline
-		OpenMP              &                       &                  \\ \hline
-		OpenMPI             &                       &                  \\ \hline
-		CUDA                &                       &                  \\ \hline
+		Serial              & 1706.96               & 1.00             \\ \hline
+		Pthreads            & 1701.03               & 1.00             \\ \hline
+		OpenMP              & 1638.58               & 1.04             \\ \hline
+		OpenMPI             & 2729.42               & 0.63             \\ \hline
+		CUDA                & 468.60                &                  \\ \hline
 		Hybrid (MPI+CUDA)   &                       &                  \\ \hline
 	\end{tabular}
 \end{table}
