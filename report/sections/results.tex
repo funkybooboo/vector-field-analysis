@@ -107,3 +107,13 @@ Table \ref{tab:perf_summary} provides a high-level comparison of the runtime and
 	\label{fig:performance_plot}
 \end{figure}
 
+While shared-memory implementations like Pthreads and OpenMP provide incremental performance gains through task-level parallelism, they are ultimately limited by the sequential nature of single-node CPU execution for this specific workload.
+While the overall calculations of the neighbor calculation and the union joining of the disjoint sets were able to speed up their respective stages the sequential portions continue to dominate the runtime.
+The merging of the disjoint sets into a singulaor ordered list is inherently sequntial and cannot be avoided.
+
+
+As observed in the scaling study, the requirement for global synchronization of the Disjoint Set Union (DSU) structure across process boundaries introduces a communication latency is abottle neck that limits the effective ess of the parralel dsu at larger node sizes.
+The overhead of iterative synchronization stages required to reconcile streamline connectivity between sub-grids makes distributed scaling exceptionally difficult.
+
+
+
