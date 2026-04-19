@@ -79,7 +79,6 @@ AnalyzerConfig parseAnalyzer(const std::string& path) {
         dest = static_cast<unsigned int>(*val);
     };
     parseBlockSize("cuda_block_size", config.cudaBlockSize);
-    parseBlockSize("cuda_full_block_size", config.cudaFullBlockSize);
 
     if (const auto out = (*analyzer)["output"].value<std::string>()) {
         config.output = *out;

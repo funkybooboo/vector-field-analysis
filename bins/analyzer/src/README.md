@@ -13,4 +13,6 @@ Source and header files for the `analyzer` binary.
 | `openMpStreamlineSolver.hpp` / `openMpStreamlineSolver.cpp` | Shared-memory implementation via OpenMP |
 | `pthreadsStreamlineSolver.hpp` / `pthreadsStreamlineSolver.cpp` | Shared-memory implementation via pthreads |
 | `mpiStreamlineSolver.hpp` / `mpiStreamlineSolver.cpp` | Distributed-memory implementation via MPI |
+| `cudaStreamlineSolver.hpp` / `cudaStreamlineSolver.cu` | GPU solver entry point (delegates to `cuda::` kernels) |
+| `cuda.hpp` / `cuda.cu` | GPU union-find connected-component kernels (`cuda::` namespace) |
 | `streamWriter.hpp` / `streamWriter.cpp` | Writes traced streamlines to `streams.h5` |

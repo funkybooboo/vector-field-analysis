@@ -5,7 +5,6 @@
 #include "sequentialStreamlineSolver.hpp"
 
 #ifdef ENABLE_CUDA_SOLVER
-#include "cudaFullStreamlineSolver.hpp"
 #include "cudaStreamlineSolver.hpp"
 
 #include <cuda_runtime.h>
@@ -174,27 +173,6 @@ TEST_CASE("CudaStreamlineSolver::computeTimeStep handles empty grid", "[impl][cu
     auto grid = makeEmptyGrid();
     REQUIRE_NOTHROW(CudaStreamlineSolver{}.computeTimeStep(grid));
 }
-
-// ---------------------------------------------------------------------------
-// CudaFullStreamlineSolver
-// ---------------------------------------------------------------------------
-
-TEST_CASE("CudaFullStreamlineSolver::computeTimeStep completes on uniform field",
-          "[impl][cuda_full]") {
-    if (!hasCudaDevice()) {
-        SKIP("No CUDA device");
-    }
-    auto grid = makeGrid();
-    REQUIRE_NOTHROW(CudaFullStreamlineSolver{}.computeTimeStep(grid));
-}
-
-TEST_CASE("CudaFullStreamlineSolver::computeTimeStep handles empty grid", "[impl][cuda_full]") {
-    if (!hasCudaDevice()) {
-        SKIP("No CUDA device");
-    }
-    auto grid = makeEmptyGrid();
-    REQUIRE_NOTHROW(CudaFullStreamlineSolver{}.computeTimeStep(grid));
-}
 #endif
 
 // ---------------------------------------------------------------------------
@@ -262,19 +240,6 @@ TEST_CASE("CudaStreamlineSolver getStreamlines returns same count as sequential"
     CudaStreamlineSolver{}.computeTimeStep(grid);
     REQUIRE(grid.getStreamlines().size() == expected);
 }
-
-TEST_CASE("CudaFullStreamlineSolver getStreamlines returns same count as sequential",
-          "[impl][cuda_full][streamlines]") {
-    if (!hasCudaDevice()) {
-        SKIP("No CUDA device");
-    }
-    auto seqGrid = makeGrid();
-    SequentialStreamlineSolver{}.computeTimeStep(seqGrid);
-    const std::size_t expected = seqGrid.getStreamlines().size();
-    auto grid = makeGrid();
-    CudaFullStreamlineSolver{}.computeTimeStep(grid);
-    REQUIRE(grid.getStreamlines().size() == expected);
-}
 #endif
 
 TEST_CASE("OpenMpStreamlineSolver path contents match sequential", "[impl][openmp][streamlines]") {
@@ -309,20 +274,6 @@ TEST_CASE("CudaStreamlineSolver path contents match sequential", "[impl][cuda][s
 
     auto grid = makeGrid();
     CudaStreamlineSolver{}.computeTimeStep(grid);
-    REQUIRE(canonicalize(grid.getStreamlines()) == expected);
-}
-
-TEST_CASE("CudaFullStreamlineSolver path contents match sequential",
-          "[impl][cuda_full][streamlines]") {
-    if (!hasCudaDevice()) {
-        SKIP("No CUDA device");
-    }
-    auto seqGrid = makeGrid();
-    SequentialStreamlineSolver{}.computeTimeStep(seqGrid);
-    const auto expected = canonicalize(seqGrid.getStreamlines());
-
-    auto grid = makeGrid();
-    CudaFullStreamlineSolver{}.computeTimeStep(grid);
     REQUIRE(canonicalize(grid.getStreamlines()) == expected);
 }
 #endif
@@ -401,16 +352,6 @@ TEST_CASE("cuda solver handles near-zero magnitude field without crash", "[impl]
     REQUIRE_NOTHROW(CudaStreamlineSolver{}.computeTimeStep(grid));
     REQUIRE_FALSE(grid.getStreamlines().empty());
 }
-
-TEST_CASE("cuda full solver handles near-zero magnitude field without crash",
-          "[impl][consistency]") {
-    if (!hasCudaDevice()) {
-        SKIP("No CUDA device");
-    }
-    auto grid = makeNearZeroGrid();
-    REQUIRE_NOTHROW(CudaFullStreamlineSolver{}.computeTimeStep(grid));
-    REQUIRE_FALSE(grid.getStreamlines().empty());
-}
 #endif
 
 TEST_CASE("all solvers handle single-row grid without crash", "[impl][consistency]") {
@@ -439,10 +380,6 @@ TEST_CASE("all solvers handle single-row grid without crash", "[impl][consistenc
         {
             auto grid = make();
             REQUIRE_NOTHROW(CudaStreamlineSolver{}.computeTimeStep(grid));
-        }
-        {
-            auto grid = make();
-            REQUIRE_NOTHROW(CudaFullStreamlineSolver{}.computeTimeStep(grid));
         }
     }
 #endif
@@ -474,10 +411,6 @@ TEST_CASE("all solvers handle single-column grid without crash", "[impl][consist
         {
             auto grid = make();
             REQUIRE_NOTHROW(CudaStreamlineSolver{}.computeTimeStep(grid));
-        }
-        {
-            auto grid = make();
-            REQUIRE_NOTHROW(CudaFullStreamlineSolver{}.computeTimeStep(grid));
         }
     }
 #endif

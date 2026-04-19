@@ -20,7 +20,7 @@ class Grid {
     std::vector<std::vector<std::shared_ptr<Streamline>>> streamlines_;
 
     // for externally computed streamline result
-    // used only by cudaFull
+    // used only by cuda
     std::vector<Path> precomputedStreamlines_;
     bool hasPrecomputedStreamlines_ = false;
 

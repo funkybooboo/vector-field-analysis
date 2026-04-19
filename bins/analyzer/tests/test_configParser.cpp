@@ -100,22 +100,10 @@ TEST_CASE("parseAnalyzer returns default cudaBlockSize 256 when key absent", "[c
     REQUIRE(cfg.cudaBlockSize == 256);
 }
 
-TEST_CASE("parseAnalyzer returns default cudaFullBlockSize 256 when key absent", "[config]") {
-    TempFile tmp("# empty\n");
-    const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
-    REQUIRE(cfg.cudaFullBlockSize == 256);
-}
-
 TEST_CASE("parseAnalyzer reads cuda_block_size", "[config]") {
     TempFile tmp("[analyzer]\ncuda_block_size = 512\n");
     const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
     REQUIRE(cfg.cudaBlockSize == 512);
-}
-
-TEST_CASE("parseAnalyzer reads cuda_full_block_size", "[config]") {
-    TempFile tmp("[analyzer]\ncuda_full_block_size = 128\n");
-    const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
-    REQUIRE(cfg.cudaFullBlockSize == 128);
 }
 
 TEST_CASE("parseAnalyzer accepts cuda_block_size = 1 (lower boundary)", "[config]") {

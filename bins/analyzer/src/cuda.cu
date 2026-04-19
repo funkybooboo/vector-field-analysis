@@ -1,4 +1,4 @@
-#include "cudaFull.hpp"
+#include "cuda.hpp"
 
 #include <cmath>
 #include <cuda_runtime.h>
@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace cudaFull {
+namespace cuda {
 namespace {
 
 // flat 2D index helper
@@ -138,7 +138,7 @@ Result computeComponents(const Field::Slice& field, const Field::Bounds& bounds,
 
     for (int row = 0; row < rows; ++row) {
         if (static_cast<int>(field[static_cast<std::size_t>(row)].size()) != cols) {
-            throw std::runtime_error("cudaFull::computeComponents requires a rectangular field");
+            throw std::runtime_error("cuda::computeComponents requires a rectangular field");
         }
     }
 
@@ -262,7 +262,7 @@ std::vector<Field::Path> reconstructPaths(const Result& result) {
 
     const int total = result.rows * result.cols;
     if (static_cast<int>(result.successor.size()) != total) {
-        throw std::runtime_error("cudaFull::reconstructPaths received inconsistent result sizes");
+        throw std::runtime_error("cuda::reconstructPaths received inconsistent result sizes");
     }
 
     // owner[idx] = streamline id currently owning this cell, or -1 if unclaimed
@@ -331,4 +331,4 @@ std::vector<Field::Path> reconstructPaths(const Result& result) {
 
     return output;
 }
-} // namespace cudaFull
+} // namespace cuda

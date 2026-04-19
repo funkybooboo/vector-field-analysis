@@ -20,13 +20,10 @@ static void printHelp() {
               << "Reads data/<config-stem>/field.h5 and writes data/<config-stem>/streams.h5.\n"
               << "See configs/ for example configs.\n"
               << "\n[analyzer] keys (all optional):\n"
-              << "  solver               = \"all\"  sequential | openmp | pthreads | mpi | cuda | "
-                 "cuda_full | all\n"
-              << "                                (cuda/cuda_full require -DENABLE_CUDA=ON at "
-                 "build time)\n"
-              << "  threads              = 0      thread/rank count (0 = hardware_concurrency)\n"
-              << "  cuda_block_size      = 256    CUDA threads per block for cuda solver\n"
-              << "  cuda_full_block_size = 256    CUDA threads per block for cuda_full solver\n"
+              << "  solver          = \"all\"  sequential | openmp | pthreads | mpi | cuda | all\n"
+              << "                            (cuda requires -DENABLE_CUDA=ON at build time)\n"
+              << "  threads         = 0      thread/rank count (0 = hardware_concurrency)\n"
+              << "  cuda_block_size = 256    CUDA threads per block\n"
               << "\nFor MPI: mpirun -n N analyzer <config.toml>  with solver = \"mpi\"\n";
 }
 
@@ -112,7 +109,6 @@ int main(int argc, char* argv[]) {
         }
 
         const unsigned int cudaBlockSize = config.cudaBlockSize;
-        const unsigned int cudaFullBlockSize = config.cudaFullBlockSize;
 
         if (mpiRank == 0) {
             const int numSteps = static_cast<int>(field.frames.size());
@@ -125,10 +121,9 @@ int main(int argc, char* argv[]) {
         }
 
         if (config.solver == "all") {
-            runAll(field, threadCount, cudaBlockSize, cudaFullBlockSize, mpiRank, mpiSize, outPath);
+            runAll(field, threadCount, cudaBlockSize, mpiRank, mpiSize, outPath);
         } else {
-            runOne(config.solver, field, threadCount, cudaBlockSize, cudaFullBlockSize, mpiRank,
-                   mpiSize, outPath);
+            runOne(config.solver, field, threadCount, cudaBlockSize, mpiRank, mpiSize, outPath);
         }
     } catch (const std::exception& e) {
         if (mpiRank == 0) {

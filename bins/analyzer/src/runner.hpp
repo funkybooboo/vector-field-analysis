@@ -5,8 +5,7 @@
 #include <string>
 
 void runAll(const Field::TimeSeries& field, unsigned int threadCount, unsigned int cudaBlockSize,
-            unsigned int cudaFullBlockSize, int mpiRank, int mpiSize, const std::string& outPath);
+            int mpiRank, int mpiSize, const std::string& outPath);
 
 void runOne(const std::string& solverName, const Field::TimeSeries& field, unsigned int threadCount,
-            unsigned int cudaBlockSize, unsigned int cudaFullBlockSize, int mpiRank, int mpiSize,
-            const std::string& outPath);
+            unsigned int cudaBlockSize, int mpiRank, int mpiSize, const std::string& outPath);

@@ -4,6 +4,8 @@ ninja = "1.13.2"
 uv = "0.11.2"
 "pipx:clang-format" = "22.1.3"
 "github:lycheeverse/lychee" = "0.15.1"
+"aqua:koalaman/shellcheck" = "0.11.0"
+"aqua:mvdan/sh" = "3.11.0"
 
 # =============================================================================
 # Setup
@@ -133,31 +135,8 @@ description = "Run all configs via scripts/pipeline.sh"
 run = "./scripts/pipeline.sh"
 
 [tasks.demo]
-description = "Full pipeline: build, simulate, benchmark all solvers, stats, then visualize; tees output to data/<STEM>/"
-run = """
-STEM=${STEM:-karman_street_128x64}
-OUT=data/$STEM
-mkdir -p "$OUT"
-
-make build 2>&1 | tee "$OUT/build_output.txt"
-
-./build/bins/simulator/simulator configs/$STEM.toml \
-  > >(tee "$OUT/simulator_stdout.txt") \
-  2> >(tee "$OUT/simulator_stderr.txt" >&2)
-
-mpirun -n ${MPI_RANKS:-$(nproc)} --oversubscribe \
-  ./build/bins/analyzer/analyzer configs/$STEM.toml \
-  > >(tee "$OUT/analyzer_stdout.txt") \
-  2> >(tee "$OUT/analyzer_stderr.txt" >&2)
-
-uv run tools/stats.py "$OUT/field.h5" "$OUT/streams.h5" \
-  > >(tee "$OUT/stats_stdout.txt") \
-  2> >(tee "$OUT/stats_stderr.txt" >&2)
-
-uv run tools/visualize.py "$OUT/field.h5" --streams "$OUT/streams.h5" \
-  > >(tee "$OUT/visualizer_stdout.txt") \
-  2> >(tee "$OUT/visualizer_stderr.txt" >&2)
-"""
+description = "Full pipeline for one config stem: build, simulate, analyze, stats, visualize (STEM, MPI_RANKS)"
+run = "./scripts/local/pipeline.sh ${STEM:-karman_street_128x64}"
 
 # =============================================================================
 # Visualize / Stats
@@ -212,6 +191,26 @@ run = "find bins libs -name '*.cpp' | xargs clang-tidy -p build --config-file=.c
 [tasks.spell]
 description = "Check for spelling errors"
 run = "uvx codespell bins libs docs tools README.md --skip='build,*.h5'"
+
+[tasks."py:lint"]
+description = "Lint Python tools with ruff"
+run = "uvx ruff check tools/"
+
+[tasks."py:format:check"]
+description = "Check Python formatting with ruff"
+run = "uvx ruff format --check tools/"
+
+[tasks."sh:lint"]
+description = "Lint shell scripts with shellcheck"
+run = "find scripts report -name '*.sh' | xargs shellcheck -x"
+
+[tasks."sh:format"]
+description = "Format shell scripts with shfmt in place"
+run = "find scripts report -name '*.sh' | xargs shfmt -w"
+
+[tasks."sh:format:check"]
+description = "Check shell script formatting with shfmt"
+run = "find scripts report -name '*.sh' | xargs shfmt -d"
 
 [tasks.cppcheck]
 description = "Run cppcheck static analysis"
@@ -271,6 +270,10 @@ depends = [
   "lint",
   "test:coverage",
   "cppcheck",
+  "py:lint",
+  "py:format:check",
+  "sh:lint",
+  "sh:format:check",
 ]
 
 # =============================================================================

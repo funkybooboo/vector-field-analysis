@@ -16,6 +16,7 @@ analyzer <config.toml>
 |-----|------|---------|-------------|
 | `solver` | string | `"all"` | Solver to run (see below) |
 | `threads` | int | `0` | Thread count for `openmp` and `pthreads`. `0` = `ANALYZER_THREADS` env var, then `hardware_concurrency`. |
+| `cuda_block_size` | int | `256` | CUDA threads per block (1–1024). Only used when `solver = "cuda"` or `"all"`. |
 
 I/O paths are derived from the config filename stem at runtime -- they are not stored in
 the config. The analyzer reads `data/<stem>/field.h5` and writes `data/<stem>/streams.h5`.
@@ -31,6 +32,7 @@ the config. The analyzer reads `data/<stem>/field.h5` and writes `data/<stem>/st
 | `"openmp"` | Shared memory, OpenMP parallelism |
 | `"pthreads"` | Shared memory, manual pthread parallelism |
 | `"mpi"` | Distributed memory CPU via MPI (see MPI usage below) |
+| `"cuda"` | Full GPU solver using union-find on CUDA (requires `-DENABLE_CUDA=ON` at build time) |
 
 ---
 

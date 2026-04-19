@@ -13,6 +13,8 @@ See [`docs/chpc-reference.md`](../../docs/chpc-reference.md) for cluster setup, 
 | [`cpu-shell.sh`](cpu-shell.sh) | Login node | Request an interactive CPU session via `srun` |
 | [`pipeline.sh`](pipeline.sh) | Login node | Build and submit batch jobs for all (or named) config stems |
 | [`pipeline-job.sh`](pipeline-job.sh) | Submitted by SLURM | Batch worker — do not run directly |
+| [`monitor.sh`](monitor.sh) | Login node | Show job queue and recent log output; tail a specific stem live |
+| [`stop.sh`](stop.sh) | Login node | Cancel all (or a named stem's) running pipeline jobs |
 
 ## Typical workflow
 

@@ -24,6 +24,8 @@ jobs:
       source: ${{ steps.filter.outputs.source }}
       docs:   ${{ steps.filter.outputs.docs }}
       report: ${{ steps.filter.outputs.report }}
+      python: ${{ steps.filter.outputs.python }}
+      bash:   ${{ steps.filter.outputs.bash }}
 
     steps:
       - name: Checkout
@@ -47,6 +49,11 @@ jobs:
               - '.github/**'
             report:
               - 'report/**'
+            python:
+              - 'tools/**/*.py'
+            bash:
+              - 'scripts/**/*.sh'
+              - 'report/**/*.sh'
 
   format:
     name: Format
@@ -102,6 +109,51 @@ jobs:
 
       - name: Check spelling
         run: mise run spell
+
+  python-quality:
+    name: Python Quality
+    runs-on: ubuntu-22.04
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Install mise
+        uses: jdx/mise-action@v4.0.1
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('.mise.toml') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - name: Lint
+        run: mise run py:lint
+
+      - name: Check formatting
+        run: mise run py:format:check
+
+  bash-quality:
+    name: Bash Quality
+    runs-on: ubuntu-22.04
+    needs: changes
+    if: needs.changes.outputs.bash == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Install mise
+        uses: jdx/mise-action@v4.0.1
+
+      - name: Lint
+        run: mise run sh:lint
+
+      - name: Check formatting
+        run: mise run sh:format:check
 
   links:
     name: Link Check

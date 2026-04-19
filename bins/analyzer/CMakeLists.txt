@@ -75,9 +75,8 @@ if(ENABLE_CUDA)
   # CUDA kernels only depend on field (for Grid/Vec types) and CUDA::cudart,
   # both of which are stub-free, so the device link step is clean.
   add_library(analyzer_cuda_kernels STATIC
+      src/cuda.cu
       src/cudaStreamlineSolver.cu
-      src/cudaFull.cu
-      src/cudaFullStreamlineSolver.cu
   )
   target_include_directories(analyzer_cuda_kernels PUBLIC
       ${CMAKE_CURRENT_SOURCE_DIR}/src

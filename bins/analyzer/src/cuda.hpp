@@ -4,7 +4,7 @@
 
 #include <vector>
 
-namespace cudaFull {
+namespace cuda {
 
 // GPU-native result for one analyzed field slice
 //   flattened destination index for cell idx
@@ -28,4 +28,4 @@ Result computeComponents(const Field::Slice& field, const Field::Bounds& bounds,
 // Reconstructs deterministic host-side paths from the GPU-native result
 std::vector<Field::Path> reconstructPaths(const Result& result);
 
-} // namespace cudaFull
+} // namespace cuda

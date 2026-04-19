@@ -5,7 +5,6 @@
 #include "solverFactory.hpp"
 
 #ifdef ENABLE_CUDA_SOLVER
-#include "cudaFullStreamlineSolver.hpp"
 #include "cudaStreamlineSolver.hpp"
 #endif
 
@@ -45,12 +44,6 @@ TEST_CASE("makeSolver(\"cuda\") returns CudaStreamlineSolver", "[factory]") {
     auto solver = makeSolver("cuda", 0, 256);
     REQUIRE(solver != nullptr);
     REQUIRE(dynamic_cast<CudaStreamlineSolver*>(solver.get()) != nullptr);
-}
-
-TEST_CASE("makeSolver(\"cuda_full\") returns CudaFullStreamlineSolver", "[factory]") {
-    auto solver = makeSolver("cuda_full", 0, 256);
-    REQUIRE(solver != nullptr);
-    REQUIRE(dynamic_cast<CudaFullStreamlineSolver*>(solver.get()) != nullptr);
 }
 #endif
 

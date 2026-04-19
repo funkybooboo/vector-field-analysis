@@ -46,8 +46,8 @@ to start multi-process analyzer runs.
 **Version (Ubuntu 22.04):** `11.5.1-1ubuntu1`
 
 NVIDIA's parallel computing platform. Used to compile the GPU-accelerated streamline
-solvers (`cudaStreamlineSolver`, `cudaFullStreamlineSolver`) and the GPU union-find
-connected-component kernel (`cudaFull`). Enabled automatically when a CUDA toolkit is
+solver (`cudaStreamlineSolver`) and the GPU union-find connected-component kernel (`cuda`).
+Enabled automatically when a CUDA toolkit is
 detected; disabled gracefully when absent (e.g. on CPU-only CI runners).
 
 > **Note:** CUDA 11.5.1 does not officially support GCC 11. The build passes

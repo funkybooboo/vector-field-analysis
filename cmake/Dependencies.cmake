@@ -8,7 +8,7 @@ include(FetchContent)
 #   nvidia-cuda-toolkit 11.5.1-1ubuntu1
 
 # HDF5 -> binary data format
-find_package(HDF5 1.10 REQUIRED COMPONENTS C CXX)
+find_package(HDF5 1.10 REQUIRED COMPONENTS C)
 
 # -- FetchContent dependencies -------------------------------------------------
 
