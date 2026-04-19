@@ -8,40 +8,48 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=scripts/validate.sh
 source "$SCRIPT_DIR/../validate.sh"
+# shellcheck source=/dev/null
+[[ -f "$PROJECT_DIR/.env" ]] && source "$PROJECT_DIR/.env"
 
-SOURCES=(
-  "$PROJECT_DIR/bins/analyzer/src/main.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/vectorField.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/fieldReader.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/analyzerConfigParser.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/mpiCPU.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/openMP.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/pthreads.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/sequentialCPU.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/solverFactory.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/streamWriter.cpp"
-  "$PROJECT_DIR/bins/simulator/src/main.cpp"
-  "$PROJECT_DIR/bins/simulator/src/configParser.cpp"
-  "$PROJECT_DIR/bins/simulator/src/fieldGenerator.cpp"
-  "$PROJECT_DIR/bins/simulator/src/fieldWriter.cpp"
-)
+validate_or_die _check_openmpi_module _check_hdf5_module _check_cuda_module
+
+# C++ sources: formatted + linted
+mapfile -t CPP_SOURCES < <(find "$PROJECT_DIR/bins" -path "*/src/*.cpp" | sort)
+
+# CUDA sources: formatted only (clang-tidy does not handle .cu without extra setup)
+mapfile -t CUDA_SOURCES < <(find "$PROJECT_DIR/bins" -path "*/src/*.cu" | sort)
 
 cd "$PROJECT_DIR"
 
+# shellcheck source=/dev/null
+source /etc/profile.d/lmod.sh 2>/dev/null || true
+module load "$OPENMPI_MODULE"
+module load "$HDF5_MODULE"
+module load "$CUDA_MODULE"
+
+echo "==> configure"
+cmake -B "$PROJECT_DIR/build" \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+	-DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+	-S "$PROJECT_DIR" \
+	>/dev/null
+
 echo "==> fmt"
 fmt_failed=0
-for f in "${SOURCES[@]}"; do
-  if ! clang-format "$f" | diff -u "$f" - > /dev/null; then
-    echo "  FAIL: $f is not formatted (run: clang-format -i $f)"
-    fmt_failed=1
-  fi
+for f in "${CPP_SOURCES[@]}" "${CUDA_SOURCES[@]}"; do
+	if ! clang-format "$f" | diff -u "$f" - >/dev/null; then
+		echo "  FAIL: $f is not formatted (run: clang-format -i $f)"
+		fmt_failed=1
+	fi
 done
 [[ $fmt_failed -eq 0 ]] || exit 1
 
 echo "==> lint"
 clang-tidy -p "$PROJECT_DIR/build" --config-file="$PROJECT_DIR/.clang-tidy" \
-  --warnings-as-errors='*' "${SOURCES[@]}"
+	--warnings-as-errors='*' "${CPP_SOURCES[@]}"
 
 echo "==> build"
 cmake --build build --parallel

@@ -389,6 +389,50 @@ TEST_CASE("parseFile() throws for unknown field type", "[simulator][config]") {
 }
 
 // ---------------------------------------------------------------------------
+// Validation error cases
+// ---------------------------------------------------------------------------
+
+TEST_CASE("parseFile() throws when steps = 0", "[simulator][config][validation]") {
+    const TempFile tmp("[simulation]\nsteps = 0\n");
+    REQUIRE_THROWS_AS(ConfigParser::parseSimulation(tmp.path.string()), std::runtime_error);
+}
+
+TEST_CASE("parseFile() throws when width = 1", "[simulator][config][validation]") {
+    const TempFile tmp("[simulation]\nwidth = 1\n");
+    REQUIRE_THROWS_AS(ConfigParser::parseSimulation(tmp.path.string()), std::runtime_error);
+}
+
+TEST_CASE("parseFile() throws when height = 1", "[simulator][config][validation]") {
+    const TempFile tmp("[simulation]\nheight = 1\n");
+    REQUIRE_THROWS_AS(ConfigParser::parseSimulation(tmp.path.string()), std::runtime_error);
+}
+
+TEST_CASE("parseFile() throws when xmin == xmax", "[simulator][config][validation]") {
+    const TempFile tmp("[simulation]\nxmin = 0.0\nxmax = 0.0\n");
+    REQUIRE_THROWS_AS(ConfigParser::parseSimulation(tmp.path.string()), std::runtime_error);
+}
+
+TEST_CASE("parseFile() throws when xmin > xmax", "[simulator][config][validation]") {
+    const TempFile tmp("[simulation]\nxmin = 1.0\nxmax = 0.0\n");
+    REQUIRE_THROWS_AS(ConfigParser::parseSimulation(tmp.path.string()), std::runtime_error);
+}
+
+TEST_CASE("parseFile() throws when ymin == ymax", "[simulator][config][validation]") {
+    const TempFile tmp("[simulation]\nymin = 0.0\nymax = 0.0\n");
+    REQUIRE_THROWS_AS(ConfigParser::parseSimulation(tmp.path.string()), std::runtime_error);
+}
+
+TEST_CASE("parseFile() throws when dt = 0", "[simulator][config][validation]") {
+    const TempFile tmp("[simulation]\ndt = 0.0\n");
+    REQUIRE_THROWS_AS(ConfigParser::parseSimulation(tmp.path.string()), std::runtime_error);
+}
+
+TEST_CASE("parseFile() throws when viscosity is negative", "[simulator][config][validation]") {
+    const TempFile tmp("[simulation]\nviscosity = -0.1\n");
+    REQUIRE_THROWS_AS(ConfigParser::parseSimulation(tmp.path.string()), std::runtime_error);
+}
+
+// ---------------------------------------------------------------------------
 // FieldGenerator additional cases
 // ---------------------------------------------------------------------------
 

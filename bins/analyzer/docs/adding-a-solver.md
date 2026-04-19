@@ -107,8 +107,8 @@ void MySolver::computeTimeStep(Field::Grid& grid) {
 
 ```cpp
 // bins/analyzer/src/analyzerConfig.hpp
-inline constexpr std::array<std::string_view, 6> kValidSolvers = {   // was 5
-    "sequential", "openmp", "pthreads", "mpi", "mysolver", "all"
+inline constexpr std::array<std::string_view, 7> kValidSolvers = {   // was 6
+    "sequential", "openmp", "pthreads", "mpi", "cuda", "mysolver", "all"
 };
 ```
 
@@ -126,7 +126,7 @@ if (name == "mysolver") {
 }
 
 // update the guard:
-static_assert(kValidSolvers.size() == 6,   // was 5
+static_assert(kValidSolvers.size() == 7,   // was 6
               "kValidSolvers changed -- update makeSolver() to match");
 ```
 

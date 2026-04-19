@@ -1,6 +1,6 @@
 #include "configParser.hpp"
 
-#include "toml_include.hpp" // NOLINT(misc-include-cleaner) — wrapper sets TOML_EXCEPTIONS
+#include "toml_include.hpp" // NOLINT(misc-include-cleaner) -- wrapper sets TOML_EXCEPTIONS
 
 #include <algorithm>
 #include <limits>
@@ -63,11 +63,25 @@ AnalyzerConfig parseAnalyzer(const std::string& path) {
             config.threadCount = static_cast<unsigned int>(*threadCount);
         }
     }
-    if (const auto blockSize = (*analyzer)["cuda_block_size"].value<int64_t>()) {
-        config.cudaBlockSize = static_cast<unsigned int>(*blockSize);
-    }
-    if (const auto output = (*analyzer)["output"].value<std::string>()) {
-        config.output = *output;
+    const auto parseBlockSize = [&](const char* key, unsigned int& dest) {
+        const auto& node = (*analyzer)[key];
+        if (!node) {
+            return;
+        }
+        if (node.type() != toml::node_type::integer) {
+            throw std::runtime_error(std::string(key) + " must be an integer");
+        }
+        const auto val = node.value<int64_t>();
+        if (!val.has_value() || *val <= 0 || *val > 1024) {
+            throw std::runtime_error(std::string(key) +
+                                     " must be between 1 and 1024 (CUDA threads-per-block limit)");
+        }
+        dest = static_cast<unsigned int>(*val);
+    };
+    parseBlockSize("cuda_block_size", config.cudaBlockSize);
+
+    if (const auto out = (*analyzer)["output"].value<std::string>()) {
+        config.output = *out;
     }
 
     return config;

@@ -20,7 +20,7 @@ class Streamline : public std::enable_shared_from_this<Streamline> {
     void absorb(Streamline& other);
 
     // Ordered grid cells on the traced path, starting from the seed cell.
-    // The path is never empty — the seed cell is always present.
+    // The path is never empty -- the seed cell is always present.
     [[nodiscard]] const Path& getPath() const { return path_; }
     void appendPoint(GridCell point) { path_.push_back(point); }
 

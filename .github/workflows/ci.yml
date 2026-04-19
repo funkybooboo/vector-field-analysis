@@ -6,17 +6,225 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
-  build:
-    name: Build
+  changes:
+    name: Detect Changes
     runs-on: ubuntu-22.04
+    outputs:
+      source: ${{ steps.filter.outputs.source }}
+      docs:   ${{ steps.filter.outputs.docs }}
+      report: ${{ steps.filter.outputs.report }}
+      python: ${{ steps.filter.outputs.python }}
+      bash:   ${{ steps.filter.outputs.bash }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
+
+      - name: Filter paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            source:
+              - 'bins/**'
+              - 'libs/**'
+              - 'cmake/**'
+              - 'CMakeLists.txt'
+              - '.mise.toml'
+            docs:
+              - 'docs/**'
+              - 'tools/**'
+              - 'README.md'
+              - '.github/**'
+            report:
+              - 'report/**'
+            python:
+              - 'tools/**/*.py'
+            bash:
+              - 'scripts/**/*.sh'
+              - 'report/**/*.sh'
+
+  format:
+    name: Format
+    runs-on: ubuntu-22.04
+    needs: changes
+    if: needs.changes.outputs.source == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
 
       - name: Install mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4.0.1
+
+      - name: Check formatting
+        run: mise run format:check
+
+  ascii-check:
+    name: ASCII Check
+    runs-on: ubuntu-22.04
+    needs: changes
+    if: needs.changes.outputs.source == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Install mise
+        uses: jdx/mise-action@v4.0.1
+
+      - name: Check for non-ASCII characters
+        run: mise run ascii-check
+
+  spell:
+    name: Spell Check
+    runs-on: ubuntu-22.04
+    needs: changes
+    if: needs.changes.outputs.source == 'true' || needs.changes.outputs.docs == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Install mise
+        uses: jdx/mise-action@v4.0.1
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('.mise.toml') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - name: Check spelling
+        run: mise run spell
+
+  python-quality:
+    name: Python Quality
+    runs-on: ubuntu-22.04
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Install mise
+        uses: jdx/mise-action@v4.0.1
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('.mise.toml') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - name: Lint
+        run: mise run py:lint
+
+      - name: Check formatting
+        run: mise run py:format:check
+
+  bash-quality:
+    name: Bash Quality
+    runs-on: ubuntu-22.04
+    needs: changes
+    if: needs.changes.outputs.bash == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Install mise
+        uses: jdx/mise-action@v4.0.1
+
+      - name: Lint
+        run: mise run sh:lint
+
+      - name: Check formatting
+        run: mise run sh:format:check
+
+  links:
+    name: Link Check
+    runs-on: ubuntu-22.04
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Install mise
+        uses: jdx/mise-action@v4.0.1
+
+      - name: Check links
+        run: mise run links
+
+  todo:
+    name: TODO to Issue
+    runs-on: ubuntu-22.04
+    needs: changes
+    if: github.event_name == 'push'
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Create issues from TODOs
+        uses: alstr/todo-to-issue-action@v5.1.14
+
+  build:
+    name: Build (${{ matrix.compiler.name }})
+    runs-on: ubuntu-22.04
+    needs: [changes, format, ascii-check, spell, links]
+    if: |
+      needs.changes.outputs.source == 'true' &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled')
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler:
+          - { name: GCC,   cc: gcc,   cxx: g++ }
+          - { name: Clang, cc: clang, cxx: clang++ }
+    env:
+      CC: ${{ matrix.compiler.cc }}
+      CXX: ${{ matrix.compiler.cxx }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Install mise
+        uses: jdx/mise-action@v4.0.1
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-${{ runner.os }}-${{ hashFiles('.mise.toml') }}
+          restore-keys: apt-${{ runner.os }}-
+
+      - name: Cache build
+        uses: actions/cache@v4
+        with:
+          path: build/
+          key: cmake-${{ runner.os }}-${{ matrix.compiler.name }}-${{ hashFiles('**/*.cpp', '**/*.hpp', '**/*.cu', '**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: cmake-${{ runner.os }}-${{ matrix.compiler.name }}-
 
       - name: Install system dependencies
         run: mise run deps
@@ -24,17 +232,76 @@ jobs:
       - name: Build
         run: mise run build
 
+      - name: Upload binaries
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: binaries-${{ matrix.compiler.name }}
+          path: |
+            build/bins/analyzer/analyzer
+            build/bins/simulator/simulator
+
+  latex:
+    name: Build LaTeX Report
+    runs-on: ubuntu-24.04
+    needs: changes
+    if: needs.changes.outputs.report == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Install mise
+        uses: jdx/mise-action@v4.0.1
+
+      - name: Cache Tectonic
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/Tectonic
+          key: tectonic-${{ runner.os }}-${{ hashFiles('report/**/*.tex', 'report/**/*.bib') }}
+          restore-keys: tectonic-${{ runner.os }}-
+
+      - name: Install tectonic
+        uses: wtfjoke/setup-tectonic@v4.0.3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build PDF
+        run: mise run report:build
+
+      - name: Upload PDF
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: report
+          path: report/report.pdf
+
   test:
     name: Test
     runs-on: ubuntu-22.04
     needs: build
+    env:
+      CC: gcc
+      CXX: g++
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Install mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4.0.1
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-${{ runner.os }}-${{ hashFiles('.mise.toml') }}
+          restore-keys: apt-${{ runner.os }}-
+
+      - name: Cache build
+        uses: actions/cache@v4
+        with:
+          path: build/
+          key: cmake-${{ runner.os }}-GCC-${{ hashFiles('**/*.cpp', '**/*.hpp', '**/*.cu', '**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: cmake-${{ runner.os }}-GCC-
 
       - name: Install system dependencies
         run: mise run deps
@@ -45,36 +312,37 @@ jobs:
       - name: Test
         run: mise run test
 
-  format:
-    name: Format
+  sanitize:
+    name: Sanitize
     runs-on: ubuntu-22.04
+    needs: build
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Install mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4.0.1
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-${{ runner.os }}-${{ hashFiles('.mise.toml') }}
+          restore-keys: apt-${{ runner.os }}-
+
+      - name: Cache sanitize build
+        uses: actions/cache@v4
+        with:
+          path: build-sanitize/
+          key: cmake-sanitize-${{ runner.os }}-${{ hashFiles('**/*.cpp', '**/*.hpp', '**/*.cu', '**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: cmake-sanitize-${{ runner.os }}-
 
       - name: Install system dependencies
         run: mise run deps
 
-      - name: Check formatting
-        run: mise run format:check
-
-  ascii-check:
-    name: ASCII Check
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install mise
-        uses: jdx/mise-action@v2
-
-      - name: Check for non-ASCII characters
-        run: mise run ascii-check
+      - name: Test with sanitizers
+        run: mise run test:sanitize
 
   lint:
     name: Lint
@@ -83,10 +351,24 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Install mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4.0.1
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-${{ runner.os }}-${{ hashFiles('.mise.toml') }}
+          restore-keys: apt-${{ runner.os }}-
+
+      - name: Cache build
+        uses: actions/cache@v4
+        with:
+          path: build/
+          key: cmake-${{ runner.os }}-GCC-${{ hashFiles('**/*.cpp', '**/*.hpp', '**/*.cu', '**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: cmake-${{ runner.os }}-GCC-
 
       - name: Install system dependencies
         run: mise run deps
@@ -97,30 +379,38 @@ jobs:
       - name: Lint
         run: mise run lint
 
-  spell:
-    name: Spell Check
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install mise
-        uses: jdx/mise-action@v2
-
-      - name: Check spelling
-        run: mise run spell
-
   coverage:
     name: Coverage
     runs-on: ubuntu-22.04
+    needs: build
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Install mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4.0.1
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-${{ runner.os }}-${{ hashFiles('.mise.toml') }}
+          restore-keys: apt-${{ runner.os }}-
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('.mise.toml') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - name: Cache coverage build
+        uses: actions/cache@v4
+        with:
+          path: build-coverage/
+          key: cmake-coverage-${{ runner.os }}-${{ hashFiles('**/*.cpp', '**/*.hpp', '**/*.cu', '**/CMakeLists.txt', 'cmake/**') }}
+          restore-keys: cmake-coverage-${{ runner.os }}-
 
       - name: Install system dependencies
         run: mise run deps
@@ -128,58 +418,42 @@ jobs:
       - name: Run coverage
         run: mise run test:coverage
 
+      - name: Generate HTML coverage report
+        run: |
+          mkdir -p coverage
+          uvx gcovr -r . build-coverage/ \
+            --filter 'bins/.*' \
+            --filter 'libs/.*' \
+            --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
+            --html-details coverage/index.html
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: coverage-report
+          path: coverage/
+
   cppcheck:
     name: Cppcheck
     runs-on: ubuntu-22.04
+    needs: build
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Install mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4.0.1
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-${{ runner.os }}-${{ hashFiles('.mise.toml') }}
+          restore-keys: apt-${{ runner.os }}-
 
       - name: Install cppcheck
         run: sudo apt-get install -y -q cppcheck
 
       - name: Run cppcheck
         run: mise run cppcheck
-
-  links:
-    name: Link Check
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install mise
-        uses: jdx/mise-action@v2
-
-      - name: Check links
-        run: mise run links
-
-  latex:
-    name: Build LaTeX Report
-    runs-on: ubuntu-24.04
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install mise
-        uses: jdx/mise-action@v2
-
-      - name: Install tectonic
-        uses: wtfjoke/setup-tectonic@v4
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build PDF
-        run: mise run report:build
-
-      - name: Upload PDF
-        uses: actions/upload-artifact@v4
-        with:
-          name: report
-          path: report/report.pdf

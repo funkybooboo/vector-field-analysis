@@ -104,7 +104,8 @@ GridCell Grid::downstreamCell(GridCell coords) const {
     return downstreamCell(coords.row, coords.col);
 }
 
-void Grid::joinStreamlines(std::shared_ptr<Streamline> start, std::shared_ptr<Streamline> end) {
+void Grid::joinStreamlines(const std::shared_ptr<Streamline>& start,
+                           const std::shared_ptr<Streamline>& end) {
     if (!start || !end) {
         return;
     }

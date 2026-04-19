@@ -45,4 +45,4 @@ x_expression = "0.5 * sinh(2 * pi * (y + 0.28)) / (cosh(2 * pi * (y + 0.28)) - c
 y_expression = "-0.5 * sin(2 * pi * (x - 0.55 * t + 0.5)) / (cosh(2 * pi * (y + 0.28)) - cos(2 * pi * (x - 0.55 * t + 0.5)) + 0.08)"
 
 [analyzer]
-solver = "cuda_full"
+solver = "cuda"

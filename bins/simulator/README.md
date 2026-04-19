@@ -6,7 +6,7 @@ Generates procedural vector fields from a TOML config file and writes them to HD
 
 ```sh
 simulator <config.toml>         # run with a config file
-mise run run:simulator      # build and run (uses karman_street.toml by default)
+mise run run:simulator      # build and run (uses source_grid_divergent_512x512.toml by default)
 ```
 
 To visualize the output:
@@ -16,7 +16,7 @@ mise run visualize        # animate field.h5
 uv run tools/visualize.py field.h5 --step 0   # single step, more options
 ```
 
-See [`bins/simulator/configs/`](configs/README.md) for all ready-to-run configs including real-world simulations (hurricane, Karman vortex street, accretion disk, and more).
+See [`configs/`](../../configs/) for ready-to-run config files.
 
 ## Config File
 
@@ -118,7 +118,7 @@ field/               (group)
 ```sh
 mise run build:simulator   # build
 mise run test:simulator    # test
-mise run run:simulator     # run karman_street.toml (writes field.h5)
+mise run run:simulator     # run source_grid_divergent_512x512.toml (writes field.h5)
 ```
 
 ## Dependencies

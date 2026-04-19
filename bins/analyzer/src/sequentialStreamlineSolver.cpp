@@ -4,7 +4,6 @@
 #include <vector>
 
 void SequentialStreamlineSolver::computeTimeStep(Field::Grid& grid) {
-
     const int rowCount = static_cast<int>(grid.field().size());
     if (rowCount == 0) {
         throw std::runtime_error("Can't properly initialize empty field");
@@ -14,7 +13,6 @@ void SequentialStreamlineSolver::computeTimeStep(Field::Grid& grid) {
         throw std::runtime_error("Can't properly initialize zero-width field");
     }
 
-    // compute downstream neighbors.
     std::vector<Field::GridCell> neighbors(static_cast<std::size_t>(rowCount) *
                                            static_cast<std::size_t>(colCount));
 
@@ -25,6 +23,5 @@ void SequentialStreamlineSolver::computeTimeStep(Field::Grid& grid) {
         }
     }
 
-    // apply streamline merges using the pre-computed pairs.
     applyNeighborPairs(grid, neighbors, rowCount, colCount);
 }

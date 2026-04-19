@@ -50,7 +50,7 @@ inline std::string_view toString(FieldType type) {
 struct FieldLayerConfig {
     FieldType type = FieldType::Vortex;
     float strength = 1.0f;
-    Vector::Vec2 center; // NOLINT(misc-include-cleaner) — Vec2 from fieldTypes.hpp via vec2.hpp
+    Vector::Vec2 center; // NOLINT(misc-include-cleaner) -- Vec2 from fieldTypes.hpp via vec2.hpp
     float angle = 0.0f;
     float amplitude = 1.0f;
     float sinkBlend = 0.5f;

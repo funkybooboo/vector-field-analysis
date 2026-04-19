@@ -4,6 +4,21 @@
 #include "pthreadsStreamlineSolver.hpp"
 #include "sequentialStreamlineSolver.hpp"
 
+#ifdef ENABLE_CUDA_SOLVER
+#include "cudaStreamlineSolver.hpp"
+
+#include <cuda_runtime.h>
+
+static bool hasCudaDevice() {
+    void* p = nullptr;
+    bool ok = cudaMalloc(&p, 1) == cudaSuccess;
+    if (ok) {
+        cudaFree(p);
+    }
+    return ok;
+}
+#endif
+
 #include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 
@@ -71,9 +86,14 @@ TEST_CASE("SequentialStreamlineSolver::computeTimeStep handles empty grid", "[im
 // PthreadsStreamlineSolver
 // ---------------------------------------------------------------------------
 
-TEST_CASE("PthreadsStreamlineSolver zero threads returns early", "[impl][pthreads]") {
+TEST_CASE("PthreadsStreamlineSolver zero threads falls back to sequential", "[impl][pthreads]") {
+    auto seqGrid = makeGrid();
+    SequentialStreamlineSolver{}.computeTimeStep(seqGrid);
+    const auto expected = seqGrid.getStreamlines();
+
     auto grid = makeGrid();
     REQUIRE_NOTHROW(PthreadsStreamlineSolver{0}.computeTimeStep(grid));
+    REQUIRE(grid.getStreamlines().size() == expected.size());
 }
 
 TEST_CASE("PthreadsStreamlineSolver single thread", "[impl][pthreads]") {
@@ -134,6 +154,28 @@ TEST_CASE("MpiStreamlineSolver::computeTimeStep handles empty grid", "[impl][mpi
 }
 
 // ---------------------------------------------------------------------------
+// CudaStreamlineSolver
+// ---------------------------------------------------------------------------
+
+#ifdef ENABLE_CUDA_SOLVER
+TEST_CASE("CudaStreamlineSolver::computeTimeStep completes on uniform field", "[impl][cuda]") {
+    if (!hasCudaDevice()) {
+        SKIP("No CUDA device");
+    }
+    auto grid = makeGrid();
+    REQUIRE_NOTHROW(CudaStreamlineSolver{}.computeTimeStep(grid));
+}
+
+TEST_CASE("CudaStreamlineSolver::computeTimeStep handles empty grid", "[impl][cuda]") {
+    if (!hasCudaDevice()) {
+        SKIP("No CUDA device");
+    }
+    auto grid = makeEmptyGrid();
+    REQUIRE_NOTHROW(CudaStreamlineSolver{}.computeTimeStep(grid));
+}
+#endif
+
+// ---------------------------------------------------------------------------
 // Solver output: getStreamlines() correctness
 // ---------------------------------------------------------------------------
 
@@ -185,6 +227,21 @@ TEST_CASE("MpiStreamlineSolver getStreamlines returns same count as sequential",
     REQUIRE(grid.getStreamlines().size() == expected);
 }
 
+#ifdef ENABLE_CUDA_SOLVER
+TEST_CASE("CudaStreamlineSolver getStreamlines returns same count as sequential",
+          "[impl][cuda][streamlines]") {
+    if (!hasCudaDevice()) {
+        SKIP("No CUDA device");
+    }
+    auto seqGrid = makeGrid();
+    SequentialStreamlineSolver{}.computeTimeStep(seqGrid);
+    const std::size_t expected = seqGrid.getStreamlines().size();
+    auto grid = makeGrid();
+    CudaStreamlineSolver{}.computeTimeStep(grid);
+    REQUIRE(grid.getStreamlines().size() == expected);
+}
+#endif
+
 TEST_CASE("OpenMpStreamlineSolver path contents match sequential", "[impl][openmp][streamlines]") {
     auto seqGrid = makeGrid();
     SequentialStreamlineSolver{}.computeTimeStep(seqGrid);
@@ -205,6 +262,21 @@ TEST_CASE("PthreadsStreamlineSolver path contents match sequential",
     PthreadsStreamlineSolver{4}.computeTimeStep(grid);
     REQUIRE(canonicalize(grid.getStreamlines()) == expected);
 }
+
+#ifdef ENABLE_CUDA_SOLVER
+TEST_CASE("CudaStreamlineSolver path contents match sequential", "[impl][cuda][streamlines]") {
+    if (!hasCudaDevice()) {
+        SKIP("No CUDA device");
+    }
+    auto seqGrid = makeGrid();
+    SequentialStreamlineSolver{}.computeTimeStep(seqGrid);
+    const auto expected = canonicalize(seqGrid.getStreamlines());
+
+    auto grid = makeGrid();
+    CudaStreamlineSolver{}.computeTimeStep(grid);
+    REQUIRE(canonicalize(grid.getStreamlines()) == expected);
+}
+#endif
 
 TEST_CASE("PthreadsStreamlineSolver with thread count equal to row count produces correct output",
           "[impl][pthreads]") {
@@ -245,29 +317,42 @@ TEST_CASE("getStreamlines returns non-empty result after any solver on non-empty
 // Near-zero magnitude field: solvers must not crash or produce NaN
 // ---------------------------------------------------------------------------
 
-TEST_CASE("all solvers handle near-zero magnitude field without crash", "[impl][consistency]") {
-    // A field where every vector has magnitude 1e-7 — exercises the singularity path
+static Field::Grid makeNearZeroGrid() {
     const Vector::Vec2 tiny(1e-7f, 0.0f);
-    auto makeNearZeroGrid = [&] {
-        return Field::Grid{Field::Bounds{0.0f, 2.0f, 0.0f, 2.0f},
-                           Field::Slice(3, std::vector<Vector::Vec2>(3, tiny))};
-    };
-    {
-        auto grid = makeNearZeroGrid();
-        REQUIRE_NOTHROW(SequentialStreamlineSolver{}.computeTimeStep(grid));
-        REQUIRE_FALSE(grid.getStreamlines().empty());
-    }
-    {
-        auto grid = makeNearZeroGrid();
-        REQUIRE_NOTHROW(OpenMpStreamlineSolver{}.computeTimeStep(grid));
-        REQUIRE_FALSE(grid.getStreamlines().empty());
-    }
-    {
-        auto grid = makeNearZeroGrid();
-        REQUIRE_NOTHROW(PthreadsStreamlineSolver{2}.computeTimeStep(grid));
-        REQUIRE_FALSE(grid.getStreamlines().empty());
-    }
+    return Field::Grid{Field::Bounds{0.0f, 2.0f, 0.0f, 2.0f},
+                       Field::Slice(3, std::vector<Vector::Vec2>(3, tiny))};
 }
+
+TEST_CASE("sequential solver handles near-zero magnitude field without crash",
+          "[impl][consistency]") {
+    auto grid = makeNearZeroGrid();
+    REQUIRE_NOTHROW(SequentialStreamlineSolver{}.computeTimeStep(grid));
+    REQUIRE_FALSE(grid.getStreamlines().empty());
+}
+
+TEST_CASE("openmp solver handles near-zero magnitude field without crash", "[impl][consistency]") {
+    auto grid = makeNearZeroGrid();
+    REQUIRE_NOTHROW(OpenMpStreamlineSolver{}.computeTimeStep(grid));
+    REQUIRE_FALSE(grid.getStreamlines().empty());
+}
+
+TEST_CASE("pthreads solver handles near-zero magnitude field without crash",
+          "[impl][consistency]") {
+    auto grid = makeNearZeroGrid();
+    REQUIRE_NOTHROW(PthreadsStreamlineSolver{2}.computeTimeStep(grid));
+    REQUIRE_FALSE(grid.getStreamlines().empty());
+}
+
+#ifdef ENABLE_CUDA_SOLVER
+TEST_CASE("cuda solver handles near-zero magnitude field without crash", "[impl][consistency]") {
+    if (!hasCudaDevice()) {
+        SKIP("No CUDA device");
+    }
+    auto grid = makeNearZeroGrid();
+    REQUIRE_NOTHROW(CudaStreamlineSolver{}.computeTimeStep(grid));
+    REQUIRE_FALSE(grid.getStreamlines().empty());
+}
+#endif
 
 TEST_CASE("all solvers handle single-row grid without crash", "[impl][consistency]") {
     auto make = [] {
@@ -290,6 +375,14 @@ TEST_CASE("all solvers handle single-row grid without crash", "[impl][consistenc
         auto grid = make();
         REQUIRE_NOTHROW(MpiStreamlineSolver{}.computeTimeStep(grid));
     }
+#ifdef ENABLE_CUDA_SOLVER
+    if (hasCudaDevice()) {
+        {
+            auto grid = make();
+            REQUIRE_NOTHROW(CudaStreamlineSolver{}.computeTimeStep(grid));
+        }
+    }
+#endif
 }
 
 TEST_CASE("all solvers handle single-column grid without crash", "[impl][consistency]") {
@@ -313,6 +406,14 @@ TEST_CASE("all solvers handle single-column grid without crash", "[impl][consist
         auto grid = make();
         REQUIRE_NOTHROW(MpiStreamlineSolver{}.computeTimeStep(grid));
     }
+#ifdef ENABLE_CUDA_SOLVER
+    if (hasCudaDevice()) {
+        {
+            auto grid = make();
+            REQUIRE_NOTHROW(CudaStreamlineSolver{}.computeTimeStep(grid));
+        }
+    }
+#endif
 }
 
 // ---------------------------------------------------------------------------

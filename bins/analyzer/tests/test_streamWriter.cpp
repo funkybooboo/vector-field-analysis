@@ -112,3 +112,49 @@ TEST_CASE("StreamWriter::write() overwrites existing output file", "[streamwrite
     std::error_code ec;
     std::filesystem::remove(path, ec);
 }
+
+TEST_CASE("StreamWriter::write() handles single-point streamlines", "[streamwriter]") {
+    const auto path = std::filesystem::temp_directory_path() / "test_sw_single_pt.h5";
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    // Two single-point streamlines
+    const StepStreamlines step = {{{0, 0}}, {{1, 2}}};
+    StreamWriter::write(path.string(), {step}, {0.0f, 1.0f, 0.0f, 1.0f}, {3, 3});
+    HighFive::File file(path.string(), HighFive::File::ReadOnly);
+    const auto sg = file.getGroup("streams").getGroup("step_0");
+    const auto flat = sg.getDataSet("paths_flat").read<std::vector<std::vector<int>>>();
+    const auto offsets = sg.getDataSet("offsets").read<std::vector<int>>();
+    REQUIRE(flat.size() == 2);
+    REQUIRE(offsets == std::vector<int>{0, 1, 2});
+    REQUIRE(flat[0][0] == 0); // streamline 0, row
+    REQUIRE(flat[0][1] == 0); // streamline 0, col
+    REQUIRE(flat[1][0] == 1); // streamline 1, row
+    REQUIRE(flat[1][1] == 2); // streamline 1, col
+    std::filesystem::remove(path, ec);
+}
+
+TEST_CASE("StreamWriter::write() three steps with varying streamline counts", "[streamwriter]") {
+    const auto path = std::filesystem::temp_directory_path() / "test_sw_three_steps.h5";
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    const StepStreamlines s0 = {{{0, 0}, {0, 1}}};             // 1 streamline, 2 pts
+    const StepStreamlines s1 = {{{1, 0}}, {{1, 1}}, {{1, 2}}}; // 3 streamlines, 1 pt each
+    const StepStreamlines s2 = {};                             // empty
+    StreamWriter::write(path.string(), {s0, s1, s2}, {0.0f, 1.0f, 0.0f, 1.0f}, {2, 3});
+    HighFive::File file(path.string(), HighFive::File::ReadOnly);
+    const auto grp = file.getGroup("streams");
+    REQUIRE(grp.getAttribute("num_steps").read<int>() == 3);
+    REQUIRE(grp.getGroup("step_0")
+                .getDataSet("paths_flat")
+                .read<std::vector<std::vector<int>>>()
+                .size() == 2);
+    REQUIRE(grp.getGroup("step_1")
+                .getDataSet("paths_flat")
+                .read<std::vector<std::vector<int>>>()
+                .size() == 3);
+    REQUIRE(grp.getGroup("step_2")
+                .getDataSet("paths_flat")
+                .read<std::vector<std::vector<int>>>()
+                .empty());
+    std::filesystem::remove(path, ec);
+}

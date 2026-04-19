@@ -51,7 +51,7 @@ mise run test    # run all tests
 | `mise run test:coverage` | Run tests and generate coverage report |
 | `mise run links` | Check for broken links in markdown files |
 | `mise run ci` | Full pipeline -- mirrors all GitHub Actions jobs |
-| `mise run run:simulator` | Build and run the simulator with `karman_street.toml` (writes `field.h5`) |
+| `mise run run:simulator` | Build and run the simulator with `source_grid_divergent_512x512.toml` (writes `source_grid_divergent_512x512.h5`) |
 | `mise run run:analyzer` | Run simulator then benchmark all solver impls under `mpirun -n $(nproc)` |
 | `mise run run:analyzer:mpi` | Run MPI solver only under mpirun (default 4 ranks; override with `NRANKS=N`) |
 | `mise run visualize` | Animate `field.h5` as a quiver plot |
@@ -78,8 +78,8 @@ Individual targets:
 | cmake | latest | Build system |
 | ninja | latest | Build backend |
 | uv | latest | Python package manager (visualize, codespell, gcovr -- tools fetched on demand via `uvx`) |
-| clang-format | 22.1.1 | Code formatter |
-| clang-tidy | 22.1.0 | Static analysis / linter |
+| clang-format | 22.1.3 | Code formatter |
+| clang-tidy | system | Static analysis / linter |
 | lychee | latest | Markdown link checker |
 
 **Installed by `mise run deps`** (system package manager)
@@ -103,7 +103,7 @@ Individual targets:
 ## Code Quality
 
 - **Compiler flags:** `-Wall -Wextra -Wpedantic -Werror` -- warnings are errors
-- **Formatting:** clang-format 22.1.1 (LLVM style, indent 4, column limit 100)
+- **Formatting:** clang-format 22.1.3 (LLVM style, indent 4, column limit 100)
 - **Linting:** clang-tidy with bugprone, modernize, performance, and readability checks; all warnings treated as errors
 
 ## CI

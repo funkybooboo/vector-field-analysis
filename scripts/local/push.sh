@@ -7,22 +7,25 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=scripts/validate.sh
 source "$SCRIPT_DIR/../validate.sh"
+# shellcheck source=/dev/null
+[[ -f "$PROJECT_DIR/.env" ]] && source "$PROJECT_DIR/.env"
 
 validate_or_die _check_user _check_host _check_project
 
 REMOTE="${CHPC_USER}@${CHPC_HOST}:${CHPC_PROJECT}"
 
 rsync -avz --progress \
-  --exclude='output/' \
-  --exclude='logs/' \
-  --exclude='build/' \
-  --exclude='build-coverage/' \
-  --exclude='.cache/' \
-  --exclude='*.o' \
-  --exclude='analyzer' \
-  --exclude='analyzer_sm*' \
-  --exclude='simulator' \
-  --exclude='simulator_sm*' \
-  --exclude='.env' \
-  "$PROJECT_DIR/" "$REMOTE"
+	--exclude='output/' \
+	--exclude='logs/' \
+	--exclude='build/' \
+	--exclude='build-coverage/' \
+	--exclude='.cache/' \
+	--exclude='*.o' \
+	--exclude='analyzer' \
+	--exclude='analyzer_sm*' \
+	--exclude='simulator' \
+	--exclude='simulator_sm*' \
+	--exclude='.env' \
+	"$PROJECT_DIR/" "$REMOTE"

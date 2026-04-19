@@ -4,6 +4,10 @@
 #include "sequentialStreamlineSolver.hpp"
 #include "solverFactory.hpp"
 
+#ifdef ENABLE_CUDA_SOLVER
+#include "cudaStreamlineSolver.hpp"
+#endif
+
 #include <catch2/catch_test_macros.hpp>
 #include <stdexcept>
 
@@ -34,6 +38,14 @@ TEST_CASE("makeSolver(\"mpi\") returns MpiStreamlineSolver", "[factory]") {
     REQUIRE(solver != nullptr);
     REQUIRE(dynamic_cast<MpiStreamlineSolver*>(solver.get()) != nullptr);
 }
+
+#ifdef ENABLE_CUDA_SOLVER
+TEST_CASE("makeSolver(\"cuda\") returns CudaStreamlineSolver", "[factory]") {
+    auto solver = makeSolver("cuda", 0, 256);
+    REQUIRE(solver != nullptr);
+    REQUIRE(dynamic_cast<CudaStreamlineSolver*>(solver.get()) != nullptr);
+}
+#endif
 
 // ---------------------------------------------------------------------------
 // Unknown names throw with a stable message

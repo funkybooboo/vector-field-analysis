@@ -106,7 +106,7 @@ field/               (group)
 ## Usage
 
 ```sh
-mise run run:simulator                      # run with karman_street.toml (default)
+mise run run:simulator                      # run with source_grid_divergent_512x512.toml (default)
 ./build/bins/simulator/simulator <config.toml>  # run with a specific config
 ```
 

@@ -1,107 +1,18 @@
 #include "configParser.hpp"
 #include "fieldReader.hpp"
-#include "formatBytes.hpp"
-#include "solverFactory.hpp"
-#include "streamWriter.hpp"
-#include "streamlineSolver.hpp"
+#include "runner.hpp"
 
 #ifdef USE_MPI
 #include <mpi.h>
 #endif
 
-#include <algorithm>
 #include <cerrno>
-#include <chrono>
 #include <cstdlib>
 #include <filesystem>
-#include <iomanip>
 #include <iostream>
-#include <numeric>
+#include <limits>
 #include <string>
 #include <thread>
-
-struct RunResult {
-    double elapsedMilliseconds;
-    std::vector<StreamWriter::StepStreamlines> streams;
-};
-
-static RunResult runSolver(StreamlineSolver& solver, const Field::TimeSeries& timeSeries) {
-    RunResult result;
-    auto startTime = std::chrono::steady_clock::now();
-    for (const auto& frame : timeSeries.frames) {
-        Field::Grid grid(timeSeries.bounds, frame);
-        solver.computeTimeStep(grid);
-        result.streams.push_back(grid.getStreamlines());
-    }
-    result.elapsedMilliseconds =
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startTime)
-            .count();
-    return result;
-}
-
-// Canonicalize one step's streamlines for comparison by sorting only the
-// collection of streamlines. Each streamline remains an ordered list of
-// points, so path traversal order is preserved while comparison stays
-// independent of the order in which unique streamlines were encountered
-// during grid iteration.
-static std::vector<Field::Path> canonicalize(const StreamWriter::StepStreamlines& step) {
-    auto copy = step;
-    std::sort(copy.begin(), copy.end(), [](const auto& lhs, const auto& rhs) {
-        if (lhs.empty() != rhs.empty()) {
-            return rhs.empty();
-        }
-        if (lhs.front() != rhs.front()) {
-            return lhs.front() < rhs.front();
-        }
-        if (lhs.size() != rhs.size()) {
-            return lhs.size() < rhs.size();
-        }
-        return lhs.back() < rhs.back();
-    });
-    return copy;
-}
-
-// Crash with a descriptive message if impl's output differs from the reference
-// (sequential). Comparison is canonical so iteration order doesn't matter.
-static void verify(const std::vector<StreamWriter::StepStreamlines>& reference,
-                   const std::vector<StreamWriter::StepStreamlines>& other,
-                   const std::string& name) {
-    if (reference.size() != other.size()) {
-        std::cerr << "Error: " << name << " produced " << other.size() << " step(s) but sequential"
-                  << " produced " << reference.size() << "\n";
-        std::exit(1);
-    }
-    for (std::size_t stepIndex = 0; stepIndex < reference.size(); ++stepIndex) {
-        if (canonicalize(reference[stepIndex]) != canonicalize(other[stepIndex])) {
-            std::cerr << "Error: " << name << " streamlines differ from sequential at step "
-                      << stepIndex << "\n";
-            std::exit(1);
-        }
-    }
-}
-
-static void writeAndReport(const std::string& outPath,
-                           const std::vector<StreamWriter::StepStreamlines>& streams,
-                           const Field::Bounds& bounds, const Field::GridSize& grid) {
-    const std::size_t total =
-        std::accumulate(streams.begin(), streams.end(), std::size_t{0},
-                        [](std::size_t acc, const auto& step) { return acc + step.size(); });
-    const std::size_t numSteps = streams.size();
-    const double avgPerStep =
-        numSteps > 0 ? static_cast<double>(total) / static_cast<double>(numSteps) : 0.0;
-    std::cout << "\nPrecomputed " << total << " streamlines across " << numSteps << " steps"
-              << "  (" << std::fixed << std::setprecision(1) << avgPerStep << "/step avg)\n";
-
-    StreamWriter::write(outPath, streams, bounds, grid);
-
-    std::error_code err;
-    const auto fileBytes = std::filesystem::file_size(outPath, err);
-    std::cout << "Streamlines written to " << outPath;
-    if (!err) {
-        std::cout << "  (" << Utils::formatBytes(fileBytes) << ")";
-    }
-    std::cout << "\n";
-}
 
 static void printHelp() {
     std::cout << "Usage: analyzer <config.toml>\n"
@@ -109,8 +20,10 @@ static void printHelp() {
               << "Reads data/<config-stem>/field.h5 and writes data/<config-stem>/streams.h5.\n"
               << "See configs/ for example configs.\n"
               << "\n[analyzer] keys (all optional):\n"
-              << "  solver  = \"all\"   sequential | openmp | pthreads | mpi | all\n"
-              << "  threads = 0       thread count for pthreads (0 = hardware_concurrency)\n"
+              << "  solver          = \"all\"  sequential | openmp | pthreads | mpi | cuda | all\n"
+              << "                            (cuda requires -DENABLE_CUDA=ON at build time)\n"
+              << "  threads         = 0      thread/rank count (0 = hardware_concurrency)\n"
+              << "  cuda_block_size = 256    CUDA threads per block\n"
               << "\nFor MPI: mpirun -n N analyzer <config.toml>  with solver = \"mpi\"\n";
 }
 
@@ -129,143 +42,6 @@ static unsigned int resolveThreadCount(unsigned int requested) {
     }
     const unsigned int hw = std::thread::hardware_concurrency();
     return hw > 0 ? hw : 1;
-}
-
-static void runAll(const Field::TimeSeries& field, unsigned int threadCount,
-                   [[maybe_unused]] unsigned int cudaBlockSize, int mpiRank, int mpiSize,
-                   const std::string& outPath) {
-    // Non-MPI solvers run only on rank 0.
-    RunResult sequentialResult{};
-    RunResult openmpResult{};
-    RunResult pthreadsResult{};
-#ifdef ENABLE_CUDA_SOLVER
-    RunResult cudaFullResult{};
-#endif
-    if (mpiRank == 0) {
-        auto sequentialSolver = makeSolver("sequential", threadCount, cudaBlockSize);
-        auto openmpSolver = makeSolver("openmp", threadCount, cudaBlockSize);
-        auto pthreadsSolver = makeSolver("pthreads", threadCount, cudaBlockSize);
-        sequentialResult = runSolver(*sequentialSolver, field);
-        openmpResult = runSolver(*openmpSolver, field);
-        pthreadsResult = runSolver(*pthreadsSolver, field);
-#ifdef ENABLE_CUDA_SOLVER
-        auto cudaFullSolver = makeSolver("cuda_full", threadCount, cudaBlockSize);
-        cudaFullResult = runSolver(*cudaFullSolver, field);
-#endif
-    }
-
-    // MPI solver: all ranks must participate (collective calls inside).
-    // Skip when running single-rank -- it falls back to sequential and adds no signal.
-    RunResult mpiResult{};
-    const bool runMpi = mpiSize > 1;
-    if (runMpi) {
-        auto mpi = makeSolver("mpi", threadCount, cudaBlockSize);
-        mpiResult = runSolver(*mpi, field);
-    }
-
-    if (mpiRank == 0) {
-        const std::string sequentialLabel = "sequential";
-        const std::string openmpLabel = "openmp (" + std::to_string(threadCount) + " thr)";
-        const std::string pthreadsLabel = "pthreads (" + std::to_string(threadCount) + " thr)";
-        const std::string mpiLabel = "mpi (" + std::to_string(mpiSize) + " rank(s))";
-#ifdef ENABLE_CUDA_SOLVER
-        const std::string cudaFullLabel = "cuda_full (blk=" + std::to_string(cudaBlockSize) + ")";
-#endif
-
-        std::vector<std::size_t> labelSizes = {sequentialLabel.size(), openmpLabel.size(),
-                                               pthreadsLabel.size(), mpiLabel.size()};
-#ifdef ENABLE_CUDA_SOLVER
-        labelSizes.push_back(cudaFullLabel.size());
-#endif
-
-        int labelWidth = static_cast<int>(*std::max_element(labelSizes.begin(), labelSizes.end())) + 2;
-
-        std::cout << std::left << std::setw(labelWidth) << sequentialLabel
-                  << sequentialResult.elapsedMilliseconds << " ms\n"
-                  << std::setw(labelWidth) << openmpLabel << openmpResult.elapsedMilliseconds
-                  << " ms"
-                  << "  ("
-                  << (openmpResult.elapsedMilliseconds > 0
-                          ? sequentialResult.elapsedMilliseconds / openmpResult.elapsedMilliseconds
-                          : 0.0)
-                  << "x vs sequential)\n"
-                  << std::setw(labelWidth) << pthreadsLabel << pthreadsResult.elapsedMilliseconds
-                  << " ms"
-                  << "  ("
-                  << (pthreadsResult.elapsedMilliseconds > 0
-                          ? sequentialResult.elapsedMilliseconds /
-                                pthreadsResult.elapsedMilliseconds
-                          : 0.0)
-                  << "x vs sequential)\n";
-
-#ifdef ENABLE_CUDA_SOLVER
-        std::cout << std::setw(labelWidth) << cudaFullLabel << cudaFullResult.elapsedMilliseconds
-                  << " ms"
-                  << "  ("
-                  << (cudaFullResult.elapsedMilliseconds > 0
-                          ? sequentialResult.elapsedMilliseconds /
-                                cudaFullResult.elapsedMilliseconds
-                          : 0.0)
-                  << "x vs sequential)\n";
-#endif
-
-        if (runMpi) {
-            std::cout << std::setw(labelWidth) << mpiLabel << mpiResult.elapsedMilliseconds << " ms"
-                      << "  ("
-                      << (mpiResult.elapsedMilliseconds > 0
-                              ? sequentialResult.elapsedMilliseconds / mpiResult.elapsedMilliseconds
-                              : 0.0)
-                      << "x vs sequential)\n";
-        } else {
-            std::cout << "(mpi skipped -- rerun with mpirun -n N for a multi-rank comparison)\n";
-        }
-
-        verify(sequentialResult.streams, openmpResult.streams, "openmp");
-        verify(sequentialResult.streams, pthreadsResult.streams, "pthreads");
-#ifdef ENABLE_CUDA_SOLVER
-        verify(sequentialResult.streams, cudaFullResult.streams, "cuda_full");
-#endif
-        if (runMpi) {
-            verify(sequentialResult.streams, mpiResult.streams, "mpi");
-        }
-
-        writeAndReport(outPath, sequentialResult.streams, field.bounds, field.gridSize());
-    }
-}
-
-static void runOne(const std::string& solverName, const Field::TimeSeries& field,
-                   unsigned int threadCount, [[maybe_unused]] unsigned int cudaBlockSize, int mpiRank,
-                   int mpiSize, const std::string& outPath) {
-    RunResult result{};
-    if (solverName == "mpi") {
-        auto solver = makeSolver(solverName, threadCount, cudaBlockSize);
-        result = runSolver(*solver, field);
-    } else if (mpiRank == 0) {
-        if (solverName == "cuda_full") {
-            auto solver = makeSolver(solverName, threadCount, cudaBlockSize);
-            result = runSolver(*solver, field);
-        } else {
-            auto solver = makeSolver(solverName, threadCount, cudaBlockSize);
-            result = runSolver(*solver, field);
-        }
-    } else {
-        // Non-zero ranks: completed collective role in runSolver(); only rank 0 writes output.
-        return;
-    }
-
-    if (mpiRank == 0) {
-        std::string label = solverName;
-        if (solverName == "openmp" || solverName == "pthreads") {
-            label += " (" + std::to_string(threadCount) + " thr)";
-        } else if (solverName == "mpi") {
-            label += " (" + std::to_string(mpiSize) + " rank(s))";
-        } else if (solverName == "cuda_full") {
-            label += " (blk=" + std::to_string(cudaBlockSize) + ")";
-        }
-        std::cout << label << "  " << result.elapsedMilliseconds << " ms\n";
-
-        writeAndReport(outPath, result.streams, field.bounds, field.gridSize());
-    }
 }
 
 int main(int argc, char* argv[]) {
@@ -314,13 +90,10 @@ int main(int argc, char* argv[]) {
         const std::string fieldPath = "data/" + stem + "/field.h5";
         const std::string outPath =
             config.output.empty() ? "data/" + stem + "/streams.h5" : config.output;
-        
-        // Ensure parent directory for output exists
-        std::filesystem::path outParent = std::filesystem::path(outPath).parent_path();
-        if (!outParent.empty()) {
-            std::filesystem::create_directories(outParent);
-        }
-
+        std::filesystem::create_directories(
+            std::filesystem::path(outPath).parent_path().empty()
+                ? "."
+                : std::filesystem::path(outPath).parent_path().string());
         const Field::TimeSeries field = FieldReader::read(fieldPath);
 
         if (field.frames.empty()) {
@@ -356,9 +129,8 @@ int main(int argc, char* argv[]) {
         if (mpiRank == 0) {
             std::cerr << "Error: " << e.what() << "\n";
         }
-        // MPI_Abort terminates all ranks immediately. If we only set an exit code and fall
-        // through to MPI_Finalize, any rank that threw before reaching a collective will
-        // cause the other ranks to hang waiting for that collective to complete.
+        // MPI_Abort terminates all ranks immediately; fall-through to MPI_Finalize would hang
+        // ranks waiting on collectives that the throwing rank never reaches.
 #ifdef USE_MPI
         MPI_Abort(MPI_COMM_WORLD, 1);
 #endif
@@ -370,4 +142,3 @@ int main(int argc, char* argv[]) {
 #endif
     return 0;
 }
-

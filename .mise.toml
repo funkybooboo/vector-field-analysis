@@ -1,29 +1,41 @@
-[settings]
-jobs = 1
-
 [tools]
-cmake = "latest"
-ninja = "latest"
-uv = "latest"
-"pipx:clang-format" = "22.1.1"
-"pipx:clang-tidy" = "22.1.0"
-"ubi:lycheeverse/lychee" = "latest"
+cmake = "4.2.3"
+ninja = "1.13.2"
+uv = "0.11.2"
+"pipx:clang-format" = "22.1.3"
+"github:lycheeverse/lychee" = "0.15.1"
+"aqua:koalaman/shellcheck" = "0.11.0"
+"aqua:mvdan/sh" = "3.11.0"
 
 # =============================================================================
 # Setup
 # =============================================================================
 
 [tasks.deps]
-description = "Install system dependencies (HDF5, OpenMPI, cppcheck)"
+description = "Install system dependencies (HDF5, OpenMPI, cppcheck, CUDA)"
 run = """
 if command -v apt-get &>/dev/null; then
-    sudo apt-get update -q && sudo apt-get install -y -q libhdf5-dev libopenmpi-dev openmpi-bin cppcheck
+    # Pinned versions (Ubuntu 22.04 jammy):
+    #   libhdf5-dev          1.10.7+repack-4ubuntu2
+    #   libopenmpi-dev       4.1.2-2ubuntu1
+    #   openmpi-bin          4.1.2-2ubuntu1
+    #   cppcheck             2.7-1
+    #   nvidia-cuda-toolkit  11.5.1-1ubuntu1
+    sudo apt-get update -q && sudo apt-get install -y -q \
+        "libhdf5-dev=1.10.7+repack-4ubuntu2" \
+        "libopenmpi-dev=4.1.2-2ubuntu1" \
+        "openmpi-bin=4.1.2-2ubuntu1" \
+        "cppcheck=2.7-1" \
+        "nvidia-cuda-toolkit=11.5.1-1ubuntu1" \
+        clang-tidy
 elif command -v dnf &>/dev/null; then
-    sudo dnf update -q && sudo dnf install -y -q hdf5 openmpi-devel cppcheck
+    # Tested: hdf5-1.14, openmpi-5.0, cppcheck-2.13, cuda-toolkit-12
+    sudo dnf update -q && sudo dnf install -y -q hdf5 openmpi-devel cppcheck cuda-toolkit clang-tools-extra
 elif command -v pacman &>/dev/null; then
-    sudo pacman -S --needed hdf5 openmpi cppcheck
+    # Tested: hdf5-1.14, openmpi-5.0, cppcheck-2.14, cuda-12
+    sudo pacman -S --needed hdf5 openmpi cppcheck cuda clang
 else
-    echo "Unsupported package manager -> install HDF5, OpenMPI, and cppcheck manually"
+    echo "Unsupported package manager -> install HDF5, OpenMPI, cppcheck, and CUDA Toolkit manually"
     exit 1
 fi
 """
@@ -34,57 +46,27 @@ fi
 
 [tasks.configure]
 description = "Configure CMake build"
-run = "cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+run = "make configure"
 
 [tasks.build]
 description = "Build everything"
-depends = ["configure"]
-run = "cmake --build build"
-
-[tasks."build:cuda"]
-description = "Build everything with CUDA enabled"
-run = """
-cmake -B build-cuda -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DENABLE_CUDA=ON \
-  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-  -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-cmake --build build-cuda
-"""
-
-[tasks."build:simulator"]
-description = "Build simulator"
-depends = ["configure"]
-run = "cmake --build build --target simulator"
+run = "make build"
 
 [tasks."build:analyzer"]
 description = "Build analyzer"
-depends = ["build:simulator"]
-run = "cmake --build build --target analyzer"
+run = "make build-analyzer"
+
+[tasks."build:simulator"]
+description = "Build simulator"
+run = "make build-simulator"
 
 [tasks."build:sanitize"]
 description = "Build with AddressSanitizer + UBSanitizer"
-run = """
-cmake -B build-sanitize -G Ninja \
-  -DCMAKE_BUILD_TYPE=Debug \
-  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-  '-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer' \
-  '-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined'
-cmake --build build-sanitize
-"""
+run = "make build-sanitize"
 
 [tasks."build:coverage"]
 description = "Build with coverage instrumentation"
-run = """
-cmake -B build-coverage -G Ninja \
-  -DCMAKE_BUILD_TYPE=Debug \
-  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-  '-DCMAKE_CXX_FLAGS=--coverage' \
-  '-DCMAKE_EXE_LINKER_FLAGS=--coverage'
-cmake --build build-coverage
-"""
+run = "make build-coverage"
 
 # =============================================================================
 # Test
@@ -97,39 +79,40 @@ run = "ctest --test-dir build --output-on-failure"
 
 [tasks."test:vector"]
 description = "Run vector library tests"
-depends = ["build"]
-run = "ctest --test-dir build --output-on-failure -R vector"
+run = "make test-vector"
 
 [tasks."test:analyzer"]
 description = "Run analyzer tests"
-depends = ["build"]
-run = "ctest --test-dir build --output-on-failure -R analyzer"
+run = "make test-analyzer"
 
 [tasks."test:simulator"]
 description = "Run simulator tests"
-depends = ["build"]
-run = "ctest --test-dir build --output-on-failure -R simulator"
-
-[tasks."test:cuda"]
-description = "Run all tests for the CUDA build"
-depends = ["build:cuda"]
-run = "ctest --test-dir build-cuda --output-on-failure"
+run = "make test-simulator"
 
 [tasks."test:sanitize"]
 description = "Test with AddressSanitizer + UBSanitizer"
-depends = ["build:sanitize"]
-run = "ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=print_stacktrace=1 ctest --test-dir build-sanitize --output-on-failure"
+run = "make test-sanitize"
 
 [tasks."test:coverage"]
 description = "Run tests and generate coverage report"
-depends = ["build:coverage"]
 run = """
-ctest --test-dir build-coverage --output-on-failure
+make test-coverage
 uvx gcovr -r . build-coverage/ \
   --filter 'bins/.*' \
   --filter 'libs/.*' \
+  --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
   --print-summary
+mkdir -p coverage
+uvx gcovr -r . build-coverage/ \
+  --filter 'bins/.*' \
+  --filter 'libs/.*' \
+  --gcov-ignore-parse-errors=negative_hits.warn_once_per_file \
+  --html-details coverage/index.html
 """
+
+[tasks."coverage:open"]
+description = "Open the HTML coverage report in the default browser"
+run = "xdg-open coverage/index.html"
 
 # =============================================================================
 # Run
@@ -137,31 +120,23 @@ uvx gcovr -r . build-coverage/ \
 
 [tasks."run:simulator"]
 description = "Build and run the simulator"
-depends = ["build:analyzer"]
-run = "./build/bins/simulator/simulator configs/karman_street_128x64.toml"
+run = "make run-simulator"
 
 [tasks."run:analyzer"]
 description = "Generate field data then benchmark all analyzer impls (MPI_RANKS, ANALYZER_THREADS)"
-depends = ["run:simulator"]
-run = "mpirun -n ${MPI_RANKS:-4} --oversubscribe ./build/bins/analyzer/analyzer configs/karman_street_128x64.toml"
+run = "make run-analyzer"
 
 [tasks."run:analyzer:mpi"]
-description = "Run MPI analyzer (MPI_RANKS defaults to 4)"
-depends = ["run:simulator"]
-run = "mpirun -n ${MPI_RANKS:-4} --oversubscribe ./build/bins/analyzer/analyzer configs/karman_street_128x64.toml"
+description = "Run MPI analyzer (MPI_RANKS defaults to nproc)"
+run = "make run-analyzer"
 
-[tasks."run:cuda"]
-description = "Run CUDA analyzer using the Karman Street config"
-depends = ["build:cuda"]
-run = """
-./build-cuda/bins/simulator/simulator configs/karman_street_128x64_cuda.toml
-./build-cuda/bins/analyzer/analyzer configs/karman_street_128x64_cuda.toml
-"""
+[tasks."run:configs"]
+description = "Run all configs via scripts/pipeline.sh"
+run = "./scripts/pipeline.sh"
 
 [tasks.demo]
-description = "Full pipeline: build, simulate, benchmark all solvers, then visualize"
-depends = ["run:analyzer"]
-run = "uv run tools/visualize.py data/${STEM:-karman_street_128x64}/field.h5 --streams data/${STEM:-karman_street_128x64}/streams.h5"
+description = "Full pipeline for one config stem: build, simulate, analyze, stats, visualize (STEM, MPI_RANKS)"
+run = "./scripts/local/pipeline.sh ${STEM:-karman_street_128x64}"
 
 # =============================================================================
 # Visualize / Stats
@@ -193,16 +168,16 @@ run = "uv run tools/stats.py data/${STEM:-karman_street_128x64}/streams.h5"
 
 [tasks.format]
 description = "Format all source files in place"
-run = "find bins libs -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i"
+run = "find bins libs -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' | xargs clang-format -i"
 
 [tasks."format:check"]
 description = "Check formatting without modifying files"
-run = "find bins libs -name '*.cpp' -o -name '*.hpp' | xargs clang-format --dry-run --Werror"
+run = "find bins libs -name '*.cpp' -o -name '*.hpp' -o -name '*.cu' | xargs clang-format --dry-run --Werror"
 
 [tasks."ascii-check"]
 description = "Fail if any source file contains non-ASCII characters"
 run = """
-if grep -rn --include='*.cpp' --include='*.hpp' --include='*.toml' --include='*.cmake' --include='*.txt' -P '[\x80-\xFF]' bins libs cmake docs CMakeLists.txt .clang-tidy .clang-format; then
+if LC_ALL=C grep -rn --include='*.cpp' --include='*.hpp' --include='*.toml' --include='*.cmake' --include='*.txt' --include='*.sh' --include='*.py' -P '[\x80-\xFF]' bins libs cmake docs scripts CMakeLists.txt .clang-tidy .clang-format; then
     echo "Non-ASCII characters found."
     exit 1
 fi
@@ -210,12 +185,32 @@ fi
 
 [tasks.lint]
 description = "Run clang-tidy on all source files"
-depends = ["configure"]
+depends = ["build"]
 run = "find bins libs -name '*.cpp' | xargs clang-tidy -p build --config-file=.clang-tidy --warnings-as-errors=*"
 
 [tasks.spell]
 description = "Check for spelling errors"
 run = "uvx codespell bins libs docs tools README.md --skip='build,*.h5'"
+
+[tasks."py:lint"]
+description = "Lint Python tools with ruff"
+run = "uvx ruff check tools/"
+
+[tasks."py:format:check"]
+description = "Check Python formatting with ruff"
+run = "uvx ruff format --check tools/"
+
+[tasks."sh:lint"]
+description = "Lint shell scripts with shellcheck"
+run = "find scripts report -name '*.sh' | xargs shellcheck -x"
+
+[tasks."sh:format"]
+description = "Format shell scripts with shfmt in place"
+run = "find scripts report -name '*.sh' | xargs shfmt -w"
+
+[tasks."sh:format:check"]
+description = "Check shell script formatting with shfmt"
+run = "find scripts report -name '*.sh' | xargs shfmt -d"
 
 [tasks.cppcheck]
 description = "Run cppcheck static analysis"
@@ -227,10 +222,12 @@ cppcheck --enable=all --error-exitcode=1 \
   --suppress=normalCheckLevelMaxBranches \
   "--suppress=unusedStructMember:bins/simulator/src/fieldGenerator.cpp" \
   "--suppress=knownConditionTrueFalse:bins/analyzer/src/main.cpp" \
+  "--suppress=unusedFunction:libs/field/src/grid.hpp" \
   bins/ libs/
 # unusedStructMember: false positive -- RadialComponents members accessed via std::optional::operator->
 # normalCheckLevelMaxBranches: pthreads.cpp two-pass design exceeds branch analysis limit, not an error
 # knownConditionTrueFalse: intentional #ifdef USE_MPI pattern; always 0/1 in non-MPI build
+# unusedFunction grid.hpp: bounds/field/setPrecomputedStreamlines used in .cu files cppcheck does not analyze
 """
 
 [tasks.links]
@@ -248,6 +245,10 @@ lychee --verbose --no-progress --exclude math.nist.gov README.md docs/ tools/ .g
 description = "Build the LaTeX report PDF"
 run = "make -C report"
 
+[tasks."report:open"]
+description = "Open the report PDF in the default viewer"
+run = "xdg-open report/report.pdf"
+
 [tasks."report:clean"]
 description = "Clean LaTeX report build artifacts"
 run = "make -C report clean"
@@ -262,12 +263,17 @@ depends = [
   "format:check",
   "ascii-check",
   "spell",
-  "cppcheck",
   "links",
+  "report:build",
   "test",
+  "test:sanitize",
   "lint",
   "test:coverage",
-  "report:build",
+  "cppcheck",
+  "py:lint",
+  "py:format:check",
+  "sh:lint",
+  "sh:format:check",
 ]
 
 # =============================================================================
@@ -276,20 +282,21 @@ depends = [
 
 [tasks."clean:build"]
 description = "Remove main build directory"
-run = "rm -rf build"
+run = "make clean-build"
 
 [tasks."clean:sanitize"]
 description = "Remove sanitizer build directory"
-run = "rm -rf build-sanitize"
+run = "make clean-sanitize"
 
 [tasks."clean:coverage"]
 description = "Remove coverage build directory and data"
-run = "rm -rf build-coverage coverage.info"
+run = "make clean-coverage"
 
 [tasks."clean:data"]
 description = "Remove simulator output data"
-run = "rm -rf data/ *.h5 *.pkl"
+run = "make clean-data"
 
 [tasks.clean]
 description = "Remove all build artifacts"
-depends = ["clean:build", "clean:sanitize", "clean:coverage", "clean:data", "report:clean"]
+depends = ["report:clean"]
+run = "make clean"
