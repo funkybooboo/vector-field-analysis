@@ -312,6 +312,76 @@ clang-tidy --version               # confirm (need 14.0+)
 
 ---
 
+## Software Module Versions
+
+Live catalog: https://portal.chpc.utah.edu/services/lmod-catalog/
+
+### Compilers
+
+| Software | Notable Versions | Notes |
+|----------|-----------------|-------|
+| GCC | 8.5.0, 9.2.0, 10.2.0, 11.2.0, 13.3.0, 13.4.0, 15.1.0 | 8.5.0 = system default (Rocky Linux 8) |
+| Intel oneAPI | 2021.1.1, 2021.4.0 | Older: 2017–2019 also available |
+| NVIDIA HPC SDK | 21.5 (all clusters), 22.1+ (notchpeak only) | Formerly PGI |
+
+### Python
+
+| Module | Versions |
+|--------|----------|
+| `python` | 3.10.3, 3.11.3, 3.11.7 |
+| `anaconda3` | 2022.05, 2023.03 (+ older) |
+| System `/usr/bin/python3` | 3.6.8 (limited, avoid for jobs) |
+
+CHPC recommends installing your own Miniforge/Miniconda environment.
+
+### CUDA & cuDNN
+
+| Software | Available Versions | Newest |
+|----------|-------------------|--------|
+| CUDA | 6.0 – 13.2.0 (many) | 13.2.0 |
+| cuDNN | 5.1 – 9.2.0.82 | 9.2.0.82 |
+
+Notable recent CUDA: 11.8.0, 12.3.2, 12.6.3, 12.8.0, 12.8.1, 13.1.0, 13.2.0
+
+### MPI
+
+| Software | Notable Versions | Newest |
+|----------|-----------------|--------|
+| OpenMPI | 3.1.6, 4.1.1, 4.1.4, 4.1.6, 5.0.3, 5.0.7, 5.0.8 | 5.0.8 |
+| OpenMPI (GPU-aware) | e.g. `openmpi/4.1.6-gpu` | — |
+| MPICH | 3.2, 3.3.2 | 3.3.2 |
+| Intel MPI | 2019.5, 2021.1.1, 2021.4.0, 2021.6.0 | 2021.6.0 |
+
+### Deep Learning Meta-module
+
+```bash
+module load deeplearning/2025.4    # PyTorch 2.7.0, TF 2.19.0, JAX 0.6.0, CUDA 12.6.3
+module load deeplearning/2024.2.0  # PyTorch 2.3.0, TF 2.16.1, JAX 0.4.28, CUDA 12.3
+module load deeplearning/2023.3    # PyTorch 1.13.1, TF 2.11.0, CUDA 11.8
+```
+
+### Math & Libraries
+
+| Software | Versions | Newest |
+|----------|----------|--------|
+| Intel MKL | 2019.x, 2021.x, 2024.2.2 | 2024.2.2 |
+| OpenBLAS | 0.3.21, 0.3.25, 0.3.28 | 0.3.28 |
+| FFTW | 3.3.6, 3.3.8, 3.3.10, 3.3.10-gpu | 3.3.10 |
+| HDF5 | 1.10.7, 1.12.1, 1.14.3 | 1.14.3 |
+| NetCDF | 4.8.1, 4.9.0 | 4.9.0 |
+| Boost | 1.59.0 – 1.88.0 | 1.88.0 |
+| CMake | 3.11.2 – 3.26.0 | 3.26.0 |
+
+### Other Languages & Runtimes
+
+| Software | Default/Notable Versions |
+|----------|--------------------------|
+| R | 4.1.3 (default) |
+| Java (OpenJDK) | 11.0.5, 11.0.29 |
+| Apptainer | 1.3.x – 1.4.1 |
+
+---
+
 ## Accessing Without SSH
 
 | Method        | URL                                                              |
@@ -336,10 +406,11 @@ clang-tidy --version               # confirm (need 14.0+)
 
 ## Sources
 
-All content fetched live from official CHPC documentation on 2026-03-24.
+Hardware/access content fetched from official CHPC documentation on 2026-03-24. Software module versions researched 2026-04-18.
 
 | Topic                        | URL                                                                          |
 |------------------------------|------------------------------------------------------------------------------|
+| Module catalog (live)        | https://portal.chpc.utah.edu/services/lmod-catalog/                         |
 | SSH access                   | https://www.chpc.utah.edu/documentation/software/ssh.php                    |
 | Getting started              | https://www.chpc.utah.edu/documentation/gettingstarted.php                  |
 | Accounts & eligibility       | https://www.chpc.utah.edu/userservices/accounts.php                         |

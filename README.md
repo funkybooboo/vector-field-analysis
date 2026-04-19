@@ -78,8 +78,8 @@ Individual targets:
 | cmake | latest | Build system |
 | ninja | latest | Build backend |
 | uv | latest | Python package manager (visualize, codespell, gcovr -- tools fetched on demand via `uvx`) |
-| clang-format | 22.1.1 | Code formatter |
-| clang-tidy | 22.1.0 | Static analysis / linter |
+| clang-format | 22.1.3 | Code formatter |
+| clang-tidy | system | Static analysis / linter |
 | lychee | latest | Markdown link checker |
 
 **Installed by `mise run deps`** (system package manager)
@@ -103,7 +103,7 @@ Individual targets:
 ## Code Quality
 
 - **Compiler flags:** `-Wall -Wextra -Wpedantic -Werror` -- warnings are errors
-- **Formatting:** clang-format 22.1.1 (LLVM style, indent 4, column limit 100)
+- **Formatting:** clang-format 22.1.3 (LLVM style, indent 4, column limit 100)
 - **Linting:** clang-tidy with bugprone, modernize, performance, and readability checks; all warnings treated as errors
 
 ## CI

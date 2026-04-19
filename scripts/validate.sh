@@ -142,14 +142,3 @@ _check_cuda_module() {
     return 1
   fi
 }
-
-_check_cuda_path() {
-  if [[ -z "${CUDA_PATH:-}" ]]; then
-    echo "error: CUDA_PATH is not set (e.g. /usr/local/cuda)" >&2
-    return 1
-  fi
-  if [[ ! -d "$CUDA_PATH" ]]; then
-    echo "error: CUDA_PATH=\"$CUDA_PATH\" does not exist or is not a directory" >&2
-    return 1
-  fi
-}

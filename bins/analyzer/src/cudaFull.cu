@@ -1,11 +1,9 @@
 #include "cudaFull.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <cuda_runtime.h>
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace cudaFull {
@@ -232,20 +230,17 @@ Result computeComponents(const Field::Slice& field, const Field::Bounds& bounds,
         cleanup();
 
         // Convert raw roots to dense labels 0..N-1
-        std::unordered_map<int, int> rootToDense;
+        std::vector<int> rootToLabel(static_cast<std::size_t>(total), -1);
         std::vector<int> componentId(static_cast<std::size_t>(total));
 
         int nextLabel = 0;
         for (int idx = 0; idx < total; ++idx) {
             const int root = parent[static_cast<std::size_t>(idx)];
-            const auto it = rootToDense.find(root);
-            if (it == rootToDense.end()) {
-                rootToDense.emplace(root, nextLabel);
-                componentId[static_cast<std::size_t>(idx)] = nextLabel;
-                ++nextLabel;
-            } else {
-                componentId[static_cast<std::size_t>(idx)] = it->second;
+            if (rootToLabel[static_cast<std::size_t>(root)] == -1) {
+                rootToLabel[static_cast<std::size_t>(root)] = nextLabel++;
             }
+            componentId[static_cast<std::size_t>(idx)] =
+                rootToLabel[static_cast<std::size_t>(root)];
         }
 
         Result result;
@@ -328,7 +323,6 @@ std::vector<Field::Path> reconstructPaths(const Result& result) {
         emitted[static_cast<std::size_t>(streamId)] = true;
 
         Field::Path path;
-        path.reserve(paths[static_cast<std::size_t>(streamId)].size());
         for (const int point : paths[static_cast<std::size_t>(streamId)]) {
             path.push_back(toGridCell(point, result.cols));
         }

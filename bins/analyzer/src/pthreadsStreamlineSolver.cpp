@@ -1,7 +1,5 @@
 #include "pthreadsStreamlineSolver.hpp"
 
-#include "sequentialStreamlineSolver.hpp"
-
 #include <stdexcept>
 #include <utility>
 
@@ -15,104 +13,56 @@ std::pair<std::size_t, std::size_t> calculateRowSplit(std::size_t rowCount,
     return {rowCount / partitionCount, rowCount % partitionCount};
 }
 
+// Pass 1 worker: reads neighbor directions for an assigned row range.
+void* computeNeighbors(void* arg) {
+    auto* task = static_cast<PthreadsStreamlineSolver::ThreadArgs*>(arg);
+    for (std::size_t row = task->startRow; row < task->endRow; row++) {
+        for (int col = 0; col < task->colCount; col++) {
+            task->neighbors[(row * static_cast<std::size_t>(task->colCount)) +
+                            static_cast<std::size_t>(col)] =
+                task->grid->downstreamCell(static_cast<int>(row), col);
+        }
+    }
+    return nullptr;
+}
+
+// Pass 2a worker: performs lock-free DSU union for an assigned cell range.
+void* uniteNeighbors(void* arg) {
+    auto* task = static_cast<PthreadsStreamlineSolver::ThreadArgs*>(arg);
+    const std::size_t start = task->startRow;
+    const std::size_t end = task->endRow;
+    for (std::size_t i = start; i < end; ++i) {
+        task->grid->unite(
+            i, task->grid->coordsToIndex(task->neighbors[i].row, task->neighbors[i].col));
+    }
+    return nullptr;
+}
+
 } // namespace
 
-// Worker thread: sleeps until a new generation of work is dispatched, processes
-// its assigned row range, then decrements the pending counter.
-void* PthreadsStreamlineSolver::workerLoop(void* arg) {
-    auto* ctx = static_cast<ThreadCtx*>(arg);
-    PthreadsStreamlineSolver* self = ctx->solver;
-    const unsigned int idx = ctx->index;
-    delete ctx;
-
-    unsigned int lastGen = 0;
-
-    pthread_mutex_lock(&self->mutex_);
-    while (true) {
-        while (self->workGeneration_ == lastGen && !self->shutdown_) {
-            pthread_cond_wait(&self->workReady_, &self->mutex_);
-        }
-        if (self->shutdown_) {
-            pthread_mutex_unlock(&self->mutex_);
-            return nullptr;
-        }
-        lastGen = self->workGeneration_;
-        const WorkItem item = self->work_[idx];
-        pthread_mutex_unlock(&self->mutex_);
-
-        for (std::size_t row = item.startRow; row < item.endRow; ++row) {
-            for (int col = 0; col < item.colCount; ++col) {
-                item.neighbors[(row * static_cast<std::size_t>(item.colCount)) +
-                               static_cast<std::size_t>(col)] =
-                    item.grid->downstreamCell(static_cast<int>(row), col);
-            }
-        }
-
-        pthread_mutex_lock(&self->mutex_);
-        if (--self->pendingCount_ == 0) {
-            pthread_cond_signal(&self->workDone_);
-        }
-        // remain locked for the next loop iteration
-    }
-}
-
 PthreadsStreamlineSolver::PthreadsStreamlineSolver(unsigned int threadCount)
-    : threadCount_(threadCount) {
-    pthread_mutex_init(&mutex_, nullptr);
-    pthread_cond_init(&workReady_, nullptr);
-    pthread_cond_init(&workDone_, nullptr);
+    : threadCount_(threadCount) {}
 
-    if (threadCount_ == 0) {
-        return;
-    }
-
-    pool_.resize(threadCount_);
-    work_.resize(threadCount_);
-
-    for (unsigned int i = 0; i < threadCount_; ++i) {
-        auto* ctx = new ThreadCtx{this, i};
-        const int err = pthread_create(&pool_[i], nullptr, workerLoop, ctx);
+void PthreadsStreamlineSolver::launchPass(std::vector<pthread_t>& threads,
+                                          std::vector<ThreadArgs>& args, void* (*worker)(void*),
+                                          const char* errorMsg) {
+    const auto n = static_cast<unsigned int>(threads.size());
+    for (unsigned int i = 0; i < n; ++i) {
+        const int err = pthread_create(&threads[i], nullptr, worker, &args[i]);
         if (err != 0) {
-            // Signal shutdown and join already-created threads before throwing.
-            delete ctx;
-            pthread_mutex_lock(&mutex_);
-            shutdown_ = true;
-            pthread_cond_broadcast(&workReady_);
-            pthread_mutex_unlock(&mutex_);
             for (unsigned int j = 0; j < i; ++j) {
-                pthread_join(pool_[j], nullptr);
+                pthread_join(threads[j], nullptr);
             }
-            pthread_mutex_destroy(&mutex_);
-            pthread_cond_destroy(&workReady_);
-            pthread_cond_destroy(&workDone_);
-            throw std::runtime_error("pthread_create failed with error code " +
-                                     std::to_string(err));
+            throw std::runtime_error(std::string(errorMsg) + std::to_string(err));
         }
     }
-}
-
-PthreadsStreamlineSolver::~PthreadsStreamlineSolver() {
-    pthread_mutex_lock(&mutex_);
-    shutdown_ = true;
-    pthread_cond_broadcast(&workReady_);
-    pthread_mutex_unlock(&mutex_);
-
-    for (auto& t : pool_) {
-        pthread_join(t, nullptr);
+    for (unsigned int i = 0; i < n; ++i) {
+        pthread_join(threads[i], nullptr);
     }
-
-    pthread_mutex_destroy(&mutex_);
-    pthread_cond_destroy(&workReady_);
-    pthread_cond_destroy(&workDone_);
 }
 
 void PthreadsStreamlineSolver::computeTimeStep(Field::Grid& grid) {
-    if (threadCount_ == 0) {
-        SequentialStreamlineSolver fallback;
-        fallback.computeTimeStep(grid);
-        return;
-    }
-
+    const unsigned int effectiveThreads = threadCount_ == 0 ? 1 : threadCount_;
     const std::size_t rowCount = grid.rows();
     if (rowCount == 0) {
         return;
@@ -122,31 +72,35 @@ void PthreadsStreamlineSolver::computeTimeStep(Field::Grid& grid) {
         return;
     }
 
+    std::vector<Field::GridCell> neighbors(rowCount * static_cast<std::size_t>(colCount));
+    std::vector<pthread_t> threads(effectiveThreads);
+    std::vector<ThreadArgs> threadArgs(effectiveThreads);
+
+    const auto [rowsPerThread, remainderRows] = calculateRowSplit(rowCount, effectiveThreads);
+
     // Pass 1: parallel -- compute all (src, dest) neighbor pairs.
-    neighbors_.resize(rowCount * static_cast<std::size_t>(colCount));
-
-    auto [rowsPerThread, remainderRows] = calculateRowSplit(rowCount, threadCount_);
-
     std::size_t currentRow = 0;
-    for (unsigned int i = 0; i < threadCount_; ++i) {
-        work_[i].grid = &grid;
-        work_[i].neighbors = neighbors_.data();
-        work_[i].colCount = colCount;
-        work_[i].startRow = currentRow;
-        work_[i].endRow = currentRow + rowsPerThread + (i == threadCount_ - 1 ? remainderRows : 0);
+    for (unsigned int i = 0; i < effectiveThreads; ++i) {
+        threadArgs[i] = {&grid, neighbors.data(), colCount, currentRow,
+                         currentRow + rowsPerThread +
+                             (i == effectiveThreads - 1 ? remainderRows : 0)};
         currentRow += rowsPerThread;
     }
+    launchPass(threads, threadArgs, computeNeighbors, "pthread_create failed: ");
 
-    // Pass 1: dispatch neighbor computation to pool and wait.
-    pthread_mutex_lock(&mutex_);
-    pendingCount_ = threadCount_;
-    ++workGeneration_;
-    pthread_cond_broadcast(&workReady_);
-    while (pendingCount_ > 0) {
-        pthread_cond_wait(&workDone_, &mutex_);
+    // Pass 2a: parallel DSU unite using lock-free atomics.
+    const std::size_t totalCells = rowCount * static_cast<std::size_t>(colCount);
+    const std::size_t cellsPerThread = totalCells / effectiveThreads;
+    const std::size_t remainderCells = totalCells % effectiveThreads;
+
+    std::size_t currentCell = 0;
+    for (unsigned int i = 0; i < effectiveThreads; ++i) {
+        threadArgs[i] = {&grid, neighbors.data(), colCount, currentCell,
+                         currentCell + cellsPerThread +
+                             (i == effectiveThreads - 1 ? remainderCells : 0)};
+        currentCell = threadArgs[i].endRow;
     }
-    pthread_mutex_unlock(&mutex_);
-
-    // Pass 2: sequential -- apply streamline merges using the precomputed pairs.
-    applyNeighborPairs(grid, neighbors_, static_cast<int>(rowCount), colCount);
+    launchPass(threads, threadArgs, uniteNeighbors, "pthread_create (Pass 2a) failed: ");
+    // Pass 2b: sequential path reconstruction.
+    grid.setPrecomputedStreamlines(reconstructPathsDSU(grid, neighbors));
 }

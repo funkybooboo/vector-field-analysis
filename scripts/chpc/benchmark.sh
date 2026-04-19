@@ -24,6 +24,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$SCRIPT_DIR/../validate.sh"
+[[ -f "$PROJECT_DIR/.env" ]] && source "$PROJECT_DIR/.env"
 
 validate_or_die _check_account _check_partition _check_time _check_ntasks _check_cuda_module \
   _check_job_name _check_job_bin _check_job_input _check_job_output

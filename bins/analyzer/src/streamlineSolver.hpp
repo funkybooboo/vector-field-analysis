@@ -31,4 +31,9 @@ class StreamlineSolver {
             }
         }
     }
+
+    // Parallel Pass 2 using lock-free DSU (built into Field::Grid).
+    // This is the sequential reconstruction part that follows the parallel unite() calls.
+    static std::vector<Field::Path>
+    reconstructPathsDSU(const Field::Grid& grid, const std::vector<Field::GridCell>& neighbors);
 };

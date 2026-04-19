@@ -4,14 +4,15 @@
 # Configure via .env at the project root.
 #
 # Examples:
-#   ./scripts/chpc/enqueue.sh
-#   CHPC_GPU=v100:1 CUDA_ARCH=sm_70 CUDA_MODULE=cuda/11.6.2 ./scripts/chpc/enqueue.sh
+#   ./scripts/chpc/submit.sh
+#   CHPC_GPU=v100:1 CUDA_ARCH=sm_70 CUDA_MODULE=cuda/11.6.2 ./scripts/chpc/submit.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$SCRIPT_DIR/../validate.sh"
+[[ -f "$PROJECT_DIR/.env" ]] && source "$PROJECT_DIR/.env"
 
 validate_or_die \
   _check_account _check_partition _check_gpu _check_time _check_ntasks \

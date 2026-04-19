@@ -8,6 +8,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$SCRIPT_DIR/../validate.sh"
+[[ -f "$PROJECT_DIR/.env" ]] && source "$PROJECT_DIR/.env"
 
 validate_or_die _check_user _check_host _check_project
 

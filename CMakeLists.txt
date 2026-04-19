@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.18)
 
 project(vector_field_analysis
     VERSION 0.1.0
@@ -20,6 +20,7 @@ list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 enable_testing()
 include(CTest)
 include(Catch)
+set(CMAKE_CATCH_DISCOVER_TESTS_DISCOVERY_MODE PRE_TEST)
 
 add_subdirectory(libs/field)
 add_subdirectory(libs/utils)

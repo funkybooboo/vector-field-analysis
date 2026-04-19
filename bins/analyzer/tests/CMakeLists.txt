@@ -8,7 +8,7 @@ add_executable(analyzer_tests
 target_include_directories(analyzer_tests PRIVATE ${CMAKE_SOURCE_DIR}/bins/tests)
 target_link_libraries(analyzer_tests PRIVATE analyzer_lib Catch2::Catch2WithMain)
 
-catch_discover_tests(analyzer_tests)
+catch_discover_tests(analyzer_tests PROPERTIES SKIP_RETURN_CODE 4)
 
 if(ENABLE_CUDA)
     target_compile_definitions(analyzer_tests PRIVATE ENABLE_CUDA_SOLVER=1)

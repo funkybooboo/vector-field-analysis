@@ -9,28 +9,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$SCRIPT_DIR/../validate.sh"
+[[ -f "$PROJECT_DIR/.env" ]] && source "$PROJECT_DIR/.env"
 
 # C++ sources: formatted + linted
-CPP_SOURCES=(
-  "$PROJECT_DIR/bins/analyzer/src/main.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/configParser.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/mpiStreamlineSolver.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/openMpStreamlineSolver.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/pthreadsStreamlineSolver.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/sequentialStreamlineSolver.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/solverFactory.cpp"
-  "$PROJECT_DIR/bins/analyzer/src/streamWriter.cpp"
-  "$PROJECT_DIR/bins/simulator/src/main.cpp"
-  "$PROJECT_DIR/bins/simulator/src/configParser.cpp"
-  "$PROJECT_DIR/bins/simulator/src/fieldGenerator.cpp"
-)
+mapfile -t CPP_SOURCES < <(find "$PROJECT_DIR/bins" -path "*/src/*.cpp" | sort)
 
 # CUDA sources: formatted only (clang-tidy does not handle .cu without extra setup)
-CUDA_SOURCES=(
-  "$PROJECT_DIR/bins/analyzer/src/cudaFull.cu"
-  "$PROJECT_DIR/bins/analyzer/src/cudaFullStreamlineSolver.cu"
-  "$PROJECT_DIR/bins/analyzer/src/cudaStreamlineSolver.cu"
-)
+mapfile -t CUDA_SOURCES < <(find "$PROJECT_DIR/bins" -path "*/src/*.cu" | sort)
 
 cd "$PROJECT_DIR"
 

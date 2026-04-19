@@ -51,6 +51,7 @@ build-sanitize/
 # Generated output
 data/
 *.h5
+coverage/
 
 
 # IDE / tooling
@@ -63,3 +64,4 @@ logs/
 output/
 .idea/
 .idea/
+/build-cuda

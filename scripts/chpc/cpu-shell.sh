@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# Request an interactive GPU session via srun and drop into a shell.
+# Request an interactive CPU session via srun and drop into a shell.
 # Run on the CHPC login node.
 # Configure via .env at the project root.
 #
 # Examples:
-#   ./scripts/chpc/gpu-shell.sh
-#   CHPC_GPU=v100:1 ./scripts/chpc/gpu-shell.sh
-#   CHPC_TIME=2:00:00 ./scripts/chpc/gpu-shell.sh
-#   CHPC_PARTITION=notchpeak-shared-short CHPC_ACCOUNT=none ./scripts/chpc/gpu-shell.sh
+#   ./scripts/chpc/cpu-shell.sh
+#   CHPC_TIME=2:00:00 ./scripts/chpc/cpu-shell.sh
+#   CHPC_PARTITION=notchpeak-shared-short CHPC_ACCOUNT=none ./scripts/chpc/cpu-shell.sh
 
 set -euo pipefail
 
@@ -16,7 +15,7 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$SCRIPT_DIR/../validate.sh"
 [[ -f "$PROJECT_DIR/.env" ]] && source "$PROJECT_DIR/.env"
 
-validate_or_die _check_account _check_partition _check_gpu _check_time _check_ntasks
+validate_or_die _check_account _check_partition _check_time _check_ntasks
 
 account_flag=()
 if [[ "$CHPC_ACCOUNT" != "none" ]]; then
@@ -26,7 +25,6 @@ fi
 srun \
   --partition="$CHPC_PARTITION" \
   "${account_flag[@]}" \
-  --gres="gpu:$CHPC_GPU" \
   --time="$CHPC_TIME" \
   --ntasks="$CHPC_NTASKS" \
   --pty bash

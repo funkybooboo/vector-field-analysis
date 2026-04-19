@@ -2,9 +2,13 @@ include(FetchContent)
 
 # -- System dependencies -------------------------------------------------------
 # Install with: mise run deps
+# Tested versions (Ubuntu 22.04):
+#   libhdf5-dev       1.10.7+repack-4ubuntu2
+#   libopenmpi-dev    4.1.2-2ubuntu1
+#   nvidia-cuda-toolkit 11.5.1-1ubuntu1
 
 # HDF5 -> binary data format
-find_package(HDF5 REQUIRED COMPONENTS C CXX)
+find_package(HDF5 1.10 REQUIRED COMPONENTS C CXX)
 
 # -- FetchContent dependencies -------------------------------------------------
 
@@ -54,11 +58,11 @@ add_library(exprtk INTERFACE)
 target_include_directories(exprtk INTERFACE ${exprtk_SOURCE_DIR})
 
 # stb_perlin -> Perlin noise for noise field type
+# stb has no release tags; pinned to a specific commit instead.
 FetchContent_Declare(
     stb_perlin
     GIT_REPOSITORY https://github.com/nothings/stb.git
-    GIT_TAG        master
-    GIT_SHALLOW    TRUE
+    GIT_TAG        31c1ad37456438565541f4919958214b6e762fb4
 )
 FetchContent_MakeAvailable(stb_perlin)
 add_library(stb_perlin INTERFACE)

@@ -128,6 +128,34 @@ TEST_CASE("solver handles single-column grid without crash", "[grid]") {
 }
 
 // ---------------------------------------------------------------------------
+// joinStreamlines
+// ---------------------------------------------------------------------------
+
+TEST_CASE("joinStreamlines merges end path into start", "[grid]") {
+    auto start = std::make_shared<Field::Streamline>(Field::GridCell{0, 0});
+    auto end = std::make_shared<Field::Streamline>(Field::GridCell{1, 0});
+    end->appendPoint({2, 0});
+
+    Field::Grid::joinStreamlines(start, end);
+
+    REQUIRE(start->getPath().size() == 3);
+    REQUIRE(*std::next(start->getPath().begin(), 1) == (Field::GridCell{1, 0}));
+    REQUIRE(*std::next(start->getPath().begin(), 2) == (Field::GridCell{2, 0}));
+}
+
+TEST_CASE("joinStreamlines with null start is a no-op", "[grid]") {
+    auto end = std::make_shared<Field::Streamline>(Field::GridCell{0, 0});
+    REQUIRE_NOTHROW(Field::Grid::joinStreamlines(nullptr, end));
+}
+
+TEST_CASE("joinStreamlines on equal pointers is a no-op", "[grid]") {
+    auto sl = std::make_shared<Field::Streamline>(Field::GridCell{0, 0});
+    const std::size_t sizeBefore = sl->getPath().size();
+    Field::Grid::joinStreamlines(sl, sl);
+    REQUIRE(sl->getPath().size() == sizeBefore);
+}
+
+// ---------------------------------------------------------------------------
 // traceStreamlineStep multi-step
 // ---------------------------------------------------------------------------
 
@@ -168,8 +196,8 @@ TEST_CASE("getStreamlines deduplicates cells sharing a streamline", "[grid][stre
     const auto lines = grid.getStreamlines();
     REQUIRE(lines.size() == 1);
     REQUIRE(lines[0].size() == 2);
-    REQUIRE(lines[0][0] == (Field::GridCell{0, 0}));
-    REQUIRE(lines[0][1] == (Field::GridCell{0, 1}));
+    REQUIRE(*lines[0].begin() == (Field::GridCell{0, 0}));
+    REQUIRE(*std::next(lines[0].begin()) == (Field::GridCell{0, 1}));
 }
 
 TEST_CASE("getStreamlines returns 3 streamlines after uniform right-pointing field trace",
@@ -202,9 +230,9 @@ TEST_CASE("getStreamlines path contents match expected for uniform right-pointin
 // downstreamCell and traceStreamlineStep error paths
 // ---------------------------------------------------------------------------
 
-TEST_CASE("downstreamCell throws on empty grid", "[grid]") {
-    Field::Grid grid(Field::Bounds{0.0f, 2.0f, 0.0f, 2.0f}, Field::Slice{});
-    REQUIRE_THROWS_AS(grid.downstreamCell(0, 0), std::runtime_error);
+TEST_CASE("Grid constructor throws on empty grid", "[grid]") {
+    REQUIRE_THROWS_AS(Field::Grid(Field::Bounds{0.0f, 2.0f, 0.0f, 2.0f}, Field::Slice{}),
+                      std::runtime_error);
 }
 
 TEST_CASE("traceStreamlineStep throws when src row is out of bounds", "[grid]") {

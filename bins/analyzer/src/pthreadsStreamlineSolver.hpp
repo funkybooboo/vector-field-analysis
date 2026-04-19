@@ -2,19 +2,16 @@
 #include "fieldTypes.hpp"
 #include "streamlineSolver.hpp"
 
-#include <cstdint>
 #include <pthread.h>
 #include <vector>
 
 class PthreadsStreamlineSolver : public StreamlineSolver {
   public:
     explicit PthreadsStreamlineSolver(unsigned int threadCount);
-    ~PthreadsStreamlineSolver() override;
 
     void computeTimeStep(Field::Grid& grid) override;
 
-  private:
-    struct WorkItem {
+    struct ThreadArgs {
         Field::Grid* grid = nullptr;
         Field::GridCell* neighbors = nullptr;
         int colCount = 0;
@@ -22,24 +19,9 @@ class PthreadsStreamlineSolver : public StreamlineSolver {
         std::size_t endRow = 0;
     };
 
-    struct ThreadCtx {
-        PthreadsStreamlineSolver* solver;
-        unsigned int index;
-    };
-
-    static void* workerLoop(void* arg);
+  private:
+    static void launchPass(std::vector<pthread_t>& threads, std::vector<ThreadArgs>& args,
+                           void* (*worker)(void*), const char* errorMsg);
 
     unsigned int threadCount_;
-    std::vector<Field::GridCell> neighbors_;
-
-    std::vector<pthread_t> pool_;
-    std::vector<WorkItem> work_;
-
-    pthread_mutex_t mutex_;
-    pthread_cond_t workReady_;
-    pthread_cond_t workDone_;
-
-    unsigned int workGeneration_ = 0;
-    unsigned int pendingCount_ = 0;
-    bool shutdown_ = false;
 };
