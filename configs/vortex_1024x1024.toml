@@ -18,9 +18,9 @@ ymax = 1.0
 [[layers]]
 type = "vortex"
 strength = 1.0
-magnitude = 1.0 # vector length scale; 1.0 = unit length (default)
+magnitude = 0.005 # vector length scale; 1.0 = unit length (default)
 
 [analyzer]
 solver = "benchmark"
 benchmark_threads = [2, 4, 8]
-benchmark_cuda_block_sizes = [64, 128, 256, 512]
+benchmark_cuda_block_sizes = [128, 256, 512]

@@ -89,26 +89,31 @@ for stem in "${STEMS[@]}"; do
 		continue
 	fi
 
-	# Analyzer (benchmark -- all variants in one call)
+	# Analyzer (benchmark -- all variants in one call, once per MPI rank count)
 	printf "    analyzer   benchmarking...\n"
 	ANA_STATUS[$stem]="OK"
 	tmp_dir="$(mktemp -d)"
 	tmp_toml="$tmp_dir/${stem}.toml"
 	sed '/^\[analyzer\]/,$d' "$config" >"$tmp_toml"
 	printf '\n[analyzer]\nsolver = "benchmark"\noutput = "%s"\n' "$out/streams.h5" >>"$tmp_toml"
-	if "$ANALYZER" "$tmp_toml" \
-		> >(tee "$out/analyzer_stdout.txt") \
-		2> >(tee "$out/analyzer_stderr.txt" >&2); then
-		printf "    analyzer   OK\n"
-	else
+	ana_failed=0
+	for mpi_ranks in 2 4; do
+		if ! mpirun -n "$mpi_ranks" "$ANALYZER" "$tmp_toml" \
+			>> >(tee -a "$out/analyzer_stdout.txt") \
+			2>> >(tee -a "$out/analyzer_stderr.txt" >&2); then
+			ana_failed=1
+			break
+		fi
+	done
+	rm -rf "$tmp_dir"
+	if [[ $ana_failed -eq 1 ]]; then
 		ANA_STATUS[$stem]="FAIL"
 		printf "    analyzer   FAIL\n"
-		rm -rf "$tmp_dir"
 		STATS_STATUS[$stem]="SKIP"
 		VIS_STATUS[$stem]="SKIP"
 		continue
 	fi
-	rm -rf "$tmp_dir"
+	printf "    analyzer   OK\n"
 
 	# Stats
 	if uv run "$STATS" "$out/field.h5" "$out/streams.h5" \

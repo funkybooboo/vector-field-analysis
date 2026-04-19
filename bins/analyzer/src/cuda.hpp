@@ -17,13 +17,11 @@ struct Result {
     std::vector<int> componentId;
 };
 
-// Computes streamline connectivity on the GPU.
-
-// does NOT build Field::Grid streamlines directly
-// Instead, it returns a GPU-native graph representation that can later be
-// reconstructed into Field::Path objects
-Result computeComponents(const std::vector<Vector::Vec2>& field, int rows, int cols,
-                         const Field::Bounds& bounds, unsigned int blockSize = 256);
+// Runs the union-find on the GPU over a pre-computed CPU successor array.
+// Caller must supply successor[i] = downstream cell index for cell i,
+// computed via Grid::downstreamCell so it matches the sequential reference.
+Result computeComponents(const std::vector<int>& successor, int rows, int cols,
+                         unsigned int blockSize = 256);
 
 // Reconstructs deterministic host-side paths from the GPU-native result
 std::vector<Field::Path> reconstructPaths(const Result& result);
