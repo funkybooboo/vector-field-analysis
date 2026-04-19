@@ -25,9 +25,8 @@ StreamlineSolver::reconstructPathsDSU(const Field::Grid& grid,
     // 2. Sort indices by root to group members of the same component.
     std::vector<std::size_t> indices(total);
     std::iota(indices.begin(), indices.end(), 0);
-    std::sort(indices.begin(), indices.end(), [&](std::size_t a, std::size_t b) {
-        return roots[a] < roots[b];
-    });
+    std::sort(indices.begin(), indices.end(),
+              [&](std::size_t a, std::size_t b) { return roots[a] < roots[b]; });
 
     // 3. Create paths from contiguous segments of the same root.
     std::vector<Field::Path> output;

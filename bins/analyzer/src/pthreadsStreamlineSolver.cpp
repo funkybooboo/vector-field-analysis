@@ -1,10 +1,10 @@
 #include "pthreadsStreamlineSolver.hpp"
 
-#include <pthread.h>
 #include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <numeric>
+#include <pthread.h>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -33,8 +33,11 @@ void* workerFunc(void* arg) {
     {
         const std::size_t rowsPerThread = rowCount / task->threadCount;
         const std::size_t remainderRows = rowCount % task->threadCount;
-        const std::size_t startRow = task->threadIndex * rowsPerThread + std::min(static_cast<std::size_t>(task->threadIndex), remainderRows);
-        const std::size_t endRow = startRow + rowsPerThread + (task->threadIndex < remainderRows ? 1 : 0);
+        const std::size_t startRow =
+            task->threadIndex * rowsPerThread +
+            std::min(static_cast<std::size_t>(task->threadIndex), remainderRows);
+        const std::size_t endRow =
+            startRow + rowsPerThread + (task->threadIndex < remainderRows ? 1 : 0);
 
         for (std::size_t row = startRow; row < endRow; row++) {
             for (int col = 0; col < colCount; col++) {
@@ -52,8 +55,11 @@ void* workerFunc(void* arg) {
     {
         const std::size_t cellsPerThread = totalCells / task->threadCount;
         const std::size_t remainderCells = totalCells % task->threadCount;
-        const std::size_t startCell = task->threadIndex * cellsPerThread + std::min(static_cast<std::size_t>(task->threadIndex), remainderCells);
-        const std::size_t endCell = startCell + cellsPerThread + (task->threadIndex < remainderCells ? 1 : 0);
+        const std::size_t startCell =
+            task->threadIndex * cellsPerThread +
+            std::min(static_cast<std::size_t>(task->threadIndex), remainderCells);
+        const std::size_t endCell =
+            startCell + cellsPerThread + (task->threadIndex < remainderCells ? 1 : 0);
 
         for (std::size_t i = startCell; i < endCell; ++i) {
             const std::size_t srcIndex = i;
@@ -70,8 +76,11 @@ void* workerFunc(void* arg) {
     {
         const std::size_t cellsPerThread = totalCells / task->threadCount;
         const std::size_t remainderCells = totalCells % task->threadCount;
-        const std::size_t startCell = task->threadIndex * cellsPerThread + std::min(static_cast<std::size_t>(task->threadIndex), remainderCells);
-        const std::size_t endCell = startCell + cellsPerThread + (task->threadIndex < remainderCells ? 1 : 0);
+        const std::size_t startCell =
+            task->threadIndex * cellsPerThread +
+            std::min(static_cast<std::size_t>(task->threadIndex), remainderCells);
+        const std::size_t endCell =
+            startCell + cellsPerThread + (task->threadIndex < remainderCells ? 1 : 0);
 
         for (std::size_t i = startCell; i < endCell; ++i) {
             task->roots[i] = task->grid->findRoot(i);
@@ -85,9 +94,8 @@ void* workerFunc(void* arg) {
     // (A parallel sort would be better, but std::sort is O(N log N) and already fast).
     if (task->threadIndex == 0) {
         std::iota(task->indices, task->indices + totalCells, 0);
-        std::sort(task->indices, task->indices + totalCells, [&](std::size_t a, std::size_t b) {
-            return task->roots[a] < task->roots[b];
-        });
+        std::sort(task->indices, task->indices + totalCells,
+                  [&](std::size_t a, std::size_t b) { return task->roots[a] < task->roots[b]; });
     }
 
     // Barrier 4: wait for sorting to complete.
@@ -98,23 +106,28 @@ void* workerFunc(void* arg) {
         // Each thread identifies segments within its range of the sorted indices.
         const std::size_t segmentsPerThread = totalCells / task->threadCount;
         const std::size_t remainderSegments = totalCells % task->threadCount;
-        const std::size_t startIdx = task->threadIndex * segmentsPerThread + std::min(static_cast<std::size_t>(task->threadIndex), remainderSegments);
-        const std::size_t endIdx = startIdx + segmentsPerThread + (task->threadIndex < remainderSegments ? 1 : 0);
+        const std::size_t startIdx =
+            task->threadIndex * segmentsPerThread +
+            std::min(static_cast<std::size_t>(task->threadIndex), remainderSegments);
+        const std::size_t endIdx =
+            startIdx + segmentsPerThread + (task->threadIndex < remainderSegments ? 1 : 0);
 
         if (startIdx < endIdx) {
             std::size_t currentStart = startIdx;
-            
-            // Adjust currentStart so we don't start in the middle of a segment 
+
+            // Adjust currentStart so we don't start in the middle of a segment
             // owned by the previous thread, unless we are the first thread.
             if (task->threadIndex > 0) {
-                while (currentStart < endIdx && task->roots[task->indices[currentStart]] == task->roots[task->indices[currentStart - 1]]) {
+                while (currentStart < endIdx && task->roots[task->indices[currentStart]] ==
+                                                    task->roots[task->indices[currentStart - 1]]) {
                     currentStart++;
                 }
             }
 
             while (currentStart < endIdx) {
                 std::size_t segmentEnd = currentStart + 1;
-                while (segmentEnd < totalCells && task->roots[task->indices[segmentEnd]] == task->roots[task->indices[currentStart]]) {
+                while (segmentEnd < totalCells && task->roots[task->indices[segmentEnd]] ==
+                                                      task->roots[task->indices[currentStart]]) {
                     segmentEnd++;
                 }
 
@@ -122,7 +135,8 @@ void* workerFunc(void* arg) {
                 Field::Path path;
                 for (std::size_t j = currentStart; j < segmentEnd; ++j) {
                     std::size_t idx = task->indices[j];
-                    path.push_back({static_cast<int>(idx / colCount), static_cast<int>(idx % colCount)});
+                    path.push_back(
+                        {static_cast<int>(idx / colCount), static_cast<int>(idx % colCount)});
                 }
                 task->localPaths->push_back(std::move(path));
 
@@ -140,10 +154,12 @@ PthreadsStreamlineSolver::PthreadsStreamlineSolver(unsigned int threadCount)
     : threadCount_(threadCount) {}
 
 void PthreadsStreamlineSolver::computeTimeStep(Field::Grid& grid) {
-    if (threadCount_ == 0) return;
+    if (threadCount_ == 0)
+        return;
 
     const std::size_t rowCount = grid.rows();
-    if (rowCount == 0) return;
+    if (rowCount == 0)
+        return;
     const int colCount = static_cast<int>(grid.cols());
     const std::size_t totalCells = rowCount * static_cast<std::size_t>(colCount);
 
@@ -160,7 +176,8 @@ void PthreadsStreamlineSolver::computeTimeStep(Field::Grid& grid) {
     }
 
     for (unsigned int i = 0; i < threadCount_; i++) {
-        threadArgs[i] = {&grid, neighbors.data(), roots.data(), indices.data(), colCount, i, threadCount_, &barrier, &localPathsCollection[i]};
+        threadArgs[i] = {&grid, neighbors.data(), roots.data(), indices.data(),          colCount,
+                         i,     threadCount_,     &barrier,     &localPathsCollection[i]};
         if (pthread_create(&threads[i], nullptr, workerFunc, &threadArgs[i]) != 0) {
             // Clean up already created threads
             for (unsigned int j = 0; j < i; j++) {
@@ -181,8 +198,8 @@ void PthreadsStreamlineSolver::computeTimeStep(Field::Grid& grid) {
     // Final merge of paths from all threads.
     std::vector<Field::Path> finalPaths;
     for (auto& local : localPathsCollection) {
-        finalPaths.insert(finalPaths.end(), std::make_move_iterator(local.begin()), std::make_move_iterator(local.end()));
+        finalPaths.insert(finalPaths.end(), std::make_move_iterator(local.begin()),
+                          std::make_move_iterator(local.end()));
     }
     grid.setPrecomputedStreamlines(std::move(finalPaths));
 }
-
