@@ -30,6 +30,8 @@ echo "=== simulator ==="
 echo ""
 echo "=== analyzer ==="
 
+_seq_ms=""
+
 run_variant() {
 	local solver=$1 workers=$2
 	local variant_name="${solver}_${workers}"
@@ -54,7 +56,16 @@ run_variant() {
 	if [[ $status -eq 0 ]]; then
 		local ms
 		ms=$(grep -oE '[0-9.]+ ms' "$log_file" | tail -1 | awk '{print $1}')
-		printf "  %-20s %10s ms\n" "$variant_name" "$ms"
+		if [[ "$solver" == "sequential" ]]; then
+			_seq_ms="$ms"
+			printf "  %-20s %10s ms\n" "$variant_name" "$ms"
+		elif [[ -n "$_seq_ms" && -n "$ms" ]]; then
+			local ratio
+			ratio=$(awk "BEGIN {if ($ms > 0) printf \"%.2f\", $_seq_ms / $ms; else print \"?\"}")
+			printf "  %-20s %10s ms  (${ratio}x vs sequential)\n" "$variant_name" "$ms"
+		else
+			printf "  %-20s %10s ms\n" "$variant_name" "$ms"
+		fi
 		ln -sf "$(basename "$streams_out")" "$out/streams.h5"
 		return 0
 	else
