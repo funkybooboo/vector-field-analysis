@@ -99,7 +99,7 @@ for stem in "${STEMS[@]}"; do
 		--job-name="${JOB_NAME}_${stem}" \
 		--output="$LOG_DIR/$stem/stdout.log" \
 		--error="$LOG_DIR/$stem/stderr.log" \
-		--export="STEM=$stem,PROJECT_DIR=$PROJECT_DIR,OPENMPI_MODULE=$OPENMPI_MODULE,HDF5_MODULE=$HDF5_MODULE,CUDA_MODULE=$CUDA_MODULE" \
+		--export="STEM=$stem,PROJECT_DIR=$PROJECT_DIR,OPENMPI_MODULE=$OPENMPI_MODULE,HDF5_MODULE=$HDF5_MODULE,CUDA_MODULE=$CUDA_MODULE,CUDA_BLOCK_SIZE=${CUDA_BLOCK_SIZE:-256}" \
 		"$SCRIPT_DIR/pipeline-job.sh" |
 		awk '{print $NF}')
 

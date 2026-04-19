@@ -2,11 +2,12 @@
 # SLURM batch worker -- submitted by pipeline.sh, do not run directly.
 # Runs simulator -> analyzer for one config stem.
 # Expects these env vars (set via sbatch --export):
-#   STEM           - config stem (e.g. vortex_256x256)
-#   PROJECT_DIR    - absolute path to the project root
-#   CUDA_MODULE    - CUDA module to load (e.g. cuda/11.6.2)
-#   OPENMPI_MODULE - OpenMPI module to load (e.g. openmpi/5.0.8)
-#   HDF5_MODULE    - HDF5 module to load (e.g. hdf5/1.14.6)
+#   STEM             - config stem (e.g. vortex_256x256)
+#   PROJECT_DIR      - absolute path to the project root
+#   CUDA_MODULE      - CUDA module to load (e.g. cuda/11.6.2)
+#   OPENMPI_MODULE   - OpenMPI module to load (e.g. openmpi/5.0.8)
+#   HDF5_MODULE      - HDF5 module to load (e.g. hdf5/1.14.6)
+#   CUDA_BLOCK_SIZE  - CUDA threads per block (default: 256)
 
 set -euo pipefail
 
@@ -41,8 +42,13 @@ run_variant() {
 
 	local tmp_toml="$out/${STEM}.toml"
 	sed '/^\[analyzer\]/,$d' "$PROJECT_DIR/configs/$STEM.toml" >"$tmp_toml"
-	printf "\n[analyzer]\nsolver = \"%s\"\nthreads = %d\noutput = \"%s\"\n" \
-		"$solver" "$workers" "$streams_out" >>"$tmp_toml"
+	if [[ "$solver" == "cuda" ]]; then
+		printf "\n[analyzer]\nsolver = \"cuda\"\ncuda_block_size = %d\noutput = \"%s\"\n" \
+			"$workers" "$streams_out" >>"$tmp_toml"
+	else
+		printf "\n[analyzer]\nsolver = \"%s\"\nthreads = %d\noutput = \"%s\"\n" \
+			"$solver" "$workers" "$streams_out" >>"$tmp_toml"
+	fi
 
 	if [[ "$solver" == "mpi" ]]; then
 		srun --mpi=pmix -n "$workers" "$PROJECT_DIR/analyzer_run" "$tmp_toml" \
@@ -79,3 +85,4 @@ run_variant "sequential" 1
 for t in 2 4 8; do run_variant "pthreads" "$t"; done
 for t in 2 4 8; do run_variant "openmp" "$t"; done
 for p in 2 4; do run_variant "mpi" "$p"; done
+for b in 64 128 256 512; do run_variant "cuda" "$b"; done
