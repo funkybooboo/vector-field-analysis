@@ -40,7 +40,9 @@ def save(path, vx, vy, attrs):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Add or subtract two .h5 vector field files.")
+    parser = argparse.ArgumentParser(
+        description="Add or subtract two .h5 vector field files."
+    )
     parser.add_argument("op", choices=["add", "sub"], help="Operation: add or sub")
     parser.add_argument("a", help="First .h5 file")
     parser.add_argument("b", help="Second .h5 file")
@@ -86,7 +88,9 @@ def main():
         sys.exit(1)
 
     steps, height, width = vx_out.shape
-    print(f"{args.a} {op_symbol} {args.b} -> {args.out}  ({width}x{height}, {steps} steps)")
+    print(
+        f"{args.a} {op_symbol} {args.b} -> {args.out}  ({width}x{height}, {steps} steps)"
+    )
 
 
 if __name__ == "__main__":

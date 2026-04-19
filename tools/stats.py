@@ -47,8 +47,10 @@ def print_field(path):
         attrs = dict(g.attrs)
 
     if vx.ndim != 3:
-        print(f"  [error] expected 3-D vx array, got shape {vx.shape} in {path}",
-              file=sys.stderr)
+        print(
+            f"  [error] expected 3-D vx array, got shape {vx.shape} in {path}",
+            file=sys.stderr,
+        )
         return
     steps, height, width = vx.shape
     speed = np.sqrt(vx**2 + vy**2)  # (steps, height, width)
@@ -60,8 +62,10 @@ def print_field(path):
     print(f"{path}  ({file_size_str(path)})")
     print(f"  type:       {attrs.get('type', 'unknown')}")
     print(f"  grid:       {width} x {height}")
-    print(f"  bounds:     x [{attrs.get('xMin', '?'):.4g}, {attrs.get('xMax', '?'):.4g}]"
-          f"  y [{attrs.get('yMin', '?'):.4g}, {attrs.get('yMax', '?'):.4g}]")
+    print(
+        f"  bounds:     x [{attrs.get('xMin', '?'):.4g}, {attrs.get('xMax', '?'):.4g}]"
+        f"  y [{attrs.get('yMin', '?'):.4g}, {attrs.get('yMax', '?'):.4g}]"
+    )
     print(f"  steps:      {steps}  (dt={attrs.get('dt', '?'):.4g})")
     print(f"  viscosity:  {attrs.get('viscosity', '?'):.4g}")
 
@@ -102,8 +106,8 @@ def print_streams(path):
             return
         num_steps = int(attrs["num_steps"])
 
-        counts_per_step = []   # streamlines per step
-        lengths = []           # all path lengths (in grid points) across all steps
+        counts_per_step = []  # streamlines per step
+        lengths = []  # all path lengths (in grid points) across all steps
 
         for s in range(num_steps):
             sg = g[f"step_{s}"]
@@ -114,17 +118,23 @@ def print_streams(path):
                 lengths.append(int(offsets[i + 1] - offsets[i]))
 
     counts = np.array(counts_per_step, dtype=np.int64)
-    lengths_arr = np.array(lengths, dtype=np.int64) if lengths else np.array([0], dtype=np.int64)
+    lengths_arr = (
+        np.array(lengths, dtype=np.int64) if lengths else np.array([0], dtype=np.int64)
+    )
 
     total_streamlines = int(counts.sum())
     total_points = int(lengths_arr.sum())
 
     print(f"{path}  ({file_size_str(path)})")
     print(f"  grid:       {attrs.get('width', '?')} x {attrs.get('height', '?')}")
-    print(f"  bounds:     x [{attrs.get('xMin', '?'):.4g}, {attrs.get('xMax', '?'):.4g}]"
-          f"  y [{attrs.get('yMin', '?'):.4g}, {attrs.get('yMax', '?'):.4g}]")
+    print(
+        f"  bounds:     x [{attrs.get('xMin', '?'):.4g}, {attrs.get('xMax', '?'):.4g}]"
+        f"  y [{attrs.get('yMin', '?'):.4g}, {attrs.get('yMax', '?'):.4g}]"
+    )
     print(f"  steps:      {num_steps}")
-    print(f"  streamlines:{total_streamlines}  ({total_streamlines / num_steps:.1f}/step avg)")
+    print(
+        f"  streamlines:{total_streamlines}  ({total_streamlines / num_steps:.1f}/step avg)"
+    )
     print(f"  total pts:  {total_points}")
 
     print()
@@ -156,15 +166,21 @@ def detect_and_print(path):
         elif "streams" in keys:
             print_streams(path)
         else:
-            print(f"Error: {path} has no 'field' or 'streams' group (keys: {sorted(keys)})",
-                  file=sys.stderr)
+            print(
+                f"Error: {path} has no 'field' or 'streams' group (keys: {sorted(keys)})",
+                file=sys.stderr,
+            )
     except Exception as e:
         print(f"Error processing {path}: {e}", file=sys.stderr)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Print stats for field or stream .h5 files.")
-    parser.add_argument("files", nargs="+", metavar="FILE", help=".h5 file(s) to inspect")
+    parser = argparse.ArgumentParser(
+        description="Print stats for field or stream .h5 files."
+    )
+    parser.add_argument(
+        "files", nargs="+", metavar="FILE", help=".h5 file(s) to inspect"
+    )
     args = parser.parse_args()
 
     for i, path in enumerate(args.files):

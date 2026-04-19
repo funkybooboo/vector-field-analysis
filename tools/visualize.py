@@ -54,11 +54,11 @@ def load_streams(path):
         num_steps = int(streamsGroup.attrs["num_steps"])
         for s in range(num_steps):
             stepGroup = streamsGroup[f"step_{s}"]
-            flat = stepGroup["paths_flat"][:]   # (N, 2) int32
-            offsets = stepGroup["offsets"][:]   # (S+1,) int32
+            flat = stepGroup["paths_flat"][:]  # (N, 2) int32
+            offsets = stepGroup["offsets"][:]  # (S+1,) int32
             streamlines = []
             for i in range(len(offsets) - 1):
-                streamlines.append(flat[offsets[i]:offsets[i + 1]])
+                streamlines.append(flat[offsets[i] : offsets[i + 1]])
             streamlines_by_step.append(streamlines)
     return streamlines_by_step
 
@@ -84,7 +84,7 @@ def precompute_quiver_data(vx, vy, attrs, stride):
     Returns (X, Y, vx_all, vy_all, mag_all) where *_all[s] is step s's data.
     """
     X, Y, steps = make_grid(vx, vy, attrs, stride)
-    vx_all = vx[:, ::stride, ::stride]   # (steps, h', w') view
+    vx_all = vx[:, ::stride, ::stride]  # (steps, h', w') view
     vy_all = vy[:, ::stride, ::stride]
     mag_all = np.sqrt(vx_all**2 + vy_all**2)
     return X, Y, vx_all, vy_all, mag_all
@@ -110,12 +110,18 @@ def _integrate_step(streamlines_step, vx_step, vy_step, xMin, xMax, yMin, yMax):
     y_grid = np.linspace(yMin, yMax, height)
 
     interp_vyx = RegularGridInterpolator(
-        (y_grid, x_grid), vx_step, method="linear",
-        bounds_error=False, fill_value=0.0,
+        (y_grid, x_grid),
+        vx_step,
+        method="linear",
+        bounds_error=False,
+        fill_value=0.0,
     )
     interp_vy = RegularGridInterpolator(
-        (y_grid, x_grid), vy_step, method="linear",
-        bounds_error=False, fill_value=0.0,
+        (y_grid, x_grid),
+        vy_step,
+        method="linear",
+        bounds_error=False,
+        fill_value=0.0,
     )
 
     def field(t, state):
@@ -130,6 +136,7 @@ def _integrate_step(streamlines_step, vx_step, vy_step, xMin, xMax, yMin, yMax):
         x, y = state
         margin = 1e-6
         return min(x - xMin, xMax - x, y - yMin, yMax - y) - margin
+
     out_of_domain.terminal = True
     out_of_domain.direction = -1
 
@@ -154,12 +161,20 @@ def _integrate_step(streamlines_step, vx_step, vy_step, xMin, xMax, yMin, yMax):
         y0 = float(y_grid[row])
 
         sol_fwd = solve_ivp(
-            field, [0, t_span], [x0, y0], method="RK45",
-            max_step=max_step, events=out_of_domain,
+            field,
+            [0, t_span],
+            [x0, y0],
+            method="RK45",
+            max_step=max_step,
+            events=out_of_domain,
         )
         sol_bwd = solve_ivp(
-            field_bwd, [0, t_span], [x0, y0], method="RK45",
-            max_step=max_step, events=out_of_domain,
+            field_bwd,
+            [0, t_span],
+            [x0, y0],
+            method="RK45",
+            max_step=max_step,
+            events=out_of_domain,
         )
 
         xs = np.concatenate([sol_bwd.y[0][::-1], sol_fwd.y[0]])
@@ -176,8 +191,10 @@ def _integrate_step(streamlines_step, vx_step, vy_step, xMin, xMax, yMin, yMax):
         if fwd_len >= 3:
             mid = fwd_len // 2
             arrow = (
-                sol_fwd.y[0][mid], sol_fwd.y[1][mid],
-                sol_fwd.y[0][mid + 1], sol_fwd.y[1][mid + 1],
+                sol_fwd.y[0][mid],
+                sol_fwd.y[1][mid],
+                sol_fwd.y[0][mid + 1],
+                sol_fwd.y[1][mid + 1],
             )
             arrows.append(arrow)
         else:
@@ -201,8 +218,9 @@ def _cache_is_valid(cache_path, *input_paths):
     return all(os.path.getmtime(p) <= cache_mtime for p in input_paths)
 
 
-def precompute_stream_curves(streamlines_by_step, vx, vy, attrs, workers=None,
-                             field_path=None, streams_path=None):
+def precompute_stream_curves(
+    streamlines_by_step, vx, vy, attrs, workers=None, field_path=None, streams_path=None
+):
     """Pre-compute RK45 curves for all steps in parallel, with disk caching.
 
     If field_path and streams_path are given, results are cached next to the
@@ -221,7 +239,9 @@ def precompute_stream_curves(streamlines_by_step, vx, vy, attrs, workers=None,
                 with open(cache_path, "rb") as f:
                     return pickle.load(f)
             except Exception as e:
-                print(f"Warning: cache load failed ({e}), recomputing...", file=sys.stderr)
+                print(
+                    f"Warning: cache load failed ({e}), recomputing...", file=sys.stderr
+                )
 
     xMin = float(attrs.get("xMin", -1))
     xMax = float(attrs.get("xMax", 1))
@@ -284,7 +304,9 @@ def precompute_stream_curves(streamlines_by_step, vx, vy, attrs, workers=None,
                         raise
                     steps_done += 1
             except KeyboardInterrupt:
-                print("\nInterrupted — cancelling workers...", file=sys.stderr, flush=True)
+                print(
+                    "\nInterrupted — cancelling workers...", file=sys.stderr, flush=True
+                )
                 for f in futures:
                     f.cancel()
                 raise
@@ -314,8 +336,7 @@ def draw_loaded_streams(ax, curves_step, arrows_step):
         if len(xs) < 2:
             continue
         color = cmap(idx / max(n - 1, 1))
-        ax.plot(xs, ys, color=color, linewidth=1.5, alpha=0.85,
-                solid_capstyle="round")
+        ax.plot(xs, ys, color=color, linewidth=1.5, alpha=0.85, solid_capstyle="round")
     for idx, arrow in enumerate(arrows_step):
         if arrow is None:
             continue
@@ -329,8 +350,9 @@ def draw_loaded_streams(ax, curves_step, arrows_step):
         )
 
 
-def plot_step(ax, vx, vy, attrs, stride, step, curves=None, arrows=None,
-              quiver_data=None):
+def plot_step(
+    ax, vx, vy, attrs, stride, step, curves=None, arrows=None, quiver_data=None
+):
     if quiver_data is not None:
         X, Y, vx_all, vy_all, mag_all = quiver_data
         vx_step, vy_step, mag = vx_all[step], vy_all[step], mag_all[step]
@@ -357,29 +379,54 @@ def plot_step(ax, vx, vy, attrs, stride, step, curves=None, arrows=None,
     return q
 
 
-def show_single(vx, vy, attrs, stride, step, streamlines=None, workers=None,
-                field_path=None, streams_path=None):
+def show_single(
+    vx,
+    vy,
+    attrs,
+    stride,
+    step,
+    streamlines=None,
+    workers=None,
+    field_path=None,
+    streams_path=None,
+):
     quiver_data = precompute_quiver_data(vx, vy, attrs, stride)
 
     curves = arrows = None
     if streamlines is not None:
         # Always pre-compute all steps so the cache covers future runs too.
         all_curves, all_arrows = precompute_stream_curves(
-            streamlines, vx, vy, attrs, workers=workers,
-            field_path=field_path, streams_path=streams_path,
+            streamlines,
+            vx,
+            vy,
+            attrs,
+            workers=workers,
+            field_path=field_path,
+            streams_path=streams_path,
         )
         curves = {s: all_curves[s] for s in range(len(all_curves))}
         arrows = {s: all_arrows[s] for s in range(len(all_arrows))}
 
     fig, ax = plt.subplots(figsize=(6, 6))
-    q = plot_step(ax, vx, vy, attrs, stride, step, curves, arrows, quiver_data=quiver_data)
+    q = plot_step(
+        ax, vx, vy, attrs, stride, step, curves, arrows, quiver_data=quiver_data
+    )
     fig.colorbar(q, ax=ax, label="speed")
     plt.tight_layout()
     plt.show()
 
 
-def animate(vx, vy, attrs, stride, save, streamlines=None, workers=None,
-            field_path=None, streams_path=None):
+def animate(
+    vx,
+    vy,
+    attrs,
+    stride,
+    save,
+    streamlines=None,
+    workers=None,
+    field_path=None,
+    streams_path=None,
+):
     steps = vx.shape[0]
 
     quiver_data = precompute_quiver_data(vx, vy, attrs, stride)
@@ -387,8 +434,13 @@ def animate(vx, vy, attrs, stride, save, streamlines=None, workers=None,
     curves = arrows = None
     if streamlines is not None:
         curves_list, arrows_list = precompute_stream_curves(
-            streamlines, vx, vy, attrs, workers=workers,
-            field_path=field_path, streams_path=streams_path,
+            streamlines,
+            vx,
+            vy,
+            attrs,
+            workers=workers,
+            field_path=field_path,
+            streams_path=streams_path,
         )
         # Index by step number (0..steps-1)
         curves = {s: curves_list[s] for s in range(steps)}
@@ -399,7 +451,9 @@ def animate(vx, vy, attrs, stride, save, streamlines=None, workers=None,
 
     def update(frame):
         nonlocal cbar
-        q = plot_step(ax, vx, vy, attrs, stride, frame, curves, arrows, quiver_data=quiver_data)
+        q = plot_step(
+            ax, vx, vy, attrs, stride, frame, curves, arrows, quiver_data=quiver_data
+        )
         if cbar is None:
             cbar = fig.colorbar(q, ax=ax, label="speed")
         else:
@@ -428,19 +482,26 @@ def main():
     parser = argparse.ArgumentParser(
         description="Visualize vector field output produced by the simulator.",
         epilog="Examples:\n"
-               "  tools/visualize.py data/accretion_disk/field.h5\n"
-               "  tools/visualize.py data/accretion_disk/field.h5 --streams data/accretion_disk/streams.h5",
+        "  tools/visualize.py data/accretion_disk/field.h5\n"
+        "  tools/visualize.py data/accretion_disk/field.h5 --streams data/accretion_disk/streams.h5",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "file",
         help="Path to the field HDF5 file (e.g. data/accretion_disk/field.h5).",
     )
-    parser.add_argument("--step", type=int, default=None, help="Show single step (0-indexed)")
-    parser.add_argument("--stride", type=int, default=4, help="Arrow subsampling stride (default: 4)")
-    parser.add_argument("--save", metavar="FILE", help="Save animation to gif/mp4 instead of displaying")
     parser.add_argument(
-        "--streams", metavar="FILE",
+        "--step", type=int, default=None, help="Show single step (0-indexed)"
+    )
+    parser.add_argument(
+        "--stride", type=int, default=4, help="Arrow subsampling stride (default: 4)"
+    )
+    parser.add_argument(
+        "--save", metavar="FILE", help="Save animation to gif/mp4 instead of displaying"
+    )
+    parser.add_argument(
+        "--streams",
+        metavar="FILE",
         help="Overlay streamlines from analyzer output (e.g. data/<name>/streams.h5)",
     )
     _default_workers = 4
@@ -453,9 +514,11 @@ def main():
         except ValueError:
             pass
     parser.add_argument(
-        "--workers", type=int, default=_default_workers,
+        "--workers",
+        type=int,
+        default=_default_workers,
         help="Parallel workers for streamline pre-computation "
-             "(default: $VISUALIZER_THREADS if set, else 4)",
+        "(default: $VISUALIZER_THREADS if set, else 4)",
     )
     args = parser.parse_args()
 
@@ -490,8 +553,10 @@ def main():
             sys.exit(1)
 
     steps = vx.shape[0]
-    print(f"Loaded {field_path}: {vx.shape[2]}x{vx.shape[1]}, {steps} steps, "
-          f"type={attrs.get('type', 'unknown')}")
+    print(
+        f"Loaded {field_path}: {vx.shape[2]}x{vx.shape[1]}, {steps} steps, "
+        f"type={attrs.get('type', 'unknown')}"
+    )
     if streamlines is not None:
         print(f"Loaded streams: {args.streams}")
 
@@ -499,11 +564,29 @@ def main():
         if not 0 <= args.step < steps:
             print(f"Error: --step must be 0..{steps - 1}", file=sys.stderr)
             sys.exit(1)
-        show_single(vx, vy, attrs, args.stride, args.step, streamlines, workers=args.workers,
-                    field_path=field_path, streams_path=args.streams)
+        show_single(
+            vx,
+            vy,
+            attrs,
+            args.stride,
+            args.step,
+            streamlines,
+            workers=args.workers,
+            field_path=field_path,
+            streams_path=args.streams,
+        )
     else:
-        animate(vx, vy, attrs, args.stride, args.save, streamlines, workers=args.workers,
-                field_path=field_path, streams_path=args.streams)
+        animate(
+            vx,
+            vy,
+            attrs,
+            args.stride,
+            args.save,
+            streamlines,
+            workers=args.workers,
+            field_path=field_path,
+            streams_path=args.streams,
+        )
 
 
 if __name__ == "__main__":
