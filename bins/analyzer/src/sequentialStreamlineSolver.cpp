@@ -4,24 +4,29 @@
 #include <vector>
 
 void SequentialStreamlineSolver::computeTimeStep(Field::Grid& grid) {
-    const int rowCount = static_cast<int>(grid.field().size());
+    const std::size_t rowCount = grid.rows();
     if (rowCount == 0) {
         throw std::runtime_error("Can't properly initialize empty field");
     }
-    const int colCount = static_cast<int>(grid.field()[0].size());
+    const std::size_t colCount = grid.cols();
     if (colCount == 0) {
         throw std::runtime_error("Can't properly initialize zero-width field");
     }
 
-    std::vector<Field::GridCell> neighbors(static_cast<std::size_t>(rowCount) *
-                                           static_cast<std::size_t>(colCount));
+    const std::size_t total = rowCount * colCount;
+    std::vector<Field::GridCell> neighbors(total);
 
-    for (int row = 0; row < rowCount; row++) {
-        for (int col = 0; col < colCount; col++) {
-            neighbors[(static_cast<std::size_t>(row) * static_cast<std::size_t>(colCount)) +
-                      static_cast<std::size_t>(col)] = grid.downstreamCell(row, col);
+    for (std::size_t row = 0; row < rowCount; ++row) {
+        for (std::size_t col = 0; col < colCount; ++col) {
+            neighbors[(row * colCount) + col] =
+                grid.downstreamCell(static_cast<int>(row), static_cast<int>(col));
         }
     }
 
-    applyNeighborPairs(grid, neighbors, rowCount, colCount);
+    for (std::size_t i = 0; i < total; ++i) {
+        grid.unite(i, grid.coordsToIndex(static_cast<std::size_t>(neighbors[i].row),
+                                         static_cast<std::size_t>(neighbors[i].col)));
+    }
+
+    grid.setPrecomputedStreamlines(reconstructPathsDSU(grid, neighbors));
 }

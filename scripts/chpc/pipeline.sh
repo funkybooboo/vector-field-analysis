@@ -55,10 +55,15 @@ module load "$OPENMPI_MODULE"
 module load "$HDF5_MODULE"
 module load "$CUDA_MODULE"
 
+HDF5_ROOT="$(dirname "$(dirname "$(which h5dump)")")"
+MPI_ROOT="$(dirname "$(dirname "$(which mpicc)")")"
+
 echo "==> Configuring"
 cmake -B "$PROJECT_DIR/build" \
 	-DCMAKE_BUILD_TYPE=Release \
 	-DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+	-DHDF5_ROOT="$HDF5_ROOT" \
+	-DMPI_HOME="$MPI_ROOT" \
 	-S "$PROJECT_DIR" \
 	>/dev/null
 
