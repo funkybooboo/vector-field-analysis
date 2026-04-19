@@ -86,6 +86,14 @@ We employ \texttt{\#pragma omp parallel for} directive with a \texttt{collapse(2
 
 \subsection{Distributed-Memory CPU Implementation}
 
+The distributed-memory implementation using MPI introduces a significant challenge not present in the shared-memory implementations: processes do not share an address space, so the sequential streamline merging pass cannot operate globally across all ranks.
+To address this, each rank is assigned a contiguous range of rows and independently computes and merges the downstream neighbors for its assigned cells.
+This correctly resolves all connections whose source cell falls within the rank's row range, but connections that cross rank boundaries are only partially recorded --- the source rank knows about the connection, but the destination rank does not.
+We resolve these cross-boundary connections through an iterative \texttt{MPI\_Allreduce} loop, where each round broadcasts the current root of every cell across all ranks and takes the global minimum.
+Any rank that observes a globally lower root for a cell than its own merges those two components locally, propagating that connectivity inward.
+Each round resolves connections one rank boundary further, so at most $p$ rounds are needed for a field partitioned across $p$ ranks, with an early-exit condition terminating the loop as soon as no rank reports any changes.
+Once all ranks have converged to a consistent global state, path reconstruction proceeds identically to the shared-memory implementations, with each rank building paths for its assigned cell range and the results gathered to rank 0.
+
 \subsection{Distributed-Memory GPU Implementation (Hybrid)}
 
 \subsection{Experimental Design}
