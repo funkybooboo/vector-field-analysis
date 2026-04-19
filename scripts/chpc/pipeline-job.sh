@@ -45,7 +45,7 @@ ana_failed=0
 
 run_impl() {
 	local label="$1" solver="$2" threads="$3" block_size="$4" mpi_n="$5"
-	local tmp_toml="$tmp_dir/${label}.toml"
+	local tmp_toml="$tmp_dir/$STEM.toml"
 	local tmp_out="$tmp_dir/${label}.h5"
 	cp "$base_toml" "$tmp_toml"
 	printf '\n[analyzer]\nsolver = "%s"\nthreads = %d\ncuda_block_size = %d\noutput = "%s"\n' \
