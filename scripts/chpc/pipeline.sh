@@ -92,5 +92,3 @@ for stem in "${STEMS[@]}"; do
 done
 
 echo ""
-echo "Monitor: squeue -u \$USER"
-echo "Logs:    $LOG_DIR/"
