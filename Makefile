@@ -18,7 +18,7 @@ CMAKE_BASE := cmake -G Ninja \
         test test-vector test-analyzer test-simulator test-sanitize test-coverage \
         run-simulator run-analyzer \
         report report-clean \
-        clean clean-build clean-sanitize clean-coverage clean-data
+        clean clean-build clean-sanitize clean-coverage clean-data clean-logs
 
 # =============================================================================
 # Build
@@ -111,4 +111,7 @@ clean-coverage:
 clean-data:
 	rm -rf data/ *.h5 *.pkl
 
-clean: clean-build clean-sanitize clean-coverage clean-data report-clean
+clean-logs:
+	rm -rf logs/
+
+clean: clean-build clean-sanitize clean-coverage clean-data clean-logs report-clean
