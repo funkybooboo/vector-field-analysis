@@ -26,9 +26,15 @@ DATA_DIR="$PROJECT_DIR/data"
 
 if [[ $# -eq 0 ]]; then
 	STEMS=()
+	shopt -s nullglob
 	for f in "$CONFIGS_DIR"/*.toml; do
 		STEMS+=("$(basename "$f" .toml)")
 	done
+	shopt -u nullglob
+	if [[ ${#STEMS[@]} -eq 0 ]]; then
+		echo "ERROR: no *.toml configs found in $CONFIGS_DIR" >&2
+		exit 1
+	fi
 else
 	STEMS=("$@")
 	for stem in "${STEMS[@]}"; do
@@ -41,13 +47,15 @@ fi
 
 # -- Build --------------------------------------------------------------------
 
+mkdir -p "$DATA_DIR"
+
 echo "==> Building..."
 if ! cmake -B "$PROJECT_DIR/build" -DCMAKE_BUILD_TYPE=Release -S "$PROJECT_DIR" \
 	>/dev/null 2>&1; then
 	echo "ERROR: CMake configure failed. Aborting." >&2
 	exit 1
 fi
-if ! cmake --build "$PROJECT_DIR/build" --parallel; then
+if ! cmake --build "$PROJECT_DIR/build" --parallel 2>&1 | tee "$DATA_DIR/build_output.txt"; then
 	echo "ERROR: Build failed. Aborting." >&2
 	exit 1
 fi
@@ -82,7 +90,7 @@ for stem in "${STEMS[@]}"; do
 	fi
 
 	# Analyzer
-	if "$ANALYZER" "$config" \
+	if mpirun -n "${MPI_RANKS:-$(nproc)}" --oversubscribe "$ANALYZER" "$config" \
 		>"$out/analyzer_stdout.txt" \
 		2>"$out/analyzer_stderr.txt"; then
 		ANA_STATUS[$stem]="OK"

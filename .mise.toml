@@ -135,31 +135,8 @@ description = "Run all configs via scripts/pipeline.sh"
 run = "./scripts/pipeline.sh"
 
 [tasks.demo]
-description = "Full pipeline: build, simulate, benchmark all solvers, stats, then visualize; tees output to data/<STEM>/"
-run = """
-STEM=${STEM:-karman_street_128x64}
-OUT=data/$STEM
-mkdir -p "$OUT"
-
-make build 2>&1 | tee "$OUT/build_output.txt"
-
-./build/bins/simulator/simulator configs/$STEM.toml \
-  > >(tee "$OUT/simulator_stdout.txt") \
-  2> >(tee "$OUT/simulator_stderr.txt" >&2)
-
-mpirun -n ${MPI_RANKS:-$(nproc)} --oversubscribe \
-  ./build/bins/analyzer/analyzer configs/$STEM.toml \
-  > >(tee "$OUT/analyzer_stdout.txt") \
-  2> >(tee "$OUT/analyzer_stderr.txt" >&2)
-
-uv run tools/stats.py "$OUT/field.h5" "$OUT/streams.h5" \
-  > >(tee "$OUT/stats_stdout.txt") \
-  2> >(tee "$OUT/stats_stderr.txt" >&2)
-
-uv run tools/visualize.py "$OUT/field.h5" --streams "$OUT/streams.h5" \
-  > >(tee "$OUT/visualizer_stdout.txt") \
-  2> >(tee "$OUT/visualizer_stderr.txt" >&2)
-"""
+description = "Full pipeline for one config stem: build, simulate, analyze, stats, visualize (STEM, MPI_RANKS)"
+run = "./scripts/local/pipeline.sh ${STEM:-karman_street_128x64}"
 
 # =============================================================================
 # Visualize / Stats
