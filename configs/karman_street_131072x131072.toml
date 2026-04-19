@@ -1,4 +1,4 @@
-# karman_street_100000x100000.toml
+# karman_street_131072x131072.toml
 # Von Kármán vortex street -- the alternating vortex pattern that forms
 # downstream of any bluff body (cylinder, bridge pier, smokestack, island).
 #
@@ -13,14 +13,14 @@
 # -- the classical stable Kármán geometry. The implied cylinder is off the
 # left edge of the domain.
 #
-# Run: simulator configs/karman_street_100000x100000.toml
+# Run: simulator configs/karman_street_131072x131072.toml
 
 [simulation]
 steps = 120
 dt = 0.05
 viscosity = 0.0
-width = 100000
-height = 100000
+width = 131072
+height = 131072
 xmin = -2.0
 xmax = 2.0
 ymin = -1.0

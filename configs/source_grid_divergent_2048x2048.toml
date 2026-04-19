@@ -2,19 +2,13 @@
 steps     = 200
 dt        = 0.05
 viscosity = 0.0
-width     = 1000
-height    = 1000
+width     = 2048
+height    = 2048
 xmin      = -2.0
 xmax      =  2.0
 ymin      = -2.0
 ymax      =  2.0
-output    = "source_grid_divergent_1000x1000.h5"
-
-# -----------------------------------------------------------------------
-# Five uniform background flows at varied angles.
-# Strong magnitudes ensure every cell has a large step per dt, so
-# streamlines exit the domain in very few steps → minimal merges.
-# -----------------------------------------------------------------------
+output    = "source_grid_divergent_2048x2048.h5"
 
 [[layers]]
 type      = "uniform"
@@ -45,11 +39,6 @@ type      = "uniform"
 angle     = 270.0
 magnitude = 0.5
 strength  = 1.0
-
-# -----------------------------------------------------------------------
-# 3×3 grid of sources — radially divergent vectors spread paths apart,
-# minimising downstream-cell collisions and therefore Pass-2 merge cost.
-# -----------------------------------------------------------------------
 
 [[layers]]
 type     = "source"
@@ -104,11 +93,6 @@ type     = "source"
 center_x =  1.2
 center_y =  1.2
 strength =  1.5
-
-# -----------------------------------------------------------------------
-# Six additional sources near the domain boundary — keeps the outer
-# region divergent so no convergence zones form near the edges.
-# -----------------------------------------------------------------------
 
 [[layers]]
 type     = "source"

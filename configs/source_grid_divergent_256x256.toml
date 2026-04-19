@@ -2,13 +2,13 @@
 steps     = 200
 dt        = 0.05
 viscosity = 0.0
-width     = 100
-height    = 100
+width     = 256
+height    = 256
 xmin      = -2.0
 xmax      =  2.0
 ymin      = -2.0
 ymax      =  2.0
-output    = "source_grid_divergent_100x100.h5"
+output    = "source_grid_divergent_256x256.h5"
 
 [[layers]]
 type      = "uniform"

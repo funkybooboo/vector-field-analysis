@@ -1,0 +1,36 @@
+# karman_street_1048576x1048576.toml
+# Small 100×100 test version of the Kármán vortex street config.
+#
+# Run: simulator configs/karman_street_1048576x1048576.toml
+
+[simulation]
+steps = 120
+dt = 0.05
+viscosity = 0.0
+width = 1048576
+height = 1048576
+xmin = -2.0
+xmax = 2.0
+ymin = -1.0
+ymax = 1.0
+
+[[layers]]
+type = "uniform"
+angle = 0.0
+magnitude = 0.3
+strength = 1.0
+
+[[layers]]
+type = "custom"
+strength = 0.8
+x_expression = "-0.5 * sinh(2 * pi * (y - 0.28)) / (cosh(2 * pi * (y - 0.28)) - cos(2 * pi * (x - 0.55 * t)) + 0.08)"
+y_expression = "0.5 * sin(2 * pi * (x - 0.55 * t)) / (cosh(2 * pi * (y - 0.28)) - cos(2 * pi * (x - 0.55 * t)) + 0.08)"
+
+[[layers]]
+type = "custom"
+strength = 0.8
+x_expression = "0.5 * sinh(2 * pi * (y + 0.28)) / (cosh(2 * pi * (y + 0.28)) - cos(2 * pi * (x - 0.55 * t + 0.5)) + 0.08)"
+y_expression = "-0.5 * sin(2 * pi * (x - 0.55 * t + 0.5)) / (cosh(2 * pi * (y + 0.28)) - cos(2 * pi * (x - 0.55 * t + 0.5)) + 0.08)"
+
+[analyzer]
+solver = "cuda"

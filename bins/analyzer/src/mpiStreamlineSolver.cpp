@@ -1,10 +1,10 @@
 #include "mpiStreamlineSolver.hpp"
 
 #include "sequentialStreamlineSolver.hpp"
+#include "streamlineSolver.hpp"
 
 #ifdef USE_MPI
 #include <algorithm>
-#include <cassert>
 #include <cstdint>
 #include <iostream>
 #include <limits>
@@ -14,10 +14,6 @@
 
 void MpiStreamlineSolver::computeTimeStep(Field::Grid& grid) {
 #ifdef USE_MPI
-    // Each (src, dest) pair is packed as four ints: srcRow, srcCol, destRow, destCol.
-    static constexpr std::size_t kCellPairPackSize = 4;
-
-    // Fall back to sequential if MPI was not initialised (e.g. in unit tests).
     int mpiReady = 0;
     MPI_Initialized(&mpiReady);
     if (mpiReady == 0) {
@@ -32,126 +28,150 @@ void MpiStreamlineSolver::computeTimeStep(Field::Grid& grid) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     if (size == 1) {
-        // Single-rank: no communication overhead, identical to sequential.
         SequentialStreamlineSolver fallback;
         fallback.computeTimeStep(grid);
         return;
     }
 
     const int rowCount = static_cast<int>(grid.rows());
-    if (rowCount == 0) {
-        return;
-    }
     const int colCount = static_cast<int>(grid.cols());
+    const std::size_t totalCells =
+        static_cast<std::size_t>(rowCount) * static_cast<std::size_t>(colCount);
 
-    // Assign a contiguous row range to this rank.
-    // Distribute remainder rows one-per-rank starting from rank 0.
+    if (totalCells > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+        std::cerr << "rank " << rank << ": fatal: grid too large for MPI AllReduce count\n";
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+    const int totalCellsInt = static_cast<int>(totalCells);
+
+    // Row range for this rank.
     const int rowsPerRank = rowCount / size;
     const int remainder = rowCount % size;
     const int startRow = (rank * rowsPerRank) + std::min(rank, remainder);
     const int endRow = startRow + rowsPerRank + (rank < remainder ? 1 : 0);
-    const int localRows = endRow - startRow;
 
-    // Pass 1 (parallel): each rank reads neighbor directions for its row range.
-    // downstreamCell is const and reads no mutable state -- concurrent
-    // calls across disjoint row ranges are race-free.
-    // Guard size_t overflow before computing localCount.
-    // colCount == 0 -> localCount == 0, no overflow possible; guard avoids division by zero
-    // in the overflow formula below.
-    if (colCount > 0 && static_cast<std::size_t>(localRows) >
-                            std::numeric_limits<std::size_t>::max() / kCellPairPackSize /
-                                static_cast<std::size_t>(colCount)) {
-        std::cerr << "rank " << rank
-                  << ": fatal: grid too large for MPI gather (size_t overflow)\n";
-        MPI_Abort(MPI_COMM_WORLD, 1);
-    }
-    const auto localCount = static_cast<std::size_t>(localRows) *
-                            static_cast<std::size_t>(colCount) * kCellPairPackSize;
-    if (localCount > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
-        std::cerr << "rank " << rank
-                  << ": fatal: localCount exceeds INT_MAX; grid too large for MPI gather\n";
-        MPI_Abort(MPI_COMM_WORLD, 1);
-    }
-    const int localCountInt = static_cast<int>(localCount);
-    std::vector<int> localPairs(localCount);
-    for (int row = startRow; row < endRow; row++) {
-        for (int col = 0; col < colCount; col++) {
-            const auto cellIdx =
-                (static_cast<std::size_t>(row - startRow) * static_cast<std::size_t>(colCount)) +
+    // Pass 1 + 2a (parallel): each rank computes downstream cells for its rows
+    // and immediately unites them in its local DSU.
+    for (int row = startRow; row < endRow; ++row) {
+        for (int col = 0; col < colCount; ++col) {
+            const std::size_t srcIdx =
+                static_cast<std::size_t>(row) * static_cast<std::size_t>(colCount) +
                 static_cast<std::size_t>(col);
-            const std::size_t base = cellIdx * kCellPairPackSize;
             auto [destRow, destCol] = grid.downstreamCell(row, col);
-            localPairs[base + 0] = row;
-            localPairs[base + 1] = col;
-            localPairs[base + 2] = destRow;
-            localPairs[base + 3] = destCol;
+            const std::size_t destIdx = grid.coordsToIndex(
+                static_cast<std::size_t>(destRow), static_cast<std::size_t>(destCol));
+            grid.unite(srcIdx, destIdx);
         }
     }
 
-    // Gather per-rank element counts to root.
-    // Always allocate recvCounts on all ranks so .data() is never null; some MPI
-    // implementations warn or assert on null recvbuf even when the argument is
-    // formally ignored on non-root.
-    std::vector<int> recvCounts(static_cast<std::size_t>(size), 0);
-    MPI_Gather(&localCountInt, 1, MPI_INT, recvCounts.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+    // Pass 2b: iterative AllReduce to converge cross-boundary components.
+    //
+    // Each rank has a local DSU that correctly merges cells within its own row
+    // range, but cross-boundary connections (where src is on one rank and dest
+    // on another) are only partially resolved locally. Each AllReduce round
+    // propagates the global minimum root one hop further across rank boundaries.
+    // p rounds are sufficient for any functional graph partitioned across p ranks.
+    std::vector<std::uint64_t> localRoots(totalCells);
+    std::vector<std::uint64_t> globalRoots(totalCells);
 
-    // Build displacements and receive buffer.
-    // Root allocates real buffers; non-root gets 1-element dummies so .data()
-    // is non-null for MPI_Gatherv (same portability reason as above).
-    // displacements[0] = 0 intentionally (rank 0's data starts at offset 0); the loop below
-    // starts at rankIndex=1 and fills the remaining entries from recvCounts.
-    std::vector<int> displacements(rank == 0 ? static_cast<std::size_t>(size) : 1, 0);
-    std::vector<int> allPairs(1);
-    if (rank == 0) {
-        int64_t runningDisplacement = 0;
-        for (int rankIndex = 1; rankIndex < size; rankIndex++) {
-            runningDisplacement += recvCounts[static_cast<std::size_t>(rankIndex - 1)];
-            if (runningDisplacement > std::numeric_limits<int>::max()) {
-                std::cerr << "rank 0: fatal: total gather size exceeds INT_MAX\n";
-                MPI_Abort(MPI_COMM_WORLD, 1);
+    for (int round = 0; round < size; ++round) {
+        for (std::size_t i = 0; i < totalCells; ++i)
+            localRoots[i] = static_cast<std::uint64_t>(grid.findRoot(i));
+
+        MPI_Allreduce(localRoots.data(), globalRoots.data(), totalCellsInt,
+                      MPI_UINT64_T, MPI_MIN, MPI_COMM_WORLD);
+
+        int localChanged = 0;
+        for (std::size_t i = 0; i < totalCells; ++i) {
+            if (globalRoots[i] < localRoots[i]) {
+                grid.unite(i, static_cast<std::size_t>(globalRoots[i]));
+                localChanged = 1;
             }
-            displacements[static_cast<std::size_t>(rankIndex)] =
-                static_cast<int>(runningDisplacement);
         }
-        const int64_t total = runningDisplacement + recvCounts[static_cast<std::size_t>(size - 1)];
-        if (total > std::numeric_limits<int>::max()) {
-            std::cerr << "rank 0: fatal: total gather size exceeds INT_MAX\n";
-            MPI_Abort(MPI_COMM_WORLD, 1);
-        }
-        allPairs.resize(static_cast<std::size_t>(total));
+
+        // Early exit if all ranks converged.
+        int globalChanged = 0;
+        MPI_Allreduce(&localChanged, &globalChanged, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+        if (globalChanged == 0)
+            break;
     }
 
-    // Gather all neighbor pairs to rank 0.
-    // recvcounts/displacements/recvbuf are significant only at root per MPI spec.
-    MPI_Gatherv(localPairs.data(), localCountInt, MPI_INT, allPairs.data(), recvCounts.data(),
-                displacements.data(), MPI_INT, 0, MPI_COMM_WORLD);
-
-    // Pass 2 (sequential on rank 0): apply all (src, dest) pairs to build streamlines.
-    // DSU logic avoids shared_ptr overhead during the merge pass.
-    if (rank == 0) {
-        if (allPairs.size() % kCellPairPackSize != 0) {
-            std::cerr << "rank 0: fatal: gathered pairs buffer size " << allPairs.size()
-                      << " is not a multiple of " << kCellPairPackSize << "\n";
-            MPI_Abort(MPI_COMM_WORLD, 1);
-        }
-        const std::size_t totalPairs = allPairs.size() / kCellPairPackSize;
-        std::vector<Field::GridCell> neighbors(grid.rows() * grid.cols());
-
-        for (std::size_t pairIndex = 0; pairIndex < totalPairs; pairIndex++) {
-            const std::size_t base = pairIndex * kCellPairPackSize;
-            const int srcRow = allPairs[base + 0];
-            const int srcCol = allPairs[base + 1];
-            const int destRow = allPairs[base + 2];
-            const int destCol = allPairs[base + 3];
-
-            const std::size_t srcIndex = grid.coordsToIndex(srcRow, srcCol);
-            const std::size_t destIndex = grid.coordsToIndex(destRow, destCol);
-
-            neighbors[srcIndex] = {destRow, destCol};
-            grid.unite(srcIndex, destIndex);
+    // Pass 3: all ranks build their portion of paths in parallel, then gather to rank 0.
+    {
+        std::vector<std::size_t> roots(totalCells);
+        for (std::size_t i = 0; i < totalCells; ++i) {
+            roots[i] = grid.findRoot(i);
         }
 
-        grid.setPrecomputedStreamlines(reconstructPathsDSU(grid, neighbors));
+        const std::vector<std::size_t> indices =
+            StreamlineSolver::sortCellsByRoot(roots, totalCells);
+
+        const std::size_t cellsPerRank = totalCells / static_cast<std::size_t>(size);
+        const std::size_t remainder    = totalCells % static_cast<std::size_t>(size);
+        const std::size_t startIdx =
+            static_cast<std::size_t>(rank) * cellsPerRank +
+            std::min(static_cast<std::size_t>(rank), remainder);
+        const std::size_t endIdx =
+            startIdx + cellsPerRank +
+            (static_cast<std::size_t>(rank) < remainder ? 1 : 0);
+
+        const std::vector<Field::Path> localPaths = StreamlineSolver::buildPathsForRange(
+            roots, indices, totalCells, colCount, startIdx, endIdx,
+            static_cast<std::size_t>(rank));
+
+        // Serialize local paths: [nPaths, len0, r0, c0, ..., len1, r0, c0, ...]
+        std::vector<int> buf;
+        buf.push_back(static_cast<int>(localPaths.size()));
+        for (const auto& path : localPaths) {
+            buf.push_back(static_cast<int>(path.size()));
+            for (const auto& cell : path) {
+                buf.push_back(cell.row);
+                buf.push_back(cell.col);
+            }
+        }
+
+        // Gather buffer sizes, then buffer contents to rank 0.
+        const int localSize = static_cast<int>(buf.size());
+        std::vector<int> allSizes(static_cast<std::size_t>(size));
+        MPI_Gather(&localSize, 1, MPI_INT, allSizes.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+        std::vector<int> displs;
+        int totalBufSize = 0;
+        std::vector<int> recvBuf;
+        if (rank == 0) {
+            displs.resize(static_cast<std::size_t>(size));
+            for (int r = 0; r < size; ++r) {
+                displs[static_cast<std::size_t>(r)] = totalBufSize;
+                totalBufSize += allSizes[static_cast<std::size_t>(r)];
+            }
+            recvBuf.resize(static_cast<std::size_t>(totalBufSize));
+        }
+
+        MPI_Gatherv(buf.data(), localSize, MPI_INT,
+                    recvBuf.data(), allSizes.data(), displs.data(), MPI_INT,
+                    0, MPI_COMM_WORLD);
+
+        if (rank == 0) {
+            std::vector<Field::Path> finalPaths;
+            int pos = 0;
+            for (int r = 0; r < size; ++r) {
+                const int base = displs[static_cast<std::size_t>(r)];
+                const int nPaths = recvBuf[static_cast<std::size_t>(base)];
+                pos = base + 1;
+                for (int p = 0; p < nPaths; ++p) {
+                    const int pathLen = recvBuf[static_cast<std::size_t>(pos++)];
+                    Field::Path path;
+                    path.reserve(static_cast<std::size_t>(pathLen));
+                    for (int k = 0; k < pathLen; ++k) {
+                        const int row = recvBuf[static_cast<std::size_t>(pos++)];
+                        const int col = recvBuf[static_cast<std::size_t>(pos++)];
+                        path.push_back({row, col});
+                    }
+                    finalPaths.push_back(std::move(path));
+                }
+            }
+            grid.setPrecomputedStreamlines(std::move(finalPaths));
+        }
     }
 #else
     SequentialStreamlineSolver fallback;

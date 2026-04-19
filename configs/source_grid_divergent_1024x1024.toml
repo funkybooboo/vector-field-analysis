@@ -1,0 +1,147 @@
+[simulation]
+steps     = 200
+dt        = 0.05
+viscosity = 0.0
+width     = 1024
+height    = 1024
+xmin      = -2.0
+xmax      =  2.0
+ymin      = -2.0
+ymax      =  2.0
+output    = "source_grid_divergent_1024x1024.h5"
+
+# -----------------------------------------------------------------------
+# Five uniform background flows at varied angles.
+# Strong magnitudes ensure every cell has a large step per dt, so
+# streamlines exit the domain in very few steps → minimal merges.
+# -----------------------------------------------------------------------
+
+[[layers]]
+type      = "uniform"
+angle     = 0.0
+magnitude = 1.2
+strength  = 1.0
+
+[[layers]]
+type      = "uniform"
+angle     = 45.0
+magnitude = 0.8
+strength  = 1.0
+
+[[layers]]
+type      = "uniform"
+angle     = 90.0
+magnitude = 0.6
+strength  = 1.0
+
+[[layers]]
+type      = "uniform"
+angle     = 135.0
+magnitude = 0.8
+strength  = 1.0
+
+[[layers]]
+type      = "uniform"
+angle     = 270.0
+magnitude = 0.5
+strength  = 1.0
+
+# -----------------------------------------------------------------------
+# 3×3 grid of sources — radially divergent vectors spread paths apart,
+# minimising downstream-cell collisions and therefore Pass-2 merge cost.
+# -----------------------------------------------------------------------
+
+[[layers]]
+type     = "source"
+center_x = -1.2
+center_y = -1.2
+strength =  1.5
+
+[[layers]]
+type     = "source"
+center_x =  0.0
+center_y = -1.2
+strength =  1.5
+
+[[layers]]
+type     = "source"
+center_x =  1.2
+center_y = -1.2
+strength =  1.5
+
+[[layers]]
+type     = "source"
+center_x = -1.2
+center_y =  0.0
+strength =  1.5
+
+[[layers]]
+type     = "source"
+center_x =  0.0
+center_y =  0.0
+strength =  2.0
+
+[[layers]]
+type     = "source"
+center_x =  1.2
+center_y =  0.0
+strength =  1.5
+
+[[layers]]
+type     = "source"
+center_x = -1.2
+center_y =  1.2
+strength =  1.5
+
+[[layers]]
+type     = "source"
+center_x =  0.0
+center_y =  1.2
+strength =  1.5
+
+[[layers]]
+type     = "source"
+center_x =  1.2
+center_y =  1.2
+strength =  1.5
+
+# -----------------------------------------------------------------------
+# Six additional sources near the domain boundary — keeps the outer
+# region divergent so no convergence zones form near the edges.
+# -----------------------------------------------------------------------
+
+[[layers]]
+type     = "source"
+center_x = -1.8
+center_y = -1.8
+strength =  1.0
+
+[[layers]]
+type     = "source"
+center_x =  1.8
+center_y = -1.8
+strength =  1.0
+
+[[layers]]
+type     = "source"
+center_x = -1.8
+center_y =  1.8
+strength =  1.0
+
+[[layers]]
+type     = "source"
+center_x =  1.8
+center_y =  1.8
+strength =  1.0
+
+[[layers]]
+type     = "source"
+center_x = -1.8
+center_y =  0.0
+strength =  1.2
+
+[[layers]]
+type     = "source"
+center_x =  1.8
+center_y =  0.0
+strength =  1.2

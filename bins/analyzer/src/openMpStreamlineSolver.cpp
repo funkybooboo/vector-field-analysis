@@ -1,13 +1,11 @@
 #include "openMpStreamlineSolver.hpp"
-
 #include "sequentialStreamlineSolver.hpp"
+#include "streamlineSolver.hpp"
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
-#include <algorithm>
-#include <thread>
 #include <vector>
 
 OpenMpStreamlineSolver::OpenMpStreamlineSolver([[maybe_unused]] unsigned int threadCount)
@@ -19,13 +17,10 @@ OpenMpStreamlineSolver::OpenMpStreamlineSolver([[maybe_unused]] unsigned int thr
 
 void OpenMpStreamlineSolver::computeTimeStep(Field::Grid& grid) {
 #ifdef _OPENMP
-    if (threadCount_ > 0) {
+    if (threadCount_ > 0)
         omp_set_num_threads(static_cast<int>(threadCount_));
-    }
 
     const int rowCount = static_cast<int>(grid.rows());
-    if (rowCount == 0)
-        return;
     const int colCount = static_cast<int>(grid.cols());
     const std::size_t totalCells =
         static_cast<std::size_t>(rowCount) * static_cast<std::size_t>(colCount);
@@ -33,8 +28,7 @@ void OpenMpStreamlineSolver::computeTimeStep(Field::Grid& grid) {
     std::vector<Field::GridCell> neighbors(totalCells);
     std::vector<std::size_t> roots(totalCells);
     std::vector<std::size_t> indices(totalCells);
-    std::vector<std::vector<Field::Path>> localPathsCollection(
-        threadCount_ > 0 ? threadCount_ : std::thread::hardware_concurrency());
+    std::vector<std::vector<Field::Path>> localPathsCollection;
 
 #pragma omp parallel
     {
@@ -53,85 +47,54 @@ void OpenMpStreamlineSolver::computeTimeStep(Field::Grid& grid) {
         // Pass 2a: Parallel Union-Find.
 #pragma omp for schedule(static)
         for (std::size_t i = 0; i < totalCells; ++i) {
-            const std::size_t srcIndex = i;
-            const std::size_t destIndex = grid.coordsToIndex(neighbors[i].row, neighbors[i].col);
-            grid.unite(srcIndex, destIndex);
+            const std::size_t destIndex =
+                grid.coordsToIndex(neighbors[i].row, neighbors[i].col);
+            grid.unite(i, destIndex);
         }
 
         // Pass 2b part 1: Compute roots for all cells in parallel.
 #pragma omp for schedule(static)
-        for (std::size_t i = 0; i < totalCells; ++i) {
+        for (std::size_t i = 0; i < totalCells; ++i)
             roots[i] = grid.findRoot(i);
-        }
 
         // Pass 2b part 2: Thread 0 groups indices by root via counting sort (O(n)).
+        // Also size localPathsCollection to the actual thread count now that we know it.
 #pragma omp single
         {
-            std::vector<std::size_t> counts(totalCells, 0);
-            for (std::size_t i = 0; i < totalCells; ++i) {
-                counts[roots[i]]++;
-            }
-            std::vector<std::size_t> writePos(totalCells, 0);
-            for (std::size_t i = 1; i < totalCells; ++i) {
-                writePos[i] = writePos[i - 1] + counts[i - 1];
-            }
-            for (std::size_t i = 0; i < totalCells; ++i) {
-                indices[writePos[roots[i]]++] = i;
-            }
+            localPathsCollection.resize(static_cast<std::size_t>(numThreads));
+            indices = StreamlineSolver::sortCellsByRoot(roots, totalCells);
         }
 
-        // Pass 2b part 3: Create paths from segments in parallel.
-        // We divide the sorted indices among threads and find segment boundaries.
-        const std::size_t segmentsPerThread = totalCells / static_cast<std::size_t>(numThreads);
-        const std::size_t remainderSegments = totalCells % static_cast<std::size_t>(numThreads);
-        const std::size_t startIdx = static_cast<std::size_t>(tid) * segmentsPerThread +
-                                     std::min(static_cast<std::size_t>(tid), remainderSegments);
-        const std::size_t endIdx = startIdx + segmentsPerThread +
-                                   (static_cast<std::size_t>(tid) < remainderSegments ? 1 : 0);
+        // Pass 2b part 3: Build paths for this thread's range.
+        {
+            const std::size_t segmentsPerThread =
+                totalCells / static_cast<std::size_t>(numThreads);
+            const std::size_t remainderSegments =
+                totalCells % static_cast<std::size_t>(numThreads);
+            const std::size_t startIdx =
+                static_cast<std::size_t>(tid) * segmentsPerThread +
+                std::min(static_cast<std::size_t>(tid), remainderSegments);
+            const std::size_t endIdx =
+                startIdx + segmentsPerThread +
+                (static_cast<std::size_t>(tid) < remainderSegments ? 1 : 0);
 
-        if (startIdx < endIdx) {
-            std::size_t currentStart = startIdx;
-
-            // Adjust currentStart so we don't start in the middle of a segment owned by previous
-            // thread.
-            if (tid > 0) {
-                while (currentStart < endIdx &&
-                       roots[indices[currentStart]] == roots[indices[currentStart - 1]]) {
-                    currentStart++;
-                }
-            }
-
-            while (currentStart < endIdx) {
-                std::size_t segmentEnd = currentStart + 1;
-                while (segmentEnd < totalCells &&
-                       roots[indices[segmentEnd]] == roots[indices[currentStart]]) {
-                    segmentEnd++;
-                }
-
-                Field::Path path;
-                for (std::size_t j = currentStart; j < segmentEnd; ++j) {
-                    std::size_t idx = indices[j];
-                    path.push_back(
-                        {static_cast<int>(idx / colCount), static_cast<int>(idx % colCount)});
-                }
-                localPathsCollection[static_cast<std::size_t>(tid)].push_back(std::move(path));
-
-                currentStart = segmentEnd;
-            }
+            localPathsCollection[static_cast<std::size_t>(tid)] =
+                StreamlineSolver::buildPathsForRange(roots, indices, totalCells, colCount,
+                                                     startIdx, endIdx,
+                                                     static_cast<std::size_t>(tid));
         }
     }
 
     // Final merge of paths from all threads.
     std::vector<Field::Path> finalPaths;
     std::size_t totalPaths = 0;
-    for (const auto& local : localPathsCollection) {
+    for (const auto& local : localPathsCollection)
         totalPaths += local.size();
-    }
     finalPaths.reserve(totalPaths);
-    for (auto& local : localPathsCollection) {
+    for (auto& local : localPathsCollection)
         finalPaths.insert(finalPaths.end(), std::make_move_iterator(local.begin()),
                           std::make_move_iterator(local.end()));
-    }
+
     grid.setPrecomputedStreamlines(std::move(finalPaths));
 
 #else

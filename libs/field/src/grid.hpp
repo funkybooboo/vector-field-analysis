@@ -1,6 +1,7 @@
 #pragma once
 #include "fieldTypes.hpp"
 #include "streamline.hpp"
+#include "vec2.hpp"
 
 #include <atomic>
 #include <cstddef>
@@ -15,7 +16,11 @@ namespace Field {
 // than inside Vec2, keeping the generic math type free of domain state.
 class Grid {
     const Bounds bounds_;
-    Slice field_;
+    std::size_t rows_;
+    std::size_t cols_;
+    std::vector<Vector::Vec2> flatField_;  // row-major: index = row*cols_ + col
+    float rowSpacing_;
+    float colSpacing_;
     mutable std::vector<std::atomic<std::size_t>> successor_;
     std::vector<std::vector<std::shared_ptr<Streamline>>> streamlines_;
 
@@ -25,12 +30,7 @@ class Grid {
     bool hasPrecomputedStreamlines_ = false;
 
   public:
-    Grid(Bounds bounds, Slice field)
-        : bounds_(bounds),
-          field_(std::move(field)),
-          successor_(field_.size() * (field_.empty() ? 0 : field_[0].size())) {
-        initializeSuccessors();
-    }
+    Grid(Bounds bounds, Slice field);
 
     [[nodiscard]] std::size_t coordsToIndex(std::size_t row, std::size_t col) const;
     void initializeSuccessors();
@@ -39,11 +39,11 @@ class Grid {
     [[nodiscard]] std::size_t findRoot(std::size_t index) const;
     void unite(std::size_t a, std::size_t b);
 
-    [[nodiscard]] std::size_t rows() const { return field_.size(); }
-    [[nodiscard]] std::size_t cols() const { return field_.empty() ? 0 : field_[0].size(); }
+    [[nodiscard]] std::size_t rows() const { return rows_; }
+    [[nodiscard]] std::size_t cols() const { return cols_; }
 
     [[nodiscard]] const Bounds& bounds() const { return bounds_; }
-    [[nodiscard]] const Slice& field() const { return field_; }
+    [[nodiscard]] const std::vector<Vector::Vec2>& field() const { return flatField_; }
 
     // allows solver to inject complete streamline result directly
     void setPrecomputedStreamlines(std::vector<Path> paths) {

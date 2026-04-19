@@ -1,18 +1,10 @@
 #include "sequentialStreamlineSolver.hpp"
 
-#include <stdexcept>
 #include <vector>
 
 void SequentialStreamlineSolver::computeTimeStep(Field::Grid& grid) {
     const std::size_t rowCount = grid.rows();
-    if (rowCount == 0) {
-        throw std::runtime_error("Can't properly initialize empty field");
-    }
     const std::size_t colCount = grid.cols();
-    if (colCount == 0) {
-        throw std::runtime_error("Can't properly initialize zero-width field");
-    }
-
     const std::size_t total = rowCount * colCount;
     std::vector<Field::GridCell> neighbors(total);
 

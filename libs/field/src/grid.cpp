@@ -8,19 +8,38 @@
 
 namespace Field {
 
-// initialize all vectors to start out as their own successors
+Grid::Grid(Bounds bounds, Slice field)
+    : bounds_(bounds),
+      rows_(field.size()),
+      cols_(rows_ > 0 ? field[0].size() : 0),
+      successor_(rows_ * cols_) {
+    flatField_.reserve(rows_ * cols_);
+    for (auto& row : field) {
+        for (auto& v : row) {
+            flatField_.push_back(v);
+        }
+    }
+
+    rowSpacing_ = (rows_ > 1)
+        ? (bounds_.yMax - bounds_.yMin) / static_cast<float>(rows_ - 1)
+        : 0.0f;
+    colSpacing_ = (cols_ > 1)
+        ? (bounds_.xMax - bounds_.xMin) / static_cast<float>(cols_ - 1)
+        : 0.0f;
+
+    initializeSuccessors();
+}
+
+// Grid construction invariant: rows_ and cols_ are non-zero after construction.
 void Grid::initializeSuccessors() {
-    const int rowCount = static_cast<int>(field_.size());
-    if (rowCount == 0) {
+    if (rows_ == 0) {
         throw std::runtime_error("Can't properly initialize empty field");
     }
-    const int colCount = static_cast<int>(field_[0].size());
-    if (colCount == 0) {
+    if (cols_ == 0) {
         throw std::runtime_error("Can't properly initialize zero-width field");
     }
 
-    const std::size_t total =
-        static_cast<std::size_t>(rowCount) * static_cast<std::size_t>(colCount);
+    const std::size_t total = rows_ * cols_;
     for (std::size_t i = 0; i < total; ++i) {
         successor_[i].store(i, std::memory_order_relaxed);
     }
@@ -28,8 +47,7 @@ void Grid::initializeSuccessors() {
 
 // converts a given coordinate into a unique index so that it can be looked up in a disjoint set
 std::size_t Grid::coordsToIndex(std::size_t row, std::size_t col) const {
-    const std::size_t colCount = field_.empty() ? 0 : field_[0].size();
-    return (row * colCount) + col;
+    return (row * cols_) + col;
 }
 
 // Path halving: make every other node in the path point to its grandparent.
@@ -67,24 +85,16 @@ void Grid::unite(std::size_t a, std::size_t b) {
 }
 
 GridCell Grid::downstreamCell(int row, int col) const {
-    const int rowCount = static_cast<int>(field_.size());
-    if (rowCount == 0) {
-        throw std::runtime_error("downstreamCell called on empty field");
-    }
-    const int colCount = static_cast<int>(field_[0].size());
-    if (colCount == 0) {
-        throw std::runtime_error("downstreamCell called on zero-width field");
-    }
+    const int rowCount = static_cast<int>(rows_);
+    const int colCount = static_cast<int>(cols_);
     if (rowCount == 1 || colCount == 1) {
         // A single-row or single-column grid cannot advance in that dimension; return the cell
         // itself.
         return {row, col};
     }
 
-    const Vector::Vec2 start = field_[static_cast<std::size_t>(row)][static_cast<std::size_t>(col)];
-
-    const float rowSpacing = (bounds_.yMax - bounds_.yMin) / static_cast<float>(rowCount - 1);
-    const float colSpacing = (bounds_.xMax - bounds_.xMin) / static_cast<float>(colCount - 1);
+    const Vector::Vec2 start =
+        flatField_[(static_cast<std::size_t>(row) * cols_) + static_cast<std::size_t>(col)];
 
     // Advance one step in the vector direction, then snap to the nearest grid
     // index. Clamped to valid index bounds so boundary vectors don't reference
@@ -92,11 +102,11 @@ GridCell Grid::downstreamCell(int row, int col) const {
     const float physRow = indexToCoord(row, rowCount, bounds_.yMin, bounds_.yMax);
     const float physCol = indexToCoord(col, colCount, bounds_.xMin, bounds_.xMax);
     const int nearestRow =
-        std::clamp(static_cast<int>(std::round((physRow + start.y - bounds_.yMin) / rowSpacing)), 0,
-                   rowCount - 1);
+        std::clamp(static_cast<int>(std::round((physRow + start.y - bounds_.yMin) / rowSpacing_)),
+                   0, rowCount - 1);
     const int nearestCol =
-        std::clamp(static_cast<int>(std::round((physCol + start.x - bounds_.xMin) / colSpacing)), 0,
-                   colCount - 1);
+        std::clamp(static_cast<int>(std::round((physCol + start.x - bounds_.xMin) / colSpacing_)),
+                   0, colCount - 1);
 
     return {nearestRow, nearestCol};
 }
@@ -129,12 +139,10 @@ void Grid::joinStreamlines(const std::shared_ptr<Streamline>& start,
 // the parallel-safe read step).
 void Grid::traceStreamlineStep(GridCell src, GridCell dest) {
     if (streamlines_.empty()) {
-        const std::size_t numRows = field_.size();
-        const std::size_t numCols = numRows > 0 ? field_[0].size() : 0;
-        streamlines_.assign(numRows, std::vector<std::shared_ptr<Streamline>>(numCols, nullptr));
+        streamlines_.assign(rows_, std::vector<std::shared_ptr<Streamline>>(cols_, nullptr));
     }
-    const auto gridRowCount = static_cast<std::size_t>(streamlines_.size());
-    const auto gridColCount = gridRowCount > 0 ? streamlines_[0].size() : 0;
+    const auto gridRowCount = rows_;
+    const auto gridColCount = cols_;
     if (static_cast<std::size_t>(src.row) >= gridRowCount ||
         static_cast<std::size_t>(src.col) >= gridColCount ||
         static_cast<std::size_t>(dest.row) >= gridRowCount ||
