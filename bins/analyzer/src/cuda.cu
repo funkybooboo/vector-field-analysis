@@ -100,6 +100,44 @@ __global__ void computeSuccessorKernel(const float2* field, int rows, int cols, 
     successor[idx] = toIndex(destRow, destCol, cols);
 }
 
+__global__ void computeSuccessorSliceKernel(const float2* field, int rows, int cols, float xMin,
+                                            float xMax, float yMin, float yMax, int startRow,
+                                            int localRows, int* successor) {
+    const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const int total = localRows * cols;
+
+    if (idx >= total) {
+        return;
+    }
+
+    const int localRow = idx / cols;
+    const int globalRow = startRow + localRow;
+    const int col = idx % cols;
+
+    if (rows == 1 || cols == 1) {
+        successor[idx] = toIndex(globalRow, col, cols);
+        return;
+    }
+
+    const float2 v = field[idx];
+
+    const float rowSpacing = (yMax - yMin) / static_cast<float>(rows - 1);
+    const float colSpacing = (xMax - xMin) / static_cast<float>(cols - 1);
+
+    const float physY =
+        yMin + ((yMax - yMin) * static_cast<float>(globalRow) / static_cast<float>(rows - 1));
+    const float physX =
+        xMin + ((xMax - xMin) * static_cast<float>(col) / static_cast<float>(cols - 1));
+
+    const int destRow =
+        clampInt(static_cast<int>(roundf((physY + v.y - yMin) / rowSpacing)), 0, rows - 1);
+
+    const int destCol =
+        clampInt(static_cast<int>(roundf((physX + v.x - xMin) / colSpacing)), 0, cols - 1);
+
+    successor[idx] = toIndex(destRow, destCol, cols);
+}
+
 __global__ void initUnionFindKernel(int n, int* parent, int* rank) {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < n) {
@@ -235,6 +273,80 @@ Result computeComponents(const std::vector<Vector::Vec2>& field, int rows, int c
         result.successor = std::move(successor);
         result.componentId = std::move(componentId);
         return result;
+    } catch (...) {
+        cleanup();
+        throw;
+    }
+}
+
+std::vector<int> computeSuccessorSlice(const std::vector<Vector::Vec2>& field, int rows, int cols,
+                                       const Field::Bounds& bounds, int startRow, int endRow,
+                                       unsigned int cudaBlockSize) {
+    if (rows == 0 || cols == 0 || startRow >= endRow) {
+        return {};
+    }
+    if (startRow < 0 || endRow < startRow || endRow > rows) {
+        throw std::runtime_error("cuda::computeSuccessorSlice received an invalid row range");
+    }
+
+    const int localRows = endRow - startRow;
+    const int localTotal = localRows * cols;
+
+    std::vector<float2> hostField(static_cast<std::size_t>(localTotal));
+    for (int localRow = 0; localRow < localRows; ++localRow) {
+        const int globalRow = startRow + localRow;
+        for (int col = 0; col < cols; ++col) {
+            const int globalIdx = toIndex(globalRow, col, cols);
+            const int localIdx = toIndex(localRow, col, cols);
+            const auto& v = field[static_cast<std::size_t>(globalIdx)];
+            hostField[static_cast<std::size_t>(localIdx)] = float2{v.x, v.y};
+        }
+    }
+
+    float2* dField = nullptr;
+    int* dSuccessor = nullptr;
+
+    const auto cleanup = [&]() {
+        if (dField != nullptr) {
+            cudaFree(dField);
+            dField = nullptr;
+        }
+        if (dSuccessor != nullptr) {
+            cudaFree(dSuccessor);
+            dSuccessor = nullptr;
+        }
+    };
+
+    try {
+        cudaCheck(cudaMalloc(reinterpret_cast<void**>(&dField),
+                             sizeof(float2) * static_cast<std::size_t>(localTotal)),
+                  "cudaMalloc(dField slice)");
+        cudaCheck(cudaMalloc(reinterpret_cast<void**>(&dSuccessor),
+                             sizeof(int) * static_cast<std::size_t>(localTotal)),
+                  "cudaMalloc(dSuccessor slice)");
+
+        cudaCheck(cudaMemcpy(dField, hostField.data(),
+                             sizeof(float2) * static_cast<std::size_t>(localTotal),
+                             cudaMemcpyHostToDevice),
+                  "cudaMemcpy H2D field slice");
+
+        const int blockSize = static_cast<int>(cudaBlockSize);
+        const int launchSize = (localTotal + blockSize - 1) / blockSize;
+
+        computeSuccessorSliceKernel<<<launchSize, blockSize>>>(
+            dField, rows, cols, bounds.xMin, bounds.xMax, bounds.yMin, bounds.yMax, startRow,
+            localRows, dSuccessor);
+        cudaCheck(cudaGetLastError(), "computeSuccessorSliceKernel launch");
+        cudaCheck(cudaDeviceSynchronize(), "cudaDeviceSynchronize slice");
+
+        std::vector<int> successor(static_cast<std::size_t>(localTotal));
+        cudaCheck(cudaMemcpy(successor.data(), dSuccessor,
+                             sizeof(int) * static_cast<std::size_t>(localTotal),
+                             cudaMemcpyDeviceToHost),
+                  "cudaMemcpy D2H successor slice");
+
+        cleanup();
+        return successor;
     } catch (...) {
         cleanup();
         throw;
