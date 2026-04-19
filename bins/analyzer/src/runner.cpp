@@ -17,6 +17,7 @@
 #include <iostream>
 #include <numeric>
 #include <string>
+#include <utility>
 #include <vector>
 
 struct RunResult {
@@ -26,12 +27,14 @@ struct RunResult {
 
 static RunResult runSolver(StreamlineSolver& solver, const Field::TimeSeries& timeSeries) {
     RunResult result;
-    auto startTime = std::chrono::steady_clock::now();
+    const auto startTime = std::chrono::steady_clock::now();
+
     for (const auto& frame : timeSeries.frames) {
         Field::Grid grid(timeSeries.bounds, frame);
         solver.computeTimeStep(grid);
         result.streams.push_back(grid.getStreamlines());
     }
+
     result.elapsedMilliseconds =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startTime)
             .count();
@@ -55,15 +58,35 @@ static std::vector<Field::Path> canonicalize(const StreamWriter::StepStreamlines
     return copy;
 }
 
+static void verify(const std::vector<StreamWriter::StepStreamlines>& reference,
+                   const std::vector<StreamWriter::StepStreamlines>& other,
+                   const std::string& name) {
+    if (reference.size() != other.size()) {
+        std::cerr << "Error: " << name << " produced " << other.size()
+                  << " step(s) but sequential produced " << reference.size() << "\n";
+        std::exit(1);
+    }
+
+    for (std::size_t stepIndex = 0; stepIndex < reference.size(); ++stepIndex) {
+        if (canonicalize(reference[stepIndex]) != canonicalize(other[stepIndex])) {
+            std::cerr << "Error: " << name << " streamlines differ from sequential at step "
+                      << stepIndex << "\n";
+            std::exit(1);
+        }
+    }
+}
+
 static void writeAndReport(const std::string& outPath,
                            const std::vector<StreamWriter::StepStreamlines>& streams,
                            const Field::Bounds& bounds, const Field::GridSize& grid) {
     const std::size_t total =
         std::accumulate(streams.begin(), streams.end(), std::size_t{0},
                         [](std::size_t acc, const auto& step) { return acc + step.size(); });
+
     const std::size_t numSteps = streams.size();
     const double avgPerStep =
         numSteps > 0 ? static_cast<double>(total) / static_cast<double>(numSteps) : 0.0;
+
     std::cout << "\nPrecomputed " << total << " streamlines across " << numSteps << " steps"
               << "  (" << std::fixed << std::setprecision(1) << avgPerStep << "/step avg)\n";
 
@@ -82,6 +105,7 @@ void runOne(const std::string& solverName, const Field::TimeSeries& field, unsig
             [[maybe_unused]] unsigned int cudaBlockSize, int mpiRank, int mpiSize,
             const std::string& outPath) {
     RunResult result{};
+
     if (solverName == "mpi") {
         auto solver = makeSolver(solverName, threadCount);
         result = runSolver(*solver, field);
@@ -136,13 +160,8 @@ void runOne(const std::string& solverName, const Field::TimeSeries& field, unsig
                      std::to_string(cudaBlockSize) + ")";
 #endif
         }
-        std::cout << label << "  " << result.elapsedMilliseconds << " ms\n";
 
-        std::vector<StreamWriter::StepStreamlines> canonical;
-        canonical.reserve(result.streams.size());
-        for (const auto& step : result.streams) {
-            canonical.push_back(canonicalize(step));
-        }
-        writeAndReport(outPath, canonical, field.bounds, field.gridSize());
+        std::cout << label << "  " << result.elapsedMilliseconds << " ms\n";
+        writeAndReport(outPath, result.streams, field.bounds, field.gridSize());
     }
 }

@@ -153,6 +153,7 @@ TEST_CASE("CudaStreamlineSolver::computeTimeStep handles empty grid", "[impl][cu
     auto grid = makeEmptyGrid();
     REQUIRE_NOTHROW(CudaStreamlineSolver{}.computeTimeStep(grid));
 }
+
 #endif
 
 // ---------------------------------------------------------------------------
@@ -219,6 +220,33 @@ TEST_CASE("CudaStreamlineSolver getStreamlines returns same count as sequential"
     auto grid = makeGrid();
     CudaStreamlineSolver{}.computeTimeStep(grid);
     REQUIRE(grid.getStreamlines().size() == expected);
+}
+
+TEST_CASE("CudaMpiStreamlineSolver getStreamlines returns same count as sequential",
+          "[impl][cudaMpi][streamlines]") {
+    if (!hasCudaDevice()) {
+        SKIP("No CUDA device");
+    }
+    auto seqGrid = makeGrid();
+    SequentialStreamlineSolver{}.computeTimeStep(seqGrid);
+    const std::size_t expected = seqGrid.getStreamlines().size();
+    auto grid = makeGrid();
+    CudaMpiStreamlineSolver{}.computeTimeStep(grid);
+    REQUIRE(grid.getStreamlines().size() == expected);
+}
+
+TEST_CASE("CudaMpiStreamlineSolver path contents match sequential",
+          "[impl][cudaMpi][streamlines]") {
+    if (!hasCudaDevice()) {
+        SKIP("No CUDA device");
+    }
+    auto seqGrid = makeGrid();
+    SequentialStreamlineSolver{}.computeTimeStep(seqGrid);
+    const auto expected = canonicalize(seqGrid.getStreamlines());
+
+    auto grid = makeGrid();
+    CudaMpiStreamlineSolver{}.computeTimeStep(grid);
+    REQUIRE(canonicalize(grid.getStreamlines()) == expected);
 }
 #endif
 
