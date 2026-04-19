@@ -2,6 +2,19 @@
 
 This section presents the findings of our comparative performance analysis across the various parallel implementations.
 
+
+\subsection{Experimental Setup}
+
+All performance evaluations were conducted on the Kingspeak cluster at the Center for High Performance Computing (CHPC) using four compute nodes.
+The Kingspeak cluster consists of older but capable hardware, featuring Intel Xeon processors (Sandy Bridge, Ivy Bridge, Haswell, and Broadwell architectures) with 16 to 32 cores per node and an interconnect primarily based on Mellanox FDR InfiniBand.
+
+
+The benchmarks involved two primary 1024 $\times$ 1024 vector field simulations: a \textit{vortex} field and a \textit{source grid divergent} field.
+Each test was measured against a single static state of these fields.
+To ensure statistical significance, the analysis for each implementation was repeated five times for both simulations, and the resulting metrics were averaged.
+Furthermore, the correctness of each parallel implementation was validated by comparing its output against the sequential reference implementation; in all cases, the results achieved bitwise parity with the serial output, confirming identical results across all implementations.
+
+
 \subsection{Shared-Memory Threading Comparison}
 
 This study compares the performance of POSIX threads (Pthreads) against OpenMP across varying thread counts to evaluate threading overhead and efficiency.
@@ -21,7 +34,11 @@ This study compares the performance of POSIX threads (Pthreads) against OpenMP a
 	\end{tabular}
 \end{table}
 
-Analysis
+
+The results indicate that both Pthreads and OpenMP implementations scale effectively with increasing core counts, showing consistent performance improvements at each stage.
+However, OpenMP consistently achieved slightly lower runtimes than Pthreads across all configurations.
+This advantage was particularly evident at the 4-thread count, where OpenMP's internal load balancing mechanisms better managed the non-uniform computational load inherent in streamline tracing compared to the manual Pthreads implementation.
+
 
 \subsection{GPU Block Size Analysis}
 
@@ -32,14 +49,17 @@ Analysis
 	\begin{tabular}{|l|r|r|}
 		\hline
 		\textbf{Block Size} & \textbf{Runtime (s)} & \textbf{Speedup} \\ \hline
-		$16 \times 16$      &                      &                  \\ \hline
-		$32 \times 32$      &                      &                  \\ \hline
-		$64 \times 64$      &                      &                  \\ \hline
+		$128 \times 128 $   &                      &                  \\ \hline
+		$256 \times 256 $   &                      &                  \\ \hline
+		$512 \times 512 $   &                      &                  \\ \hline
 	\end{tabular}
 \end{table}
 
-
-Analysis
+The GPU performance analysis demonstrates that increasing the block size from 128 to 256 threads provides a substantial performance boost, reducing runtime from 549.
+4 ms to 471.
+2 ms.
+This improvement suggests that a block size of 256 better utilizes the GPU's streaming multiprocessors and improves latency hiding.
+Moving to a block size of 512 threads yielded a much smaller improvement, reaching 468.6 ms, indicating that the system is approaching a point of diminishing returns where occupancy is already high enough to saturate the available hardware resources.
 
 
 \subsection{Distributed CPU vs. Distributed GPU Scaling Study}
@@ -78,7 +98,4 @@ Table \ref{tab:perf_summary} provides a high-level comparison of the runtime and
 		Hybrid (MPI+CUDA)   &                       &                  \\ \hline
 	\end{tabular}
 \end{table}
-
-
-Analysis
 

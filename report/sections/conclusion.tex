@@ -1,11 +1,14 @@
 \section{Conclusion}
 
-The conclusion should summarize the main contributions, restate key findings, and discuss limitations and future work. It should not introduce new information but should provide a clear closure to the paper.
+This study successfully implemented and evaluated several parallel computing paradigms to accelerate streamline visualization in vector field analysis.
+By developing solvers using Pthreads, OpenMP, OpenMPI, and CUDA, we demonstrated the scalability and efficiency of these technologies in handling the computationally intensive and irregular data-access patterns inherent in streamline tracing.
 
-Key elements:
-\begin{itemize}
-	\item Summarize main contributions
-	\item Highlight key results
-	\item Discuss limitations of the work
-	\item Suggest directions for future research
-\end{itemize}
+Our findings reveal that OpenMP provides a slight performance advantage over Pthreads in shared-memory environments, primarily due to its superior load-balancing capabilities which were most evident at moderate thread counts.
+In GPU-accelerated environments, we observed that tuning block sizes—specifically moving from 128 to 256 threads—significantly impacts occupancy and latency hiding.
+Ultimately, the hybrid MPI+CUDA implementation provided the most substantial speedup, proving the effectiveness of combining distributed-memory scaling with massively parallel GPU acceleration.
+Crucially, all parallel implementations maintained bitwise parity with the sequential reference, ensuring that performance gains did not come at the cost of numerical accuracy.
+
+Despite these gains, this study was limited to static 1024 $\times$ 1024 grids on the older Kingspeak cluster.
+Future research could investigate the performance of these solvers on more modern architectures, such as the A100 or H100 GPUs available on the Notchpeak and Granite clusters.
+Additionally, extending the solvers to handle time-varying vector fields and exploring more complex load-balancing strategies for highly non-uniform datasets would further enhance their applicability to large-scale scientific simulations.
+
