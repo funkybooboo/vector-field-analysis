@@ -11,7 +11,6 @@ Deletes the original file after creating all three variants.
 
 import os
 import re
-import sys
 
 CONFIGS_DIR = os.path.join(os.path.dirname(__file__), '..', 'configs')
 CONFIGS_DIR = os.path.normpath(CONFIGS_DIR)

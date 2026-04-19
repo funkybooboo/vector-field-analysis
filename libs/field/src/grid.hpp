@@ -58,7 +58,7 @@ class Grid {
     // Returns the unique streamlines found after tracing. Each streamline is an
     // ordered list of (row, col) grid indices. Collected in row-major iteration
     // order of streamlines_ -- deterministic for a given trace run.
-    [[nodiscard]] std::vector<Path> getStreamlines() const;
+    [[nodiscard]] const std::vector<Path>& getStreamlines() const;
 };
 
 } // namespace Field

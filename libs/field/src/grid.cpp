@@ -13,10 +13,8 @@ Grid::Grid(Bounds bounds, Slice field)
       cols_(rows_ > 0 ? field[0].size() : 0),
       successor_(rows_ * cols_) {
     flatField_.reserve(rows_ * cols_);
-    for (auto& row : field) {
-        for (auto& v : row) {
-            flatField_.push_back(v);
-        }
+    for (const auto& row : field) {
+        std::copy(row.begin(), row.end(), std::back_inserter(flatField_));
     }
 
     rowSpacing_ =
@@ -112,7 +110,7 @@ GridCell Grid::downstreamCell(GridCell coords) const {
     return downstreamCell(coords.row, coords.col);
 }
 
-std::vector<Path> Grid::getStreamlines() const {
+const std::vector<Path>& Grid::getStreamlines() const {
     return precomputedStreamlines_;
 }
 

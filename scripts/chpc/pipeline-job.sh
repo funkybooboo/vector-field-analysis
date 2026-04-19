@@ -39,7 +39,7 @@ tmp_toml="$PROJECT_DIR/data/$STEM/${STEM}_benchmark.toml"
 sed '/^\[analyzer\]/,$d' "$PROJECT_DIR/configs/$STEM.toml" >"$tmp_toml"
 printf '\n[analyzer]\nsolver = "benchmark"\noutput = "%s"\n' \
 	"$PROJECT_DIR/data/$STEM/streams.h5" >>"$tmp_toml"
-srun --mpi=pmix -n "$SLURM_NTASKS" "$PROJECT_DIR/build/bins/analyzer/analyzer" "$tmp_toml" \
+srun --mpi=openmpi -n "$SLURM_NTASKS" "$PROJECT_DIR/build/bins/analyzer/analyzer" "$tmp_toml" \
 	>"$PROJECT_DIR/data/$STEM/analyzer_stdout.txt" \
 	2>"$PROJECT_DIR/data/$STEM/analyzer_stderr.txt"
 rm -f "$tmp_toml"
