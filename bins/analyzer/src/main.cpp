@@ -22,18 +22,20 @@ static void printHelp() {
         << "See configs/ for example configs.\n"
         << "\n[analyzer] keys (all optional):\n"
         << "  solver                   = \"benchmark\"\n"
-        << "                             sequential | openmp | pthreads | mpi | cuda | benchmark\n"
-        << "                             (cuda requires -DENABLE_CUDA=ON at build time)\n"
+        << "                             sequential | openmp | pthreads | mpi | cuda | hybrid | benchmark\n"
+        << "                             (cuda/hybrid require -DENABLE_CUDA=ON at build time)\n"
         << "  threads                  = 0      thread/rank count for single-solver modes\n"
         << "                                    (0 = hardware_concurrency)\n"
-        << "  cuda_block_size          = 256    CUDA threads per block (single-solver mode)\n"
+        << "  cuda_block_size          = 256    CUDA threads per block (cuda/hybrid single-solver mode)\n"
         << "  benchmark_threads        = [2,4,8]  thread counts for pthreads/openmp in benchmark\n"
         << "  benchmark_cuda_block_sizes = [64,128,256,512]  block sizes for cuda in benchmark\n"
         << "\nbenchmark mode runs all available implementations and verifies output vs "
            "sequential.\n"
-        << "To include MPI in the benchmark: mpirun -n N analyzer <config.toml>\n"
-        << "For a single solver:             mpirun -n N analyzer <config.toml>  with solver = "
-           "\"mpi\"\n";
+        << "To include MPI/hybrid in the benchmark: mpirun -n N analyzer <config.toml>\n"
+        << "For a single solver (MPI Only):             mpirun -n N analyzer <config.toml>  with solver = "
+           "\"mpi\"\n"
+        << "For hybrid (CUDA+MPI):                      mpirun -n N analyzer <config.toml> with solver = "
+           "\"hybrid\"\n";
 }
 
 static unsigned int resolveThreadCount(unsigned int requested) {
