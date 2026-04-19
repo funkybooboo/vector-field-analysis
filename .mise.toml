@@ -3,7 +3,7 @@ cmake = "4.2.3"
 ninja = "1.13.2"
 uv = "0.11.2"
 "pipx:clang-format" = "22.1.1"
-"pipx:clang-tidy" = "22.1.1"
+"pipx:clang-tidy" = "22.1.0.1"
 "github:lycheeverse/lychee" = "0.15.1"
 
 # =============================================================================
