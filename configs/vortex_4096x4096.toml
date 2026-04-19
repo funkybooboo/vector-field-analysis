@@ -20,6 +20,4 @@ strength = 1.0
 magnitude = 0.005
 
 [analyzer]
-solver = "benchmark"
-benchmark_threads = [2, 4, 8]
-benchmark_cuda_block_sizes = [128, 256, 512]
+solver = "sequential"
