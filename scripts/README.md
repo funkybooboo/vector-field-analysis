@@ -2,17 +2,12 @@
 
 Helper scripts for local development and CHPC cluster workflows.
 
-| Script | Description |
-|--------|-------------|
-| [`pipeline.sh`](pipeline.sh) | Run all configs through the full pipeline: simulator → analyzer → stats → visualizer |
-| [`validate.sh`](validate.sh) | Shared validation helpers sourced by all other scripts |
-
 ## Subdirectories
 
 | Directory | Description |
 |-----------|-------------|
-| [`chpc/`](chpc) | Scripts for submitting and monitoring jobs on the CHPC cluster |
-| [`local/`](local) | Scripts for syncing files between local machine and CHPC |
+| [`local/`](local) | Run the pipeline locally and sync files between local machine and CHPC |
+| [`chpc/`](chpc) | Build, submit, and monitor jobs on the CHPC cluster |
 
 ## Configuration
 

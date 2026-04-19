@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Run configs through the full pipeline: simulator -> analyzer -> stats -> visualizer.
 # Saves all stdout/stderr and visualizer output to data/<stem>/.
-# Run from the project root.
+# Run from your local machine.
 #
 # Usage:
-#   scripts/pipeline.sh                    # run all configs in configs/
-#   scripts/pipeline.sh vortex hurricane   # run only named stems
+#   ./scripts/local/pipeline.sh                    # run all configs in configs/
+#   ./scripts/local/pipeline.sh vortex hurricane   # run only named stems
 
 set -uo pipefail
 

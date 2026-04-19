@@ -11,9 +11,8 @@ See [`docs/chpc-reference.md`](../../docs/chpc-reference.md) for cluster setup, 
 | [`check.sh`](check.sh) | Login node | Format, lint, and build check before requesting a GPU allocation |
 | [`gpu-shell.sh`](gpu-shell.sh) | Login node | Request an interactive GPU session via `srun` |
 | [`cpu-shell.sh`](cpu-shell.sh) | Login node | Request an interactive CPU session via `srun` |
-| [`submit.sh`](submit.sh) | Login node | Build and submit a single batch job for one GPU target |
-| [`benchmark.sh`](benchmark.sh) | Login node | Build and submit batch jobs across all configured GPU types |
-| [`job.sh`](job.sh) | Submitted by SLURM | Batch worker — do not run directly |
+| [`pipeline.sh`](pipeline.sh) | Login node | Build and submit batch jobs for all (or named) config stems |
+| [`pipeline-job.sh`](pipeline-job.sh) | Submitted by SLURM | Batch worker — do not run directly |
 
 ## Typical workflow
 
@@ -27,11 +26,11 @@ See [`docs/chpc-reference.md`](../../docs/chpc-reference.md) for cluster setup, 
 # 3a. Interactive GPU session (for debugging)
 ./scripts/chpc/gpu-shell.sh
 
-# 3b. Or submit a batch job
-./scripts/chpc/submit.sh
+# 3b. Submit all configs through the full pipeline
+./scripts/chpc/pipeline.sh
 
-# 3c. Or benchmark across all GPU types
-./scripts/chpc/benchmark.sh
+# 3c. Or submit only specific stems
+./scripts/chpc/pipeline.sh karman_street_128x64 source_grid_divergent_512x512
 
 # 4. Pull results back to local
 ./scripts/local/pull.sh

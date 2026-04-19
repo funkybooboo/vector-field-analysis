@@ -1,9 +1,10 @@
 # scripts/local
 
-Scripts for syncing files between your local machine and CHPC. Run these from your local machine.
+Scripts for running the pipeline locally and syncing files with CHPC. Run these from your local machine.
 
 | Script | Description |
 |--------|-------------|
+| [`pipeline.sh`](pipeline.sh) | Run all (or named) configs through the full pipeline: simulator → analyzer → stats → visualizer |
 | [`login.sh`](login.sh) | SSH into the CHPC login node |
 | [`push.sh`](push.sh) | Rsync local project files to CHPC (excludes `build/`, `output/`, `.env`) |
 | [`pull.sh`](pull.sh) | Rsync `output/` and `logs/` from CHPC back to local |
