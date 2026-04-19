@@ -79,7 +79,7 @@ Individual targets:
 | ninja | latest | Build backend |
 | uv | latest | Python package manager (visualize, codespell, gcovr -- tools fetched on demand via `uvx`) |
 | clang-format | 22.1.3 | Code formatter |
-| clang-tidy | 22.1.0.1 | Static analysis / linter |
+| clang-tidy | system | Static analysis / linter |
 | lychee | latest | Markdown link checker |
 
 **Installed by `mise run deps`** (system package manager)

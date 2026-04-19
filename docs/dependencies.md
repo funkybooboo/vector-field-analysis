@@ -14,7 +14,7 @@ Installed by `mise install`. Versions are pinned in `.mise.toml`.
 | Ninja | 1.13.2 | Fast build executor (backend for CMake) |
 | uv | 0.11.2 | Python tool runner for visualization and stats scripts |
 | clang-format | 22.1.3 | Source code formatter (enforced in CI) |
-| clang-tidy | 22.1.0.1 | C++ linter and static analyzer (enforced in CI) |
+| clang-tidy | system (apt/dnf/pacman) | C++ linter and static analyzer (enforced in CI) |
 | lychee | 0.15.1 | Broken link checker for markdown files |
 
 ---
