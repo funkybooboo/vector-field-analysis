@@ -10,7 +10,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # shellcheck source=/dev/null
 [[ -f "$PROJECT_DIR/.env" ]] && source "$PROJECT_DIR/.env"
@@ -50,11 +50,11 @@ fi
 mkdir -p "$DATA_DIR"
 
 echo "==> Building..."
-if ! cmake -B "$PROJECT_DIR/build" -DCMAKE_BUILD_TYPE=Release -S "$PROJECT_DIR" \
-	>/dev/null 2>&1; then
+configure_log=$(cmake -B "$PROJECT_DIR/build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -S "$PROJECT_DIR" 2>&1) || {
+	printf "%s\n" "$configure_log" >&2
 	echo "ERROR: CMake configure failed. Aborting." >&2
 	exit 1
-fi
+}
 if ! cmake --build "$PROJECT_DIR/build" --parallel 2>&1 | tee "$DATA_DIR/build_output.txt"; then
 	echo "ERROR: Build failed. Aborting." >&2
 	exit 1
@@ -76,8 +76,8 @@ for stem in "${STEMS[@]}"; do
 
 	# Simulator
 	if "$SIMULATOR" "$config" \
-		>"$out/simulator_stdout.txt" \
-		2>"$out/simulator_stderr.txt"; then
+		> >(tee "$out/simulator_stdout.txt") \
+		2> >(tee "$out/simulator_stderr.txt" >&2); then
 		SIM_STATUS[$stem]="OK"
 		printf "    simulator  OK\n"
 	else
@@ -91,8 +91,8 @@ for stem in "${STEMS[@]}"; do
 
 	# Analyzer
 	if mpirun -n "${MPI_RANKS:-$(nproc)}" --oversubscribe "$ANALYZER" "$config" \
-		>"$out/analyzer_stdout.txt" \
-		2>"$out/analyzer_stderr.txt"; then
+		> >(tee "$out/analyzer_stdout.txt") \
+		2> >(tee "$out/analyzer_stderr.txt" >&2); then
 		ANA_STATUS[$stem]="OK"
 		printf "    analyzer   OK\n"
 	else
@@ -105,8 +105,8 @@ for stem in "${STEMS[@]}"; do
 
 	# Stats
 	if uv run "$STATS" "$out/field.h5" "$out/streams.h5" \
-		>"$out/stats_stdout.txt" \
-		2>"$out/stats_stderr.txt"; then
+		> >(tee "$out/stats_stdout.txt") \
+		2> >(tee "$out/stats_stderr.txt" >&2); then
 		STATS_STATUS[$stem]="OK"
 		printf "    stats      OK\n"
 	else
@@ -118,8 +118,8 @@ for stem in "${STEMS[@]}"; do
 	if uv run "$VISUALIZER" "$out/field.h5" \
 		--streams "$out/streams.h5" \
 		--save "$out/animation.gif" \
-		>"$out/visualizer_stdout.txt" \
-		2>"$out/visualizer_stderr.txt"; then
+		> >(tee "$out/visualizer_stdout.txt") \
+		2> >(tee "$out/visualizer_stderr.txt" >&2); then
 		VIS_STATUS[$stem]="OK"
 		printf "    visualizer OK\n"
 	else

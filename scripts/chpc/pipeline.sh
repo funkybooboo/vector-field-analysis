@@ -58,6 +58,7 @@ module load "$CUDA_MODULE"
 echo "==> Configuring"
 cmake -B "$PROJECT_DIR/build" \
 	-DCMAKE_BUILD_TYPE=Release \
+	-DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
 	-S "$PROJECT_DIR" \
 	>/dev/null
 
