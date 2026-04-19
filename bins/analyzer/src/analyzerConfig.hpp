@@ -21,5 +21,5 @@ struct AnalyzerConfig {
     // benchmark mode: thread counts to test for pthreads/openmp.
     std::vector<unsigned int> benchmarkThreads = {2, 4, 8};
     // benchmark mode: CUDA block sizes to test.
-    std::vector<unsigned int> benchmarkCudaBlockSizes = {64, 128, 256, 512};
+    std::vector<unsigned int> benchmarkCudaBlockSizes = {128, 256, 512};
 };
