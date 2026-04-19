@@ -41,6 +41,7 @@ base_toml="$tmp_dir/base.toml"
 sed '/^\[analyzer\]/,$d' "$PROJECT_DIR/configs/$STEM.toml" >"$base_toml"
 
 ref_file=""
+ref_ms=""
 ana_failed=0
 
 run_impl() {
@@ -61,6 +62,17 @@ run_impl() {
 	fi
 	local rc=$?
 	cat "$stdout_capture" >>"$out/analyzer_stdout.txt"
+	local ms
+	ms=$(grep -m1 ' ms$' "$stdout_capture" 2>/dev/null | awk '{print $(NF-1)}' || true)
+	local timing_col=""
+	if [[ -n "$ms" ]]; then
+		timing_col=$(printf "%10.3f ms" "$ms")
+		if [[ -n "$ref_ms" && "$ms" != "0" ]]; then
+			local speedup
+			speedup=$(awk "BEGIN {printf \"%.2fx\", $ref_ms / $ms}")
+			timing_col="$timing_col  ($speedup vs sequential)"
+		fi
+	fi
 	if [[ $rc -ne 0 ]]; then
 		echo "  FAIL: $label" | tee -a "$out/analyzer_stdout.txt"
 		return 1
@@ -71,11 +83,12 @@ run_impl() {
 	fi
 	if [[ -z "$ref_file" ]]; then
 		ref_file="$tmp_out"
-		echo "  OK (reference): $label"
+		ref_ms="$ms"
+		printf "  OK (reference): %-30s %s\n" "$label" "$timing_col"
 	elif h5diff -q "$ref_file" "$tmp_out"; then
-		echo "  OK (match): $label"
+		printf "  OK (match):     %-30s %s\n" "$label" "$timing_col"
 	else
-		echo "  MISMATCH: $label"
+		printf "  MISMATCH:       %-30s %s\n" "$label" "$timing_col"
 		return 1
 	fi
 	return 0
