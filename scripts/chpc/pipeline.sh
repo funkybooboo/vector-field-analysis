@@ -87,9 +87,15 @@ for stem in "${STEMS[@]}"; do
 		account_flag=(--account="$CHPC_ACCOUNT")
 	fi
 
+	exclude_flag=()
+	if [[ -n "${CHPC_EXCLUDE:-}" ]]; then
+		exclude_flag=(--exclude="$CHPC_EXCLUDE")
+	fi
+
 	job_id=$(sbatch \
 		--partition="$CHPC_PARTITION" \
 		"${account_flag[@]}" \
+		"${exclude_flag[@]}" \
 		--gres="gpu:$CHPC_GPU" \
 		--nodes=1 \
 		--ntasks="$CHPC_NTASKS" \
