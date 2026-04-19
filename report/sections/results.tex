@@ -63,7 +63,6 @@ Moving to a block size of 512 threads yielded a much smaller improvement, reachi
 
 \subsection{Distributed CPU vs. Distributed GPU Scaling Study}
 
-
 \begin{table}[htbp]
 	\centering
 	\caption{Distributed Scaling Comparison (2--4 Nodes)}
@@ -76,8 +75,13 @@ Moving to a block size of 512 threads yielded a much smaller improvement, reachi
 	\end{tabular}
 \end{table}
 
+The distributed-memory as a underperformed in comaprison to it's shared memory counterparts.
+While the neighbor calculation phase was able to be scaled effectively due to the isolated calculations.
+The parallel path merging phase relies heavily on acessing data from the other parts of the vector filed when working across the boundaries.
+This high overhead stems from the requirement to reconcile streamline connectivity across process boundaries.
+Because each node only possesses local knowledge of its assigned sub-grid, resolving global paths requires iterative synchronization to converge the distributed Disjoint Set Union (DSU) structure.
+As the node count increases, the latency associated with these global reductions and data transfers becomes a dominant factor, limiting the overall scalability of both the distributed CPU and hybrid MPI+CUDA implementations.
 
-Analysis
 \subsection{Performance Comparison Overview}
 
 Table \ref{tab:perf_summary} provides a high-level comparison of the runtime and speedup for each implementation type.
