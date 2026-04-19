@@ -18,8 +18,8 @@
 	\begin{abstract}
 		Streamline visualization is a fundamental tool for analyzing complex vector fields, yet it often faces significant computational overhead due to the intensive numerical integration and irregular data-access patterns required for tracing paths across high-resolution grids.
 		This study presents a comprehensive suite of implementations aimed at accelerating streamline visualization through various parallel computing paradigms.
-		We developed and evaluated a vector field analyzer across several architectures. Namely, sequential CPU, shared-memory parallelism using Pthreads and OpenMP, distributed-memory systems with OpenMPI, and massively parallel GPU acceleration through CUDA, as well as a hybrid approach utilizing distributed CUDA with OpenMPI.
-		Our analysis focuses on the scalability and speedup of each implementation, comparing  performance across various example datasets at a variety of field sizes and streamline complexity.
+		We developed and evaluated a vector field analyzer across several architectures, namely: sequential CPU, shared-memory parallelism using Pthreads and OpenMP, distributed-memory systems with OpenMPI, and massively parallel GPU acceleration through CUDA, as well as a hybrid approach utilizing distributed CUDA with OpenMPI.
+		Our analysis focuses on the scalability and speedup of each implementation, comparing performance across various example datasets at a variety of field sizes and streamline complexities.
 		Results demonstrate significant performance gains over sequential implementations, with the distributed GPU implementation showing the best performance increase.
 	\end{abstract}
 	\begin{IEEEkeywords}
@@ -34,11 +34,10 @@
 \IEEEpeerreviewmaketitle
 
 \input{sections/introduction}
-\input{sections/background}
 \input{sections/methodology}
 \input{sections/results}
+\input{sections/responsibilities}
 \input{sections/conclusion}
 \input{sections/acknowledgments}
-\input{sections/references}
 
 \end{document}

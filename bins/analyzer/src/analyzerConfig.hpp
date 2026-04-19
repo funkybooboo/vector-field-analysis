@@ -5,8 +5,8 @@
 
 // Single source of truth for valid solver names.
 // configParser.cpp and solverFactory.cpp both reference this.
-inline constexpr std::array<std::string_view, 5> kValidSolvers = {
-    "sequential", "openmp", "pthreads", "mpi", "cuda"};
+inline constexpr std::array<std::string_view, 6> kValidSolvers = {
+    "sequential", "openmp", "pthreads", "mpi", "cuda", "cudaMpi"};
 
 struct AnalyzerConfig {
     // Must be one of kValidSolvers.

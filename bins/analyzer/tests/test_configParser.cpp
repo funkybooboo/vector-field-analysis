@@ -13,7 +13,7 @@ TEST_CASE("parseAnalyzer returns defaults when [analyzer] table is absent", "[co
     TempFile tmp("# empty\n");
     const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
 
-    REQUIRE(cfg.solver == "benchmark");
+    REQUIRE(cfg.solver == "sequential");
     REQUIRE(cfg.threadCount == 0);
 }
 
@@ -26,7 +26,7 @@ TEST_CASE("parseAnalyzer reads solver and threads from [analyzer]", "[config]") 
 }
 
 TEST_CASE("parseAnalyzer accepts all valid solver names", "[config]") {
-    for (const auto* solver : {"sequential", "openmp", "pthreads", "mpi", "benchmark"}) {
+    for (const auto* solver : {"sequential", "openmp", "pthreads", "mpi", "cuda", "cudaMpi"}) {
         TempFile tmp(std::string("[analyzer]\nsolver = \"") + solver + "\"\n");
         REQUIRE_NOTHROW(ConfigParser::parseAnalyzer(tmp.path.string()));
     }
@@ -42,7 +42,7 @@ TEST_CASE("parseAnalyzer returns default solver when [analyzer] present but solv
           "[config]") {
     TempFile tmp("[analyzer]\nthreads = 2\n");
     const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
-    REQUIRE(cfg.solver == "benchmark");
+    REQUIRE(cfg.solver == "sequential");
 }
 
 TEST_CASE("parseAnalyzer returns default threadCount when [analyzer] present but threads absent",

@@ -85,6 +85,17 @@ void runOne(const std::string& solverName, const Field::TimeSeries& field, unsig
     if (solverName == "mpi") {
         auto solver = makeSolver(solverName, threadCount);
         result = runSolver(*solver, field);
+    } else if (solverName == "cudaMpi") {
+#ifdef ENABLE_CUDA_SOLVER
+        auto solver = makeSolver(solverName, threadCount, cudaBlockSize);
+        result = runSolver(*solver, field);
+#else
+        if (mpiRank == 0) {
+            std::cerr << "Error: solver \"" << solverName
+                      << "\" requires rebuilding with -DENABLE_CUDA=ON\n";
+        }
+        return;
+#endif
     } else if (mpiRank == 0) {
 #ifdef ENABLE_CUDA_SOLVER
         if (solverName == "cuda") {
@@ -120,6 +131,9 @@ void runOne(const std::string& solverName, const Field::TimeSeries& field, unsig
 #ifdef ENABLE_CUDA_SOLVER
         } else if (solverName == "cuda") {
             label += " (blk=" + std::to_string(cudaBlockSize) + ")";
+        } else if (solverName == "cudaMpi") {
+            label += " (" + std::to_string(mpiSize) + " rank(s), blk=" +
+                     std::to_string(cudaBlockSize) + ")";
 #endif
         }
         std::cout << label << "  " << result.elapsedMilliseconds << " ms\n";

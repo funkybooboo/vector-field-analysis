@@ -5,15 +5,16 @@ This section presents the findings of our comparative performance analysis acros
 
 \subsection{Experimental Setup}
 
-All performance evaluations were conducted on the Kingspeak cluster at the Center for High Performance Computing (CHPC) using four compute nodes.
-The Kingspeak cluster consists of older but capable hardware, featuring Intel Xeon processors (Sandy Bridge, Ivy Bridge, Haswell, and Broadwell architectures) with 16 to 32 cores per node and an interconnect primarily based on Mellanox FDR InfiniBand.
+All performance evaluations were conducted on the lonepeak cluster at the Center for High Performance Computing (CHPC) using four compute nodes.
+% The Kingspeak cluster consists of older but capable hardware, featuring Intel Xeon processors (Sandy Bridge, Ivy Bridge, Haswell, and Broadwell architectures) with 16 to 32 cores per node and an interconnect primarily based on Mellanox FDR InfiniBand.
 
 
-The benchmarks involved two primary 1024 $\times$ 1024 vector field simulations: a \textit{vortex} field and a \textit{source grid divergent} field.
+The benchmarks involved scaling across mutliple gird sizes size, as well as a primary analysis of a primary   1024 $\times$ 1024 \textit{vortex} field.
+
 Each test was measured against a single static state of these fields.
-To ensure statistical significance, the analysis for each implementation was repeated five times for both simulations, and the resulting metrics were averaged.
-Furthermore, the correctness of each parallel implementation was validated by comparing its output against the sequential reference implementation; in all cases, the results achieved bitwise parity with the serial output, confirming identical results across all implementations.
-
+To ensure statistical significance, the analysis for each implementation was repeated five times and the resulting metrics were averaged.
+Furthermore, the correctness of each parallel implementation was validated by comparing its output against the sequential reference implementation.
+In all cases, the results achieved bitwise parity with the serial output, confirming identical results across all implementations.
 
 \subsection{Shared-Memory Threading Comparison}
 
@@ -26,19 +27,19 @@ This study compares the performance of POSIX threads (Pthreads) against OpenMP a
 	\begin{tabular}{|l|c|c|}
 		\hline
 		\textbf{\# Threads} & \textbf{POSIX Threads Runtime (ms)} & \textbf{OpenMP Runtime (ms)} \\ \hline
-		1 (Serial)          &                                     &                              \\ \hline
-		2                   &                                     &                              \\ \hline
-		4                   &                                     &                              \\ \hline
-		8                   &                                     &                              \\ \hline
-		16                  &                                     &                              \\ \hline
+		1 (Serial)          & 1518.86 (0.00\%)                    & 1518.86 (0.00\%)             \\ \hline
+		2                   & 1427.36 (6.41\%)                    & 1424.25 (6.64\%)             \\ \hline
+		4                   & 1479.87 (2.63\%)                    & 1876.70 (-19.07\%)           \\ \hline
+		8                   & 1916.70 (-20.76\%)                  & 1862.73 (-18.46\%)           \\ \hline
 	\end{tabular}
 \end{table}
 
 
-The results indicate that both Pthreads and OpenMP implementations scale effectively with increasing core counts, showing consistent performance improvements at each stage.
-However, OpenMP consistently achieved slightly lower runtimes than Pthreads across all configurations.
-This advantage was particularly evident at the 4-thread count, where OpenMP's internal load balancing mechanisms better managed the non-uniform computational load inherent in streamline tracing compared to the manual Pthreads implementation.
+The results indicate that both Pthreads and OpenMP implementations provide a slight performance improvement at low thread counts, but performance improvement degrades as the number of threads increases as the overhead of the parralel disjoin union join grows..
+OpenMP achieved its best runtime at 2 threads, whereas adding more threads significantly increased the execution time for both implementations.
+This inverse scaling suggests that the overhead of thread management and the sequential bottleneck of the merging pass dominate the computation as parallelism increases.
 
+Applying Amdahl's Law to the OpenMP implementation at 2 threads, we observe a speedup of $S \approx 1.07$. Using the relation $S(n) = \frac{1}{(1-p) + p/n}$ for $n=2$, we estimate a parallel fraction $p \approx 0.13$. This implies that only 13\% of the total execution time is effectively parallelized. For $n > 2$, the speedup $S < 1$ indicates that the system has entered a regime where synchronization overhead and resource contention outweigh the parallel gains, a common phenomenon when the serial fraction is high and the workload per thread is insufficient to hide thread creation latency.
 
 \subsection{GPU Block Size Analysis}
 
@@ -48,37 +49,44 @@ This advantage was particularly evident at the 4-thread count, where OpenMP's in
 	\label{tab:gpu_block_size}
 	\begin{tabular}{|l|r|r|}
 		\hline
-		\textbf{Block Size} & \textbf{Runtime (s)} & \textbf{Speedup} \\ \hline
-		$128 \times 128 $   &                      &                  \\ \hline
-		$256 \times 256 $   &                      &                  \\ \hline
-		$512 \times 512 $   &                      &                  \\ \hline
+		\textbf{Block Size} & \textbf{Runtime (ms)} & \textbf{Speedup} \\ \hline
+		$128 \times 128 $   & 963.29                & 1.58             \\ \hline
+		$256 \times 256 $   & 800.86                & 1.90             \\ \hline
+		$512 \times 512 $   & 800.17                & 1.90             \\ \hline
 	\end{tabular}
 \end{table}
 
-The GPU performance analysis demonstrates that increasing the block size from 128 to 256 threads provides a substantial performance boost, reducing runtime from 549.
-4 ms to 471.
-2 ms.
+The GPU performance analysis demonstrates that increasing the block size from 128 to 256 threads provides a substantial performance boost, reducing runtime from 963.3 ms to 800.9 ms.
 This improvement suggests that a block size of 256 better utilizes the GPU's streaming multiprocessors and improves latency hiding.
-Moving to a block size of 512 threads yielded a much smaller improvement, reaching 468.6 ms, indicating that the system is approaching a point of diminishing returns where occupancy is already high enough to saturate the available hardware resources.
+Moving to a block size of 512 threads yielded a negligible improvement, reaching 800.2 ms.
+Indicating that the system has reached a point of saturation where additional threads per block do not provide further benefits.
+
+Analysis of the GPU performance reveals a parallel efficiency significantly higher than the CPU implementations. With a maximum speedup of $1.90\times$, Amdahl's Law (assuming $n \to \infty$ for the thousands of CUDA threads) yields $S \approx \frac{1}{1-p}$, implying a parallel fraction $p \approx 0.474$. This indicates that approximately 47.4\% of the total workload is successfully accelerated by the GPU. The remaining 52.6\% is comprised of sequential overhead, including host-to-device memory copies and the initial field serialization, which limit the theoretical maximum speedup regardless of GPU thread count.
 
 
 \subsection{Distributed CPU vs. Distributed GPU Scaling Study}
 
-
 \begin{table}[htbp]
 	\centering
-	\caption{Distributed Scaling Comparison (2--4 Nodes)}
+	\caption{Distributed Scaling Comparison (2 Nodes)}
 	\label{tab:distributed_scaling}
 	\begin{tabular}{|l|c|c|}
 		\hline
-		\textbf{Nodes} & \textbf{Distributed CPU Runtime (s)} & \textbf{Distributed GPU Runtime (s)} \\ \hline
-		2 Nodes        &                                      &                                      \\ \hline
-		4 Nodes        &                                      &                                      \\ \hline
+		\textbf{Nodes} & \textbf{Distributed CPU Runtime (ms)} & \textbf{Distributed GPU Runtime (ms)} \\ \hline
+		2 Nodes        & 1992.49                               & ---                                   \\ \hline
 	\end{tabular}
 \end{table}
 
+The distributed-memory implementation underperformed in comparison to its shared memory counterparts.
+While the neighbor calculation phase was able to be scaled effectively due to the isolated calculations, the parallel path merging phase relies heavily on accessing data from other parts of the vector field when working across the boundaries.
+This high overhead stems from the requirement to reconcile streamline connectivity across process boundaries.
+Because each node only possesses local knowledge of its assigned sub-grid, resolving global paths requires iterative synchronization to converge the distributed Disjoint Set Union (DSU) structure.
+As the node count increases, the latency associated with these global reductions and data transfers becomes a dominant factor, limiting the overall scalability of the distributed CPU implementation.
 
-Analysis
+Speedup analysis for the 2-node distributed CPU implementation shows a value of $S \approx 0.76$.
+A speedup less than unity confirms that the communication overhead $O(n)$ grows faster than the parallel speedup for this algorithm.
+In the context of Amdahl's Law, the communication costs act as a "negative" parallel component that offsets the gains from distributed computation, resulting in a total execution time that exceeds the sequential baseline.
+
 \subsection{Performance Comparison Overview}
 
 Table \ref{tab:perf_summary} provides a high-level comparison of the runtime and speedup for each implementation type.
@@ -90,12 +98,31 @@ Table \ref{tab:perf_summary} provides a high-level comparison of the runtime and
 	\begin{tabular}{|l|r|r|}
 		\hline
 		\textbf{Technology} & \textbf{Runtime (ms)} & \textbf{Speedup} \\ \hline
-		Serial              &                       & 1.0              \\ \hline
-		Pthreads            &                       &                  \\ \hline
-		OpenMP              &                       &                  \\ \hline
-		OpenMPI             &                       &                  \\ \hline
-		CUDA                &                       &                  \\ \hline
-		Hybrid (MPI+CUDA)   &                       &                  \\ \hline
+		Serial              & 1518.86               & 1.00             \\ \hline
+		Pthreads            & 1427.36               & 1.06             \\ \hline
+		OpenMP              & 1424.25               & 1.07             \\ \hline
+		OpenMPI             & 1992.49               & 0.76             \\ \hline
+		CUDA                & 800.17                & 1.90             \\ \hline
+		Hybrid (MPI+CUDA)   & ---                   & ---              \\ \hline
 	\end{tabular}
 \end{table}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=\linewidth]{media/performance_plot.png}
+	\caption{Runtime performance comparison for various parallel implementations.}
+	\label{fig:performance_plot}
+\end{figure}
+
+While shared-memory implementations like Pthreads and OpenMP provide incremental performance gains through task-level parallelism, they are ultimately limited by the sequential nature of single-node CPU execution for this specific workload.
+While the overall calculations of the neighbor calculation and the union joining of the disjoint sets were able to speed up their respective stages, the sequential portions continue to dominate the runtime.
+The merging of the disjoint sets into a singular ordered list is inherently sequential and cannot be avoided.
+
+
+As observed in the scaling study, the requirement for global synchronization of the Disjoint Set Union (DSU) structure across process boundaries introduces a communication latency that is a bottleneck that limits the effectiveness of the parallel DSU at larger node sizes.
+The overhead of iterative synchronization stages required to reconcile streamline connectivity between sub-grids makes distributed scaling exceptionally difficult.
+
+
+Furthermore, the irregular data access continues to be a challenge that leads to a high amount of disk I/O that cannot be effectively optimized through caching.
+This is further complicated by distributed-memory implementations where the communication overhead grows exponentially with each additional node.
 

@@ -5,6 +5,7 @@
 #include "sequentialStreamlineSolver.hpp"
 
 #ifdef ENABLE_CUDA_SOLVER
+#include "cudaMpiStreamlineSolver.hpp"
 #include "cudaStreamlineSolver.hpp"
 
 #include <cuda_runtime.h>
@@ -330,6 +331,29 @@ TEST_CASE("cuda solver handles near-zero magnitude field without crash", "[impl]
     auto grid = makeNearZeroGrid();
     REQUIRE_NOTHROW(CudaStreamlineSolver{}.computeTimeStep(grid));
     REQUIRE_FALSE(grid.getStreamlines().empty());
+}
+#endif
+
+// ---------------------------------------------------------------------------
+// CudaMpiStreamlineSolver
+// ---------------------------------------------------------------------------
+
+#ifdef ENABLE_CUDA_SOLVER
+TEST_CASE("CudaMpiStreamlineSolver::computeTimeStep completes on uniform field",
+          "[impl][cudaMpi]") {
+    if (!hasCudaDevice()) {
+        SKIP("No CUDA device");
+    }
+    auto grid = makeGrid();
+    REQUIRE_NOTHROW(CudaMpiStreamlineSolver{}.computeTimeStep(grid));
+}
+
+TEST_CASE("CudaMpiStreamlineSolver::computeTimeStep handles empty grid", "[impl][cudaMpi]") {
+    if (!hasCudaDevice()) {
+        SKIP("No CUDA device");
+    }
+    auto grid = makeEmptyGrid();
+    REQUIRE_NOTHROW(CudaMpiStreamlineSolver{}.computeTimeStep(grid));
 }
 #endif
 

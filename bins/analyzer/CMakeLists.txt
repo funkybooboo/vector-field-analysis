@@ -54,6 +54,7 @@ endif()
 
 add_library(analyzer_lib STATIC
     src/configParser.cpp
+    src/cudaMpiStreamlineSolver.cpp
     src/mpiStreamlineSolver.cpp
     src/openMpStreamlineSolver.cpp
     src/pthreadsStreamlineSolver.cpp

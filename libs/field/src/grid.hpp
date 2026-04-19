@@ -38,8 +38,6 @@ class Grid {
 
     [[nodiscard]] std::size_t rows() const { return rows_; }
     [[nodiscard]] std::size_t cols() const { return cols_; }
-    [[nodiscard]] float rowSpacing() const { return rowSpacing_; }
-    [[nodiscard]] float colSpacing() const { return colSpacing_; }
 
     [[nodiscard]] const Bounds& bounds() const { return bounds_; }
     [[nodiscard]] const std::vector<Vector::Vec2>& field() const { return flatField_; }

@@ -70,11 +70,11 @@ void MpiStreamlineSolver::computeTimeStep(Field::Grid& grid) {
     // range, but cross-boundary connections (where src is on one rank and dest
     // on another) are only partially resolved locally. Each AllReduce round
     // propagates the global minimum root one hop further across rank boundaries.
-    // Loop until no rank reports a change (convergence is detected via AllReduce).
+    // p rounds are sufficient for any functional graph partitioned across p ranks.
     std::vector<std::uint64_t> localRoots(totalCells);
     std::vector<std::uint64_t> globalRoots(totalCells);
 
-    while (true) {
+    for (int round = 0; round < size; ++round) {
         for (std::size_t i = 0; i < totalCells; ++i)
             localRoots[i] = static_cast<std::uint64_t>(grid.findRoot(i));
 

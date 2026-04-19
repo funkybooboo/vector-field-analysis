@@ -1,9 +1,6 @@
 \section{Methodology}
 
-This section describes the methods, techniques, and procedures used to conduct the research and implement the various versions of the vector field analyzer.
-
 \subsection{Core Components}
-
 
 \subsubsection{Vector Representation}
 At the most fundamental level, the system utilizes a \texttt{Vec2} class to represent 2D vectors.
@@ -14,13 +11,13 @@ This class encapsulates two floating-point components, $x$ and $y$, and essentia
 \end{itemize}
 
 \subsubsection{Field Representation}
-Vector fields are represented store discretely spaced
+Vector fields are represented as discretely spaced vectors stored within a grid structure.
 
 The primary data structures are:
 \begin{itemize}
 	\item \texttt{FieldSlice}: A 2D grid of discretely spaced vectors.
-	\item \texttt{FieldTimeSeries}: A  collection of field slices that have associated x and y bound associated with physical-space bounds ($x_{\text{min}}, x_{\text{max}}, y_{\text{min}}, y_{\text{max}}$).
-	\item \texttt{FieldGrid}: serves as the high-level manager for a single time-step's vector field. Handling all the necessary calcualtions for streamline computations.
+	\item \texttt{FieldTimeSeries}: A collection of field slices associated with physical-space bounds ($x_{\text{min}}, x_{\text{max}}, y_{\text{min}}, y_{\text{max}}$).
+	\item \texttt{FieldGrid}: Serves as the high-level manager for a single time-step's vector field, handling all the necessary calculations for streamline computations.
 \end{itemize}
 
 The \texttt{FieldReader} component handles the deserialization of these fields from HDF5 files using the HighFive library.
@@ -35,62 +32,74 @@ This abstraction allows the tracing logic to handle merging and path extension w
 \subsection{Streamline Tracing Algorithm}
 
 The core logic for analyzing vector fields involves a discretized streamline tracing algorithm that maps continuous vector directions onto the underlying computational grid.
-Unlike continuous integration methods, this approach treats the grid cells as discrete nodes in a directed graph where edges are defined by the local vector field.
+To manage the connectivity and merging of these paths efficiently, the system employs a Disjoint Set Union (DSU) or Union-Find algorithm.
 
 
-\subsubsection{Discretized Neighbor Calculation}
-For each cell $(i, j)$, the algorithm computes the target neighbor by first determining the physical spacing between grid cells based on the field boundaries and grid dimensions.
-It then advances the cell's physical position by the vector's $(x, y)$ components, and converting back to grid indices using it's knowledge of grid spacing.
+\subsubsection{Discretized Subsequent Vector Calculation}
+For each cell $(i, j)$, the algorithm computes the target subsequent vector by first determining the physical spacing between grid cells based on the field boundaries and grid dimensions.
+It then advances the cell's physical position by the vector's $(x, y)$ components and converting back to grid indices using its knowledge of grid spacing.
 
-\subsubsection{One-Step Forward Trace and Merging}
-The algorithm maintains a parallel grid where each cell points to the streamline it currently belongs to (initially null).
-Each grid cell is processed only once. For each cell, it considers a single step using it's discretized neighbor calculation.
-When processing a cell:
+\subsubsection{Connectivity Discovery via Union-Find to allow for Path Compression}
+Using grid indices allows for the vector field grid to operate as a collection of disjoint sets where each disjoint set is a streamline.
+The algorithm treats each grid cell as an element in a disjoint-set structure.
+Connectivity is established by performing a \texttt{unite} operation between each cell and its calculated downstream subsequent vector.
+
+The \texttt{unite} operation serves as the primary mechanism for establishing connectivity between grid cells.
+In parallel contexts, this is performed using atomic synchronization primitives (e.g. barrier) to ensure that multiple threads can safely update the shared set structure without requiring heavy-weight locks.
+To maintain high performance as the grid size increases, the algorithm employs path halving during the root discovery process, which incrementally flattens the tree structure and ensures that subsequent connectivity checks remain efficient.
+This happens iteratively until it's subsection remains stable across passes.
+
+
+This approach offers several advantages:
 \begin{itemize}
-	\item \textbf{Path Extension:} If the source cell has no streamline, a new streamline is created starting at that cell. If the neighboring cell is unclaimed, it is assigned to the source's streamline, and its coordinates are appended to the streamline's path.
-	\item \textbf{Path Merging:} If the neighboring cell already belongs to a streamline, the source cell's streamline (if any) is merged into the neighbor's streamline, and the grid is updated so that every point in the source streamline now points to the neighbor's streamline. This represents a convergence in the flow.
+	\item \textbf{Efficient Merging:} Streamlines that converge into the same cell are naturally merged into the same set, representing a single flow component.
+	\item \textbf{Path Compression:} The \texttt{findRoot} operation, combined with path compression or halving, ensures that determining the component ownership of any cell is nearly constant time ($O(\alpha(n))$).
 \end{itemize}
 
-After processing all cells, each grid cell belongs to exactly one streamline. The algorithm naturally handles termination: when a vector points to the same cell (after clamping), no extension or merge occurs for that cell, resulting in a streamline of length one. Similarly, boundary effects are handled by the clamping step in the neighbor calculation.
-
-By maintaining this parallel grid of streamline references and processing each cell once, the algorithm efficiently maps the entire topology of the field in a deterministic manner.
+After all cells have been processed, the resulting disjoint sets represent the unique streamlines within the field.
+Boundary effects and terminal points are handled naturally: if a vector points back to its own cell (after clamping), it remains its own root.
 
 \subsection{Serial CPU Implementation}
-The baseline implementation, \texttt{sequentialCPU}, serves as a reference for both correctness and performance metrics.
-It is implemented using modern C++17 standards \cite{cpp17} and processes the vector field grid in a single pass using nested loops to iterate through rows and columns in row-major order.
-For each cell $(i, j)$, the implementation invokes the \texttt{traceStreamlineStep} method, which calculates the target neighbor and updates the streamline grid.
+The baseline implementation, \texttt{sequential CPU}, serves as a reference for both correctness and performance metrics.
+It is implemented using modern C++17 standards and processes the vector field grid in a single pass using nested loops to iterate through rows and columns to identify it's subsequent vector.
+Then each cell invokes the \texttt{traceStreamlineStep} method, which takes the original and subsequent vector and adds the subsequent vector to the streamline of the original.
 
 \subsection{Shared-Memory Parallelism CPU Implementation}
 To leverage multi-core architectures, we developed parallel implementations using POSIX Threads and OpenMP.
-A significant challenge in parallelizing the streamline tracing algorithm is the stateful nature of the streamline grid; multiple threads writing to or merging streamlines could result in race conditions.
-To address this, both shared-memory implementations employ a two-pass strategy:
+A significant challenge in parallelizing the streamline tracing algorithm is the stateful nature of the Union-Find structure; multiple threads performing \texttt{unite} operations could result in race conditions.
+To address this, both shared-memory implementations employ a multi-pass strategy:
 \begin{enumerate}
-	\item \textbf{Parallel Neighbor Precomputation:} The algorithm first calculates the destination neighbor for every cell in the grid.
-	      Since this step only reads from the vector field and writes to an independent intermediate buffer, it is perfectly parallelizable.
-	\item \textbf{Sequential Streamline Merging:} The precomputed neighbors are then used to perform the actual streamline tracing and merging.
-	      This pass remains sequential to ensure the integrity of the streamline data structures.
-
-\end{enumerate}
+	\item \textbf{Parallel Subsequent Vector Precomputation:} The algorithm first calculates the destination subsequent vector for every cell in the grid.
+	      Since this step only reads from the vector field and writes to an intermediate buffer, it is perfectly parallelizable.
+	\item \textbf{Parallel Root Discovery:} After the sequential pass, the \texttt{findRoot} operation is performed in parallel for all cells to determine their final component assignments. \end{enumerate}
 
 \subsubsection{POSIX Threads (Pthreads)}
-The grid is partitioned into cunks where each thread is assigned a contiguous range of rows.
-This minimizes the overhead of thread management while ensuring that each thread operates on a disjoint memory region in the neighbor buffer.
+The grid is partitioned into chunks where each thread is assigned a contiguous range of rows.
+This minimizes the overhead of thread management while ensuring that each thread operates on a disjoint memory region in the subsequent vector buffer.
 The implementation explicitly manages thread creation and joining, handling potential errors and ensuring that all threads terminate before proceeding to the sequential pass.
 
 \subsubsection{OpenMP}
-The OpenMP implementation (\texttt{openMP}) utilizes compiler directives to abstract the underlying thread management, adhering to the OpenMP 5.
-0 application program interface \cite{openmp50}.
-We employ \texttt{\#pragma omp parallel for} directive with a \texttt{collapse(2)} clause to allow for easy segmenatation and load balancing across our nested loops.
+This works identically to the POSIX threads implementations with one modification.
+We employ \texttt{\#pragma omp parallel for} directive with a \texttt{collapse(2)} clause to allow for easy segmentation and load balancing across our nested loops. T
 
 \subsection{Massively Parallel GPU Acceleration with CUDA}
+The CUDA implementation offloads the computationally intensive tasks of subsequent vector calculation and component discovery to the GPU, leveraging its high throughput to handle millions of cells simultaneously.
+While it shares the multi-pass architecture of the parallel CPU implementations, it extends the parallelism to the connectivity analysis through the use of device-side synchronization primitives.
+
+\begin{enumerate}
+	\item \textbf{Parallel Subsequent Vector Precomputation:} A CUDA kernel assigns one thread to each grid cell to calculate its downstream subsequent vector.
+	\item \textbf{Parallel Union-Find:} Unlike the shared-memory CPU versions which rely on a sequential merging pass, the CUDA implementation resolves streamline connectivity on the device using a parallel Union-Find algorithm. It employs \texttt{atomicCAS} (Compare-And-Swap) to ensure thread-safe updates to the disjoint-set.
+	\item \textbf{Path Compression and Labeling:} A final kernel performs path compression, ensuring every cell points directly to its component root.
+\end{enumerate}
+
 
 \subsection{Distributed-Memory CPU Implementation}
 
-The distributed-memory implementation using MPI introduces a significant challenge not present in the shared-memory implementations: processes do not share an address space, so the sequential streamline merging pass cannot operate globally across all ranks.
-To address this, each rank is assigned a contiguous range of rows and independently computes and merges the downstream neighbors for its assigned cells.
+The distributed-memory implementation using MPI introduces a significant challenge not present in the shared-memory implementations: processes do not share an address space, so the sequential Union-Find pass cannot operate globally across all ranks.
+To address this, each rank is assigned a contiguous range of rows and independently computes and merges the downstream subsequent vectors for its assigned cells.
 This correctly resolves all connections whose source cell falls within the rank's row range, but connections that cross rank boundaries are only partially recorded --- the source rank knows about the connection, but the destination rank does not.
 We resolve these cross-boundary connections through an iterative \texttt{MPI\_Allreduce} loop, where each round broadcasts the current root of every cell across all ranks and takes the global minimum.
-Any rank that observes a globally lower root for a cell than its own merges those two components locally, propagating that connectivity inward.
+Any rank that observes a globally lower root for a cell than its own merges those two components locally via the \texttt{unite} operation, propagating that connectivity inward.
 Each round resolves connections one rank boundary further, so at most $p$ rounds are needed for a field partitioned across $p$ ranks, with an early-exit condition terminating the loop as soon as no rank reports any changes.
 Once all ranks have converged to a consistent global state, path reconstruction proceeds identically to the shared-memory implementations, with each rank building paths for its assigned cell range and the results gathered to rank 0.
 

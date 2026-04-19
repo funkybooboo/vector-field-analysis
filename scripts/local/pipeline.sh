@@ -157,6 +157,9 @@ for stem in "${STEMS[@]}"; do
 		run_impl "cuda (blk=128)" cuda        1  128  0 || true
 		run_impl "cuda (blk=256)" cuda        1  256  0 || true
 		run_impl "cuda (blk=512)" cuda        1  512  0 || true
+		# cudaMpi is optional -- requires CUDA+MPI
+		run_impl "cudaMpi (2 ranks, blk=256)" cudaMpi  1  256  2 || true
+		run_impl "cudaMpi (4 ranks, blk=256)" cudaMpi  1  256  4 || true
 	fi
 
 	# Copy sequential output as the canonical streams.h5 for downstream steps
