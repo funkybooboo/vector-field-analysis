@@ -7,8 +7,6 @@
 #endif
 
 #include <algorithm>
-#include <chrono>
-#include <iostream>
 #include <thread>
 #include <vector>
 
@@ -125,6 +123,11 @@ void OpenMpStreamlineSolver::computeTimeStep(Field::Grid& grid) {
 
     // Final merge of paths from all threads.
     std::vector<Field::Path> finalPaths;
+    std::size_t totalPaths = 0;
+    for (const auto& local : localPathsCollection) {
+        totalPaths += local.size();
+    }
+    finalPaths.reserve(totalPaths);
     for (auto& local : localPathsCollection) {
         finalPaths.insert(finalPaths.end(), std::make_move_iterator(local.begin()),
                           std::make_move_iterator(local.end()));
