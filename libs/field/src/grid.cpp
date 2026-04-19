@@ -22,7 +22,7 @@ void Grid::initializeSuccessors() {
     const std::size_t total =
         static_cast<std::size_t>(rowCount) * static_cast<std::size_t>(colCount);
     for (std::size_t i = 0; i < total; ++i) {
-        successor_[i] = i;
+        successor_[i].store(i, std::memory_order_relaxed);
     }
 }
 
@@ -35,10 +35,10 @@ std::size_t Grid::coordsToIndex(std::size_t row, std::size_t col) const {
 // Path halving: make every other node in the path point to its grandparent.
 std::size_t Grid::findRoot(std::size_t x) const {
     while (successor_[x] != x) {
-        // This is safe to do concurrently without further synchronization.
-        std::size_t parent = successor_[x].load();
-        std::size_t grandparent = successor_[parent].load();
-        successor_[x].store(grandparent);
+        std::size_t parent = successor_[x].load(std::memory_order_relaxed);
+        std::size_t grandparent = successor_[parent].load(std::memory_order_relaxed);
+        // Relaxed: path compression is a best-effort optimization; stale writes are harmless.
+        successor_[x].store(grandparent, std::memory_order_relaxed);
         x = grandparent;
     }
     return x;
@@ -59,7 +59,8 @@ void Grid::unite(std::size_t a, std::size_t b) {
         }
 
         std::size_t expected = b;
-        if (successor_[b].compare_exchange_weak(expected, a)) {
+        if (successor_[b].compare_exchange_weak(expected, a,
+                std::memory_order_release, std::memory_order_relaxed)) {
             return;
         }
     }
@@ -127,6 +128,11 @@ void Grid::joinStreamlines(const std::shared_ptr<Streamline>& start,
 // responsible for calling this sequentially (see downstreamCell for
 // the parallel-safe read step).
 void Grid::traceStreamlineStep(GridCell src, GridCell dest) {
+    if (streamlines_.empty()) {
+        const std::size_t numRows = field_.size();
+        const std::size_t numCols = numRows > 0 ? field_[0].size() : 0;
+        streamlines_.assign(numRows, std::vector<std::shared_ptr<Streamline>>(numCols, nullptr));
+    }
     const auto gridRowCount = static_cast<std::size_t>(streamlines_.size());
     const auto gridColCount = gridRowCount > 0 ? streamlines_[0].size() : 0;
     if (static_cast<std::size_t>(src.row) >= gridRowCount ||

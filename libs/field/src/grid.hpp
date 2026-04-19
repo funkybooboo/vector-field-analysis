@@ -29,9 +29,6 @@ class Grid {
         : bounds_(bounds),
           field_(std::move(field)),
           successor_(field_.size() * (field_.empty() ? 0 : field_[0].size())) {
-        const std::size_t numRows = field_.size();
-        const std::size_t numCols = numRows > 0 ? field_[0].size() : 0;
-        streamlines_.assign(numRows, std::vector<std::shared_ptr<Streamline>>(numCols, nullptr));
         initializeSuccessors();
     }
 
