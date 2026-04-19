@@ -132,6 +132,20 @@ _check_job_output() {
   fi
 }
 
+_check_openmpi_module() {
+  if [[ -z "${OPENMPI_MODULE:-}" ]]; then
+    echo "error: OPENMPI_MODULE is not set (e.g. openmpi/5.0.8 -- run 'module spider openmpi' to see options)" >&2
+    return 1
+  fi
+}
+
+_check_hdf5_module() {
+  if [[ -z "${HDF5_MODULE:-}" ]]; then
+    echo "error: HDF5_MODULE is not set (e.g. hdf5/1.14.6 -- run 'module spider hdf5' to see options)" >&2
+    return 1
+  fi
+}
+
 _check_cuda_module() {
   if [[ -z "${CUDA_MODULE:-}" ]]; then
     echo "error: CUDA_MODULE is not set (e.g. cuda/12.1.0 -- run 'module spider cuda' to see options)" >&2

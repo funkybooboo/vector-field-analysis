@@ -16,7 +16,7 @@ source "$SCRIPT_DIR/../validate.sh"
 
 validate_or_die \
   _check_account _check_partition _check_gpu _check_time _check_ntasks \
-  _check_cuda_module
+  _check_openmpi_module _check_hdf5_module _check_cuda_module
 
 CONFIGS_DIR="$PROJECT_DIR/configs"
 LOG_DIR="$PROJECT_DIR/logs"
@@ -43,6 +43,8 @@ fi
 
 # shellcheck source=/dev/null
 source /etc/profile.d/lmod.sh 2>/dev/null || true
+module load "$OPENMPI_MODULE"
+module load "$HDF5_MODULE"
 module load "$CUDA_MODULE"
 
 echo "==> Configuring"
@@ -82,7 +84,7 @@ for stem in "${STEMS[@]}"; do
     --job-name="${JOB_NAME}_${stem}" \
     --output="$LOG_DIR/$stem/stdout.log" \
     --error="$LOG_DIR/$stem/stderr.log" \
-    --export="STEM=$stem,PROJECT_DIR=$PROJECT_DIR,CUDA_MODULE=$CUDA_MODULE" \
+    --export="STEM=$stem,PROJECT_DIR=$PROJECT_DIR,OPENMPI_MODULE=$OPENMPI_MODULE,HDF5_MODULE=$HDF5_MODULE,CUDA_MODULE=$CUDA_MODULE" \
     "$SCRIPT_DIR/pipeline-job.sh" \
     | awk '{print $NF}')
 

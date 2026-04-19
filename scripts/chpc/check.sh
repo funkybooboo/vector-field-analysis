@@ -11,6 +11,8 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$SCRIPT_DIR/../validate.sh"
 [[ -f "$PROJECT_DIR/.env" ]] && source "$PROJECT_DIR/.env"
 
+validate_or_die _check_openmpi_module _check_hdf5_module _check_cuda_module
+
 # C++ sources: formatted + linted
 mapfile -t CPP_SOURCES < <(find "$PROJECT_DIR/bins" -path "*/src/*.cpp" | sort)
 
@@ -18,6 +20,12 @@ mapfile -t CPP_SOURCES < <(find "$PROJECT_DIR/bins" -path "*/src/*.cpp" | sort)
 mapfile -t CUDA_SOURCES < <(find "$PROJECT_DIR/bins" -path "*/src/*.cu" | sort)
 
 cd "$PROJECT_DIR"
+
+# shellcheck source=/dev/null
+source /etc/profile.d/lmod.sh 2>/dev/null || true
+module load "$OPENMPI_MODULE"
+module load "$HDF5_MODULE"
+module load "$CUDA_MODULE"
 
 echo "==> configure"
 cmake -B "$PROJECT_DIR/build" \
