@@ -35,7 +35,7 @@ std::unique_ptr<StreamlineSolver> makeSolver(std::string_view name, unsigned int
         return std::make_unique<CudaStreamlineSolver>(cudaBlockSize);
     }
     if (name == "hybrid") {
-      return std::make_unique<hybridCudaMpiStreamlineSolver>(cudaBlockSize);
+      return std::make_unique<HybridCudaMpiStreamlineSolver>(cudaBlockSize);
     }
 #endif
     if (name == "mpi") {
