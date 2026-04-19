@@ -146,6 +146,20 @@ Result computeComponents(const std::vector<int>& successor, int rows, int cols,
 
         cleanup();
 
+        // CPU full path compression: compressParentsKernel uses non-atomic writes,
+        // so parent[i] may still point to an intermediate ancestor after the GPU pass.
+        for (int i = 0; i < total; ++i) {
+            int root = parent[static_cast<std::size_t>(i)];
+            while (parent[static_cast<std::size_t>(root)] != root)
+                root = parent[static_cast<std::size_t>(root)];
+            int x = i;
+            while (parent[static_cast<std::size_t>(x)] != root) {
+                int next = parent[static_cast<std::size_t>(x)];
+                parent[static_cast<std::size_t>(x)] = root;
+                x = next;
+            }
+        }
+
         // Convert raw roots to dense labels 0..N-1
         std::vector<int> rootToLabel(static_cast<std::size_t>(total), -1);
         std::vector<int> componentId(static_cast<std::size_t>(total));
