@@ -12,6 +12,7 @@ All performance evaluations were conducted on the lonepeak cluster at the Center
 The benchmarks involved scaling across mutliple gird sizes size, as well as a primary analysis of a primary   1024 $\times$ 1024 \textit{vortex} field.
 
 Each test was measured against a single static state of these fields.
+Timing was measured inside of main.cpp to avoid measuring the loadtimes of the various libraries.
 To ensure statistical significance, the analysis for each implementation was repeated five times and the resulting metrics were averaged.
 Furthermore, the correctness of each parallel implementation was validated by comparing its output against the sequential reference implementation.
 In all cases, the results achieved bitwise parity with the serial output, confirming identical results across all implementations.

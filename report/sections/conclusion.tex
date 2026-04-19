@@ -1,14 +1,13 @@
 \section{Conclusion}
 
-This study successfully implemented and evaluated several parallel computing paradigms to accelerate streamline visualization in vector field analysis.
-By developing solvers using Pthreads, OpenMP, OpenMPI, and CUDA, we demonstrated the scalability and efficiency of these technologies in handling the computationally intensive and irregular data-access patterns inherent in streamline tracing.
+Our comparative analysis reveals that while shared-memory implementations (POSIX Threads and OpenMP) provide incremental performance gains of approximately 6--7\% at low thread counts, they are ultimately constrained by a high serial fraction ($\approx$ 87\%).
+The overhead of thread management and the sequential requirements of the final path reconstruction phase limit the scalability of these CPU-based parallel strategies.
 
-Our findings reveal that OpenMP provides a slight performance advantage over Pthreads in shared-memory environments, primarily due to its superior load-balancing capabilities which were most evident at moderate thread counts.
-In GPU-accelerated environments, we observed that tuning block sizes—specifically moving from 128 to 256 threads—significantly impacts occupancy and latency hiding.
-Ultimately, the hybrid MPI+CUDA implementation provided the most substantial speedup, proving the effectiveness of combining distributed-memory scaling with massively parallel GPU acceleration.
-Crucially, all parallel implementations maintained bitwise parity with the sequential reference, ensuring that performance gains did not come at the cost of numerical accuracy.
+In contrast, the massively parallel CUDA implementation achieved the most significant performance improvement, providing a 1.90$\times$ speedup over the sequential reference.
+The GPU's ability to handle millions of cells simultaneously through optimized block sizes and device-side atomic synchronization successfully mitigated much of the tracing overhead, although performance remained bound by host-to-device memory transfer latency and the non-parallelizable serialization of output data.
 
-Despite these gains, this study was limited to static 1024 $\times$ 1024 grids on the older Kingspeak cluster.
-Future research could investigate the performance of these solvers on more modern architectures, such as the A100 or H100 GPUs available on the Notchpeak and Granite clusters.
-Additionally, extending the solvers to handle time-varying vector fields and exploring more complex load-balancing strategies for highly non-uniform datasets would further enhance their applicability to large-scale scientific simulations.
+The distributed-memory implementation using OpenMPI highlighted the significant challenges of communication of memory across isolated processes.
+The high communication cost associated with iterative synchronization resulted in a speedup of slower than a serial implementation ($0.76\times$).
 
+Crucially, all parallel implementations achieved bitwise parity with the serial reference, demonstrating that  performance acceleration can be achieved without compromising the numerical integrity of the flow analysis.
+Ultimately, while GPU acceleration provides the most immediate path to performance gains, the development of truly scalable distributed streamline visualization requires minimizing global synchronization overhead.
