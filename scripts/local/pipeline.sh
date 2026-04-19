@@ -96,7 +96,7 @@ for stem in "${STEMS[@]}"; do
 	tmp_toml="$tmp_dir/${stem}.toml"
 	sed '/^\[analyzer\]/,$d' "$config" >"$tmp_toml"
 	printf '\n[analyzer]\nsolver = "benchmark"\noutput = "%s"\n' "$out/streams.h5" >>"$tmp_toml"
-	if mpirun -n 4 --oversubscribe "$ANALYZER" "$tmp_toml" \
+	if "$ANALYZER" "$tmp_toml" \
 		> >(tee "$out/analyzer_stdout.txt") \
 		2> >(tee "$out/analyzer_stderr.txt" >&2); then
 		printf "    analyzer   OK\n"
