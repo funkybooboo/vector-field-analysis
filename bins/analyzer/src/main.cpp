@@ -119,7 +119,8 @@ int main(int argc, char* argv[]) {
         }
 
         const unsigned int threadCount = resolveThreadCount(config.threadCount);
-        runOne(config.solver, field, threadCount, config.cudaBlockSize, mpiRank, mpiSize, outPath);
+        runOne(config.solver, field, threadCount, config.cudaBlockSize, mpiRank, mpiSize, outPath,
+               config.timingOutput);
     } catch (const std::exception& e) {
         if (mpiRank == 0) {
             std::cerr << "Error: " << e.what() << "\n";

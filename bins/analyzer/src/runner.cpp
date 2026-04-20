@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <numeric>
@@ -79,8 +80,8 @@ static void writeAndReport(const std::string& outPath,
 }
 
 void runOne(const std::string& solverName, const Field::TimeSeries& field, unsigned int threadCount,
-            [[maybe_unused]] unsigned int cudaBlockSize, int mpiRank, int mpiSize,
-            const std::string& outPath) {
+            unsigned int cudaBlockSize, int mpiRank, int mpiSize,
+            const std::string& outPath, const std::string& timingOutput) {
     RunResult result{};
     if (solverName == "mpi") {
         auto solver = makeSolver(solverName, threadCount);
@@ -137,6 +138,13 @@ void runOne(const std::string& solverName, const Field::TimeSeries& field, unsig
 #endif
         }
         std::cout << label << "  " << result.elapsedMilliseconds << " ms\n";
+
+        if (!timingOutput.empty()) {
+            std::ofstream tf(timingOutput);
+            tf << "solver=" << solverName << "\n"
+               << "ms=" << std::fixed << std::setprecision(6) << result.elapsedMilliseconds << "\n"
+               << "label=" << label << "\n";
+        }
 
         std::vector<StreamWriter::StepStreamlines> canonical;
         canonical.reserve(result.streams.size());
