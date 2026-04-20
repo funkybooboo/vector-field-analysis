@@ -25,6 +25,22 @@ These differ from pathlines, which seek to track a particle's progress over time
 In comparison, streamlines allow for a more comprehensive snapshot of entire vector fields at a static level; they can also be used to show how a given field changes over time, which is highly relevant to disciplines like magnetism.
 This broader reach leads to a far higher complexity for streamline tracing in comparison to pathlines.
 
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\linewidth]{media/vector-field.png}
+	\caption{A discrete vector field grid representing force and direction at each point.}
+	\label{fig:vector_field_grid}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.8\linewidth]{media/vector-streams.png}
+	\caption{A vector field grid with high-velocity streamlines highlighted to illustrate flow patterns.}
+	\label{fig:vector_streams_highlighted}
+\end{figure}
+
+
 \subsection{Computational Challenges}
 
 Despite their utility, streamline visualization faces significant computational overhead.
