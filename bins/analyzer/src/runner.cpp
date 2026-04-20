@@ -132,7 +132,8 @@ void runOne(const std::string& solverName, const Field::TimeSeries& field, unsig
         } else if (solverName == "cuda") {
             label += " (blk=" + std::to_string(cudaBlockSize) + ")";
         } else if (solverName == "cudaMpi") {
-            label += " (" + std::to_string(mpiSize) + " rank(s), blk=" + std::to_string(cudaBlockSize) + ")";
+            label += " (" + std::to_string(mpiSize) +
+                     " rank(s), blk=" + std::to_string(cudaBlockSize) + ")";
 #endif
         }
         std::cout << label << "  " << result.elapsedMilliseconds << " ms\n";

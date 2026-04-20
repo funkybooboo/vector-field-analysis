@@ -166,7 +166,8 @@ void CudaMpiStreamlineSolver::computeTimeStep(Field::Grid& grid) {
         std::vector<Field::Path> finalPaths;
         for (int r = 0; r < size; ++r) {
             int pos = displs[static_cast<std::size_t>(r)] + 1;
-            const int nPaths = recvBuf[static_cast<std::size_t>(displs[static_cast<std::size_t>(r)])];
+            const int nPaths =
+                recvBuf[static_cast<std::size_t>(displs[static_cast<std::size_t>(r)])];
             for (int p = 0; p < nPaths; ++p) {
                 const int pathLen = recvBuf[static_cast<std::size_t>(pos++)];
                 Field::Path path;

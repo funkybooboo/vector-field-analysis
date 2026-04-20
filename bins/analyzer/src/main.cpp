@@ -15,20 +15,24 @@
 #include <thread>
 
 static void printHelp() {
-    std::cout
-        << "Usage: analyzer <config.toml>\n"
-        << "\nRuns vector field streamline analysis using the given TOML config file.\n"
-        << "Reads data/<config-stem>/field.h5 and writes data/<config-stem>/streams.h5.\n"
-        << "See configs/ for example configs.\n"
-        << "\n[analyzer] keys (all optional):\n"
-        << "  solver          = \"sequential\"  one of: sequential | openmp | pthreads | mpi | cuda | cudaMpi\n"
-        << "                                  (cuda/cudaMpi require -DENABLE_CUDA=ON at build time)\n"
-        << "                                  (cudaMpi also requires: mpirun -n N analyzer <config.toml>)\n"
-        << "  threads         = 0             thread count for openmp/pthreads  (0 = hardware_concurrency)\n"
-        << "  cuda_block_size = 256           CUDA threads per block\n"
-        << "  output          = \"\"            path for streams HDF5; default derived from config stem\n"
-        << "\nFor MPI:     mpirun -n N analyzer <config.toml>  with solver = \"mpi\"\n"
-        << "For cudaMpi: mpirun -n N analyzer <config.toml>  with solver = \"cudaMpi\"\n";
+    std::cout << "Usage: analyzer <config.toml>\n"
+              << "\nRuns vector field streamline analysis using the given TOML config file.\n"
+              << "Reads data/<config-stem>/field.h5 and writes data/<config-stem>/streams.h5.\n"
+              << "See configs/ for example configs.\n"
+              << "\n[analyzer] keys (all optional):\n"
+              << "  solver          = \"sequential\"  one of: sequential | openmp | pthreads | mpi "
+                 "| cuda | cudaMpi\n"
+              << "                                  (cuda/cudaMpi require -DENABLE_CUDA=ON at "
+                 "build time)\n"
+              << "                                  (cudaMpi also requires: mpirun -n N analyzer "
+                 "<config.toml>)\n"
+              << "  threads         = 0             thread count for openmp/pthreads  (0 = "
+                 "hardware_concurrency)\n"
+              << "  cuda_block_size = 256           CUDA threads per block\n"
+              << "  output          = \"\"            path for streams HDF5; default derived from "
+                 "config stem\n"
+              << "\nFor MPI:     mpirun -n N analyzer <config.toml>  with solver = \"mpi\"\n"
+              << "For cudaMpi: mpirun -n N analyzer <config.toml>  with solver = \"cudaMpi\"\n";
 }
 
 static unsigned int resolveThreadCount(unsigned int requested) {

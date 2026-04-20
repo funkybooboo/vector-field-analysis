@@ -21,8 +21,8 @@ inline void cudaCheck(cudaError_t err, const char* what) {
 // Mirrors Grid::downstreamCell using the same simplified index-space formula:
 // destRow = round(row + vy/rowSpacing). Division-only; no FMA possible, so
 // GPU result is bitwise identical to CPU.
-__global__ void computeSuccessorKernel(const float2* field, int rows, int cols,
-                                       float rowSpacing, float colSpacing, int* successor) {
+__global__ void computeSuccessorKernel(const float2* field, int rows, int cols, float rowSpacing,
+                                       float colSpacing, int* successor) {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= rows * cols) {
         return;
@@ -37,8 +37,10 @@ __global__ void computeSuccessorKernel(const float2* field, int rows, int cols,
     }
 
     const float2 v = field[idx];
-    const int destRow = max(0, min(rows - 1, static_cast<int>(roundf(static_cast<float>(row) + (v.y / rowSpacing)))));
-    const int destCol = max(0, min(cols - 1, static_cast<int>(roundf(static_cast<float>(col) + (v.x / colSpacing)))));
+    const int destRow = max(
+        0, min(rows - 1, static_cast<int>(roundf(static_cast<float>(row) + (v.y / rowSpacing)))));
+    const int destCol = max(
+        0, min(cols - 1, static_cast<int>(roundf(static_cast<float>(col) + (v.x / colSpacing)))));
     successor[idx] = destRow * cols + destCol;
 }
 
@@ -57,14 +59,16 @@ __device__ void unite(int* parent, int a, int b) {
     while (true) {
         a = findRoot(parent, a);
         b = findRoot(parent, b);
-        if (a == b) return;
+        if (a == b)
+            return;
         if (a > b) {
             const int tmp = a;
             a = b;
             b = tmp;
         }
         const int old = atomicCAS(&parent[b], b, a);
-        if (old == b) return;
+        if (old == b)
+            return;
     }
 }
 
@@ -90,8 +94,8 @@ __global__ void compressParentsKernel(int n, int* parent) {
 }
 
 __global__ void computeSuccessorSliceKernel(const float2* field, int rows, int cols,
-                                            float rowSpacing, float colSpacing,
-                                            int startRow, int localRows, int* successor) {
+                                            float rowSpacing, float colSpacing, int startRow,
+                                            int localRows, int* successor) {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= localRows * cols) {
         return;
@@ -104,8 +108,11 @@ __global__ void computeSuccessorSliceKernel(const float2* field, int rows, int c
         return;
     }
     const float2 v = field[idx];
-    const int destRow = max(0, min(rows - 1, static_cast<int>(roundf(static_cast<float>(globalRow) + (v.y / rowSpacing)))));
-    const int destCol = max(0, min(cols - 1, static_cast<int>(roundf(static_cast<float>(col) + (v.x / colSpacing)))));
+    const int destRow =
+        max(0, min(rows - 1,
+                   static_cast<int>(roundf(static_cast<float>(globalRow) + (v.y / rowSpacing)))));
+    const int destCol = max(
+        0, min(cols - 1, static_cast<int>(roundf(static_cast<float>(col) + (v.x / colSpacing)))));
     successor[idx] = destRow * cols + destCol;
 }
 
@@ -165,8 +172,8 @@ Result computeComponents(const std::vector<Vector::Vec2>& field, int rows, int c
         const int blockSize = static_cast<int>(cudaBlockSize);
         const int launchSize = (total + blockSize - 1) / blockSize;
 
-        computeSuccessorKernel<<<launchSize, blockSize>>>(dField, rows, cols, rowSpacing, colSpacing,
-                                                         dSuccessor);
+        computeSuccessorKernel<<<launchSize, blockSize>>>(dField, rows, cols, rowSpacing,
+                                                          colSpacing, dSuccessor);
         cudaCheck(cudaGetLastError(), "computeSuccessorKernel launch");
 
         initUnionFindKernel<<<launchSize, blockSize>>>(total, dParent);
@@ -293,8 +300,14 @@ std::vector<int> computeSuccessorSlice(const std::vector<Vector::Vec2>& field, i
     int* dSuccessor = nullptr;
 
     const auto cleanup = [&]() {
-        if (dField != nullptr) { cudaFree(dField); dField = nullptr; }
-        if (dSuccessor != nullptr) { cudaFree(dSuccessor); dSuccessor = nullptr; }
+        if (dField != nullptr) {
+            cudaFree(dField);
+            dField = nullptr;
+        }
+        if (dSuccessor != nullptr) {
+            cudaFree(dSuccessor);
+            dSuccessor = nullptr;
+        }
     };
 
     try {
@@ -309,14 +322,15 @@ std::vector<int> computeSuccessorSlice(const std::vector<Vector::Vec2>& field, i
                              cudaMemcpyHostToDevice),
                   "cudaMemcpy H2D field slice");
 
-        const float rowSpacing = (rows > 1) ? (bounds.yMax - bounds.yMin) / static_cast<float>(rows - 1) : 1.0f;
-        const float colSpacing = (cols > 1) ? (bounds.xMax - bounds.xMin) / static_cast<float>(cols - 1) : 1.0f;
+        const float rowSpacing =
+            (rows > 1) ? (bounds.yMax - bounds.yMin) / static_cast<float>(rows - 1) : 1.0f;
+        const float colSpacing =
+            (cols > 1) ? (bounds.xMax - bounds.xMin) / static_cast<float>(cols - 1) : 1.0f;
 
         const int blockSize = static_cast<int>(cudaBlockSize);
         const int launchSize = (localTotal + blockSize - 1) / blockSize;
-        computeSuccessorSliceKernel<<<launchSize, blockSize>>>(dField, rows, cols, rowSpacing,
-                                                               colSpacing, startRow, localRows,
-                                                               dSuccessor);
+        computeSuccessorSliceKernel<<<launchSize, blockSize>>>(
+            dField, rows, cols, rowSpacing, colSpacing, startRow, localRows, dSuccessor);
         cudaCheck(cudaGetLastError(), "computeSuccessorSliceKernel launch");
         cudaCheck(cudaDeviceSynchronize(), "cudaDeviceSynchronize slice");
 
