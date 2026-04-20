@@ -17,6 +17,7 @@ CMAKE_BASE := cmake -G Ninja \
         build build-analyzer build-simulator build-sanitize build-coverage \
         test test-vector test-analyzer test-simulator test-sanitize test-coverage \
         run-simulator run-analyzer \
+        timings timings-all \
         report report-clean \
         clean clean-build clean-sanitize clean-coverage clean-data
 
@@ -84,6 +85,12 @@ run-analyzer: build-analyzer
 	./$(BUILD)/bins/simulator/simulator configs/$(STEM).toml
 	mpirun -n $(MPI_RANKS) --oversubscribe \
 	  ./$(BUILD)/bins/analyzer/analyzer configs/$(STEM).toml
+
+timings:
+	./timings.sh $(STEM)
+
+timings-all:
+	./timings.sh
 
 # =============================================================================
 # Report

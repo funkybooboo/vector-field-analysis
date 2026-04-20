@@ -5,7 +5,7 @@
 # Run: simulator configs/vortex_1024x1024.toml
 
 [simulation]
-steps = 50
+steps = 1
 dt = 0.01
 viscosity = 0.03
 width = 1024
@@ -18,9 +18,7 @@ ymax = 1.0
 [[layers]]
 type = "vortex"
 strength = 1.0
-magnitude = 1.0 # vector length scale; 1.0 = unit length (default)
+magnitude = 0.005 # vector length scale; 1.0 = unit length (default)
 
 [analyzer]
-solver = "benchmark"
-benchmark_threads = [2, 4, 8]
-benchmark_cuda_block_sizes = [64, 128, 256, 512]
+solver = "sequential"

@@ -80,37 +80,11 @@ AnalyzerConfig parseAnalyzer(const std::string& path) {
     };
     parseBlockSize("cuda_block_size", config.cudaBlockSize);
 
-    const auto parseUintArray = [&](const char* key, unsigned int minVal, unsigned int maxVal,
-                                    std::vector<unsigned int>& dest) {
-        const auto& node = (*analyzer)[key];
-        if (!node) {
-            return;
-        }
-        const auto* arr = node.as_array();
-        if (arr == nullptr) {
-            throw std::runtime_error(std::string(key) + " must be an array of integers");
-        }
-        std::vector<unsigned int> result;
-        result.reserve(arr->size());
-        for (const auto& elem : *arr) {
-            const auto val = elem.value<int64_t>();
-            if (!val.has_value() || *val < static_cast<int64_t>(minVal) ||
-                *val > static_cast<int64_t>(maxVal)) {
-                throw std::runtime_error(std::string(key) + " values must be between " +
-                                         std::to_string(minVal) + " and " + std::to_string(maxVal));
-            }
-            result.push_back(static_cast<unsigned int>(*val));
-        }
-        if (!result.empty()) {
-            dest = std::move(result);
-        }
-    };
-    parseUintArray("benchmark_threads", 1, std::numeric_limits<unsigned int>::max(),
-                   config.benchmarkThreads);
-    parseUintArray("benchmark_cuda_block_sizes", 1, 1024, config.benchmarkCudaBlockSizes);
-
     if (const auto out = (*analyzer)["output"].value<std::string>()) {
         config.output = *out;
+    }
+    if (const auto timingOut = (*analyzer)["timing_output"].value<std::string>()) {
+        config.timingOutput = *timingOut;
     }
 
     return config;

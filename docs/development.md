@@ -116,13 +116,16 @@ mise run run:simulator                              # build and run with source_
 ### Analyzer
 
 ```sh
-mise run run:analyzer         # run simulator then benchmark all impls under mpirun -n $MPI_RANKS
-mise run run:analyzer:mpi     # MPI solver only (MPI_RANKS defaults to 4; override with MPI_RANKS=N)
+mise run run:analyzer         # run simulator then run analyzer (sequential solver)
+mise run run:analyzer:mpi     # MPI solver only (MPI_RANKS defaults to nproc)
 ```
 
-`run:analyzer` launches under `mpirun -n $MPI_RANKS` so all parallel solvers (openmp, pthreads, mpi)
-use the same number of workers for a fair comparison. The thread count adapts to the MPI rank count
-automatically, and MPI is skipped with a hint message if the binary is invoked without mpirun.
+To run all solver implementations and compare outputs, use the pipeline script:
+
+```sh
+./scripts/local/pipeline.sh vortex_256x256    # run all solvers, verify output, write timing files
+./timings.sh vortex_256x256                   # print speedup report from timing files
+```
 
 ### Visualize
 

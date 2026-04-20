@@ -1,4 +1,4 @@
-#include "hybridCudaMpiStreamlineSolver.hpp"
+#include "cudaMpiStreamlineSolver.hpp"
 
 #include "mpiStreamlineSolver.hpp"
 #include "sequentialStreamlineSolver.hpp"
@@ -20,7 +20,7 @@
 #include <limits>
 #include <vector>
 
-void HybridCudaMpiStreamlineSolver::computeTimeStep(Field::Grid& grid) {
+void CudaMpiStreamlineSolver::computeTimeStep(Field::Grid& grid) {
 #if defined(ENABLE_CUDA_SOLVER) && defined(USE_MPI)
     int mpiReady = 0;
     MPI_Initialized(&mpiReady);
@@ -93,7 +93,7 @@ void HybridCudaMpiStreamlineSolver::computeTimeStep(Field::Grid& grid) {
     std::vector<std::uint64_t> localRoots(totalCells);
     std::vector<std::uint64_t> globalRoots(totalCells);
 
-    for (int round = 0; round < size; ++round) {
+    while (true) {
         for (std::size_t i = 0; i < totalCells; ++i) {
             localRoots[i] = static_cast<std::uint64_t>(grid.findRoot(i));
         }
@@ -166,7 +166,8 @@ void HybridCudaMpiStreamlineSolver::computeTimeStep(Field::Grid& grid) {
         std::vector<Field::Path> finalPaths;
         for (int r = 0; r < size; ++r) {
             int pos = displs[static_cast<std::size_t>(r)] + 1;
-            const int nPaths = recvBuf[static_cast<std::size_t>(displs[static_cast<std::size_t>(r)])];
+            const int nPaths =
+                recvBuf[static_cast<std::size_t>(displs[static_cast<std::size_t>(r)])];
             for (int p = 0; p < nPaths; ++p) {
                 const int pathLen = recvBuf[static_cast<std::size_t>(pos++)];
                 Field::Path path;

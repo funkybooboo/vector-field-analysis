@@ -52,7 +52,7 @@ mise run test    # run all tests
 | `mise run links` | Check for broken links in markdown files |
 | `mise run ci` | Full pipeline -- mirrors all GitHub Actions jobs |
 | `mise run run:simulator` | Build and run the simulator with `source_grid_divergent_512x512.toml` (writes `source_grid_divergent_512x512.h5`) |
-| `mise run run:analyzer` | Run simulator then benchmark all solver impls under `mpirun -n $(nproc)` |
+| `mise run run:analyzer` | Run simulator then run analyzer (sequential solver) |
 | `mise run run:analyzer:mpi` | Run MPI solver only under mpirun (default 4 ranks; override with `NRANKS=N`) |
 | `mise run visualize` | Animate `field.h5` as a quiver plot |
 | `mise run visualize:streams` | Animate `field.h5` with streamlines overlaid from `field.streams.h5` |

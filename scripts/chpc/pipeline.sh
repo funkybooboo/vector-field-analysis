@@ -57,15 +57,16 @@ module load "$CUDA_MODULE"
 
 HDF5_ROOT="$(dirname "$(dirname "$(which h5dump)")")"
 MPI_ROOT="$(dirname "$(dirname "$(which mpicc)")")"
+CUDA_ROOT="$(dirname "$(dirname "$(which nvcc)")")"
 
 echo "==> Configuring"
 cmake -B "$PROJECT_DIR/build" \
 	-DCMAKE_BUILD_TYPE=Release \
-	-DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
 	-DENABLE_CUDA=ON \
-	-DCMAKE_CUDA_ARCHITECTURES="60;61;70;75;80;86" \
+	-DCMAKE_CUDA_ARCHITECTURES="52;60;61;70;75;80;86" \
 	-DHDF5_ROOT="$HDF5_ROOT" \
 	-DHDF5_C_LIBRARY_hdf5="$HDF5_ROOT/lib/libhdf5.so" \
+	-DCMAKE_INSTALL_RPATH="$HDF5_ROOT/lib;$CUDA_ROOT/lib64" \
 	-DMPI_HOME="$MPI_ROOT" \
 	-S "$PROJECT_DIR" \
 	>/dev/null
@@ -86,9 +87,15 @@ for stem in "${STEMS[@]}"; do
 		account_flag=(--account="$CHPC_ACCOUNT")
 	fi
 
+	exclude_flag=()
+	if [[ -n "${CHPC_EXCLUDE:-}" ]]; then
+		exclude_flag=(--exclude="$CHPC_EXCLUDE")
+	fi
+
 	job_id=$(sbatch \
 		--partition="$CHPC_PARTITION" \
 		"${account_flag[@]}" \
+		"${exclude_flag[@]}" \
 		--gres="gpu:$CHPC_GPU" \
 		--nodes=1 \
 		--ntasks="$CHPC_NTASKS" \
@@ -96,7 +103,7 @@ for stem in "${STEMS[@]}"; do
 		--job-name="${JOB_NAME}_${stem}" \
 		--output="$DATA_DIR/$stem/stdout.log" \
 		--error="$DATA_DIR/$stem/stderr.log" \
-		--export="STEM=$stem,PROJECT_DIR=$PROJECT_DIR,OPENMPI_MODULE=$OPENMPI_MODULE,HDF5_MODULE=$HDF5_MODULE,CUDA_MODULE=$CUDA_MODULE,CUDA_BLOCK_SIZE=${CUDA_BLOCK_SIZE:-256}" \
+		--export="STEM=$stem,PROJECT_DIR=$PROJECT_DIR,OPENMPI_MODULE=$OPENMPI_MODULE,HDF5_MODULE=$HDF5_MODULE,CUDA_MODULE=$CUDA_MODULE" \
 		"$SCRIPT_DIR/pipeline-job.sh" |
 		awk '{print $NF}')
 

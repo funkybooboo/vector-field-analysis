@@ -54,7 +54,7 @@ endif()
 
 add_library(analyzer_lib STATIC
     src/configParser.cpp
-    src/hybridCudaMpiStreamlineSolver.cpp
+    src/cudaMpiStreamlineSolver.cpp
     src/mpiStreamlineSolver.cpp
     src/openMpStreamlineSolver.cpp
     src/pthreadsStreamlineSolver.cpp
@@ -63,7 +63,6 @@ add_library(analyzer_lib STATIC
     src/solverFactory.cpp
     src/streamlineSolver.cpp
     src/streamWriter.cpp
-    src/timing.cpp
 )
 
 if(ENABLE_CUDA)

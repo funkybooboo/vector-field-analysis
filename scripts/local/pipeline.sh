@@ -89,25 +89,96 @@ for stem in "${STEMS[@]}"; do
 		continue
 	fi
 
-	# Analyzer (benchmark -- all variants in one call)
-	printf "    analyzer   benchmarking...\n"
+	# Analyzer -- run each implementation separately, hash outputs, compare to sequential
+	printf "    analyzer   running implementations...\n"
 	ANA_STATUS[$stem]="OK"
-	tmp_toml="$out/${stem}_benchmark.toml"
-	sed '/^\[analyzer\]/,$d' "$config" >"$tmp_toml"
-	printf '\n[analyzer]\nsolver = "benchmark"\noutput = "%s"\n' "$out/streams.h5" >>"$tmp_toml"
-	if mpirun -n 4 --oversubscribe "$ANALYZER" "$tmp_toml" \
-		> >(tee "$out/analyzer_stdout.txt") \
-		2> >(tee "$out/analyzer_stderr.txt" >&2); then
-		printf "    analyzer   OK\n"
-	else
+	tmp_dir="$(mktemp -d)"
+
+	# Strip existing [analyzer] section from config to build per-impl TOMLs from
+	base_toml="$tmp_dir/base.toml"
+	sed '/^\[analyzer\]/,$d' "$config" >"$base_toml"
+
+	ref_hash=""
+	ana_failed=0
+
+	run_impl() {
+		local label="$1" solver="$2" threads="$3" block_size="$4" mpi_n="$5"
+		local tmp_toml="$tmp_dir/${label}.toml"
+		local tmp_out="$tmp_dir/${label}.h5"
+		local timing_name
+		timing_name=$(printf '%s' "$label" | tr -cs 'a-zA-Z0-9' '_' | sed 's/__*/_/g;s/^_//;s/_$//')
+		local timing_out="$out/timing_${timing_name}.txt"
+		cp "$base_toml" "$tmp_toml"
+		printf '\n[analyzer]\nsolver = "%s"\nthreads = %d\ncuda_block_size = %d\noutput = "%s"\ntiming_output = "%s"\n' \
+			"$solver" "$threads" "$block_size" "$tmp_out" "$timing_out" >>"$tmp_toml"
+
+		local stdout_capture="$tmp_dir/${label}_stdout.txt"
+		if [[ "$mpi_n" -gt 0 ]]; then
+			mpirun -n "$mpi_n" "$ANALYZER" "$tmp_toml" \
+				>"$stdout_capture" 2>> >(tee -a "$out/analyzer_stderr.txt" >&2)
+		else
+			"$ANALYZER" "$tmp_toml" \
+				>"$stdout_capture" 2>> >(tee -a "$out/analyzer_stderr.txt" >&2)
+		fi
+		local rc=$?
+		cat "$stdout_capture" | tee -a "$out/analyzer_stdout.txt"
+		if [[ $rc -ne 0 ]]; then
+			printf "    %-30s FAIL\n" "$label"
+			return 1
+		fi
+		if [[ ! -f "$tmp_out" ]]; then
+			printf "    %-30s SKIP (no output file)\n" "$label"
+			return 0
+		fi
+		local hash
+		hash=$(h5dump "$tmp_out" | sha256sum | awk '{print $1}')
+		if [[ -z "$ref_hash" ]]; then
+			ref_hash="$hash"
+			printf "    %-30s OK  (reference)\n" "$label"
+		elif [[ "$hash" == "$ref_hash" ]]; then
+			printf "    %-30s OK  (match)\n" "$label"
+		else
+			printf "    %-30s MISMATCH\n" "$label"
+			return 1
+		fi
+		return 0
+	}
+
+	# sequential is always the reference
+	run_impl "sequential" sequential 1 256 0 || { ana_failed=1; }
+
+	if [[ $ana_failed -eq 0 ]]; then
+		run_impl "pthreads (2t)" pthreads 2 256 0 || ana_failed=1
+		run_impl "pthreads (4t)" pthreads 4 256 0 || ana_failed=1
+		run_impl "pthreads (8t)" pthreads 8 256 0 || ana_failed=1
+		run_impl "openmp (2t)" openmp 2 256 0 || ana_failed=1
+		run_impl "openmp (4t)" openmp 4 256 0 || ana_failed=1
+		run_impl "openmp (8t)" openmp 8 256 0 || ana_failed=1
+		run_impl "mpi (2 ranks)" mpi 1 256 2 || ana_failed=1
+		run_impl "mpi (4 ranks)" mpi 1 256 4 || ana_failed=1
+		# CUDA is optional -- skip on failure (may not be built with ENABLE_CUDA)
+		run_impl "cuda (blk=128)" cuda 1 128 0 || true
+		run_impl "cuda (blk=256)" cuda 1 256 0 || true
+		run_impl "cuda (blk=512)" cuda 1 512 0 || true
+		# cudaMpi is optional -- requires CUDA+MPI
+		run_impl "cudaMpi (2 ranks, blk=256)" cudaMpi 1 256 2 || true
+		run_impl "cudaMpi (4 ranks, blk=256)" cudaMpi 1 256 4 || true
+	fi
+
+	# Copy sequential output as the canonical streams.h5 for downstream steps
+	if [[ $ana_failed -eq 0 && -f "$tmp_dir/sequential.h5" ]]; then
+		cp "$tmp_dir/sequential.h5" "$out/streams.h5"
+	fi
+	rm -rf "$tmp_dir"
+
+	if [[ $ana_failed -eq 1 ]]; then
 		ANA_STATUS[$stem]="FAIL"
 		printf "    analyzer   FAIL\n"
-		rm -f "$tmp_toml"
 		STATS_STATUS[$stem]="SKIP"
 		VIS_STATUS[$stem]="SKIP"
 		continue
 	fi
-	rm -f "$tmp_toml"
+	printf "    analyzer   OK\n"
 
 	# Stats
 	if uv run "$STATS" "$out/field.h5" "$out/streams.h5" \

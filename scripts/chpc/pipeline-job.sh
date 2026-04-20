@@ -7,7 +7,6 @@
 #   CUDA_MODULE      - CUDA module to load (e.g. cuda/11.6.2)
 #   OPENMPI_MODULE   - OpenMPI module to load (e.g. openmpi/5.0.8)
 #   HDF5_MODULE      - HDF5 module to load (e.g. hdf5/1.14.6)
-#   CUDA_BLOCK_SIZE  - CUDA threads per block (default: 256)
 
 set -euo pipefail
 
@@ -35,11 +34,77 @@ echo "=== simulator ==="
 echo ""
 echo "=== analyzer ==="
 
-tmp_toml="$PROJECT_DIR/data/$STEM/${STEM}_benchmark.toml"
-sed '/^\[analyzer\]/,$d' "$PROJECT_DIR/configs/$STEM.toml" >"$tmp_toml"
-printf '\n[analyzer]\nsolver = "benchmark"\noutput = "%s"\n' \
-	"$PROJECT_DIR/data/$STEM/streams.h5" >>"$tmp_toml"
-srun --mpi=openmpi -n "$SLURM_NTASKS" "$PROJECT_DIR/build/bins/analyzer/analyzer" "$tmp_toml" \
-	>"$PROJECT_DIR/data/$STEM/analyzer_stdout.txt" \
-	2>"$PROJECT_DIR/data/$STEM/analyzer_stderr.txt"
-rm -f "$tmp_toml"
+out="$PROJECT_DIR/data/$STEM"
+tmp_dir="$(mktemp -d)"
+
+base_toml="$tmp_dir/base.toml"
+sed '/^\[analyzer\]/,$d' "$PROJECT_DIR/configs/$STEM.toml" >"$base_toml"
+
+ref_file=""
+ana_failed=0
+
+run_impl() {
+	local label="$1" solver="$2" threads="$3" block_size="$4" mpi_n="$5"
+	local tmp_toml="$tmp_dir/$STEM.toml"
+	local tmp_out="$tmp_dir/${label}.h5"
+	local timing_name
+	timing_name=$(printf '%s' "$label" | tr -cs 'a-zA-Z0-9' '_' | sed 's/__*/_/g;s/^_//;s/_$//')
+	local timing_out="$PROJECT_DIR/data/$STEM/timing_${timing_name}.txt"
+	cp "$base_toml" "$tmp_toml"
+	printf '\n[analyzer]\nsolver = "%s"\nthreads = %d\ncuda_block_size = %d\noutput = "%s"\ntiming_output = "%s"\n' \
+		"$solver" "$threads" "$block_size" "$tmp_out" "$timing_out" >>"$tmp_toml"
+
+	local stdout_capture="$tmp_dir/${label}_stdout.txt"
+	local np="$mpi_n"
+	[[ "$np" -eq 0 ]] && np=1
+	mpirun -np "$np" "$PROJECT_DIR/build/bins/analyzer/analyzer" "$tmp_toml" \
+		>"$stdout_capture" 2>>"$out/analyzer_stderr.txt"
+	local rc=$?
+	cat "$stdout_capture" >>"$out/analyzer_stdout.txt"
+	if [[ $rc -ne 0 ]]; then
+		echo "  FAIL: $label" | tee -a "$out/analyzer_stdout.txt"
+		return 1
+	fi
+	if [[ ! -f "$tmp_out" ]]; then
+		echo "  SKIP (no output file): $label"
+		return 1
+	fi
+	if [[ -z "$ref_file" ]]; then
+		ref_file="$tmp_out"
+		printf "  OK (reference): %s\n" "$label"
+	elif h5diff -q "$ref_file" "$tmp_out"; then
+		printf "  OK (match):     %s\n" "$label"
+	else
+		printf "  MISMATCH:       %s\n" "$label"
+		return 1
+	fi
+	return 0
+}
+
+run_impl "sequential" sequential 1 256 0 || ana_failed=1
+
+if [[ $ana_failed -eq 0 ]]; then
+	run_impl "pthreads (2t)" pthreads 2 256 0 || ana_failed=1
+	run_impl "pthreads (4t)" pthreads 4 256 0 || ana_failed=1
+	run_impl "pthreads (8t)" pthreads 8 256 0 || ana_failed=1
+	run_impl "openmp (2t)" openmp 2 256 0 || ana_failed=1
+	run_impl "openmp (4t)" openmp 4 256 0 || ana_failed=1
+	run_impl "openmp (8t)" openmp 8 256 0 || ana_failed=1
+	run_impl "mpi (2 ranks)" mpi 1 256 2 || ana_failed=1
+	run_impl "mpi (4 ranks)" mpi 1 256 4 || ana_failed=1
+	run_impl "cuda (blk=128)" cuda 1 128 0 || ana_failed=1
+	run_impl "cuda (blk=256)" cuda 1 256 0 || ana_failed=1
+	run_impl "cuda (blk=512)" cuda 1 512 0 || ana_failed=1
+	run_impl "cudaMpi (2 ranks, blk=256)" cudaMpi 1 256 2 || true
+	run_impl "cudaMpi (4 ranks, blk=256)" cudaMpi 1 256 4 || true
+fi
+
+if [[ $ana_failed -eq 0 && -f "$tmp_dir/sequential.h5" ]]; then
+	cp "$tmp_dir/sequential.h5" "$out/streams.h5"
+fi
+rm -rf "$tmp_dir"
+
+if [[ $ana_failed -eq 1 ]]; then
+	echo "ERROR: analyzer failed" >&2
+	exit 1
+fi
