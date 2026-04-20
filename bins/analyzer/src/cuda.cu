@@ -1,6 +1,5 @@
 #include "cuda.hpp"
 
-#include <cmath>
 #include <cuda_runtime.h>
 #include <stdexcept>
 #include <string>
@@ -8,11 +7,6 @@
 
 namespace cuda {
 namespace {
-
-// flat 2D index helper
-__host__ __device__ inline int toIndex(int row, int col, int cols) {
-    return row * cols + col;
-}
 
 inline Field::GridCell toGridCell(int idx, int cols) {
     return Field::GridCell{idx / cols, idx % cols};
@@ -24,51 +18,13 @@ inline void cudaCheck(cudaError_t err, const char* what) {
     }
 }
 
-__device__ int clampInt(int value, int lo, int hi) {
-    return value < lo ? lo : (value > hi ? hi : value);
-}
-
-// Union-find find + path halving
-__device__ int findRoot(int* parent, int x) {
-    while (parent[x] != x) {
-        parent[x] = parent[parent[x]];
-        x = parent[x];
-    }
-    return x;
-}
-
-// Union-find union using atomicCAS
-__device__ void unite(int* parent, int* rank, int a, int b) {
-    while (true) {
-        a = findRoot(parent, a);
-        b = findRoot(parent, b);
-
-        if (a == b) {
-            return;
-        }
-
-        if (rank[a] < rank[b]) {
-            const int tmp = a;
-            a = b;
-            b = tmp;
-        }
-
-        const int old = atomicCAS(&parent[b], b, a);
-        if (old == b) {
-            if (rank[a] == rank[b]) {
-                atomicAdd(&rank[a], 1);
-            }
-            return;
-        }
-    }
-}
-
-__global__ void computeSuccessorKernel(const float2* field, int rows, int cols, float xMin,
-                                       float xMax, float yMin, float yMax, int* successor) {
+// Mirrors Grid::downstreamCell using the same simplified index-space formula:
+// destRow = round(row + vy/rowSpacing). Division-only; no FMA possible, so
+// GPU result is bitwise identical to CPU.
+__global__ void computeSuccessorKernel(const float2* field, int rows, int cols, float rowSpacing,
+                                       float colSpacing, int* successor) {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    const int total = rows * cols;
-
-    if (idx >= total) {
+    if (idx >= rows * cols) {
         return;
     }
 
@@ -81,75 +37,52 @@ __global__ void computeSuccessorKernel(const float2* field, int rows, int cols, 
     }
 
     const float2 v = field[idx];
-
-    const float rowSpacing = (yMax - yMin) / static_cast<float>(rows - 1);
-    const float colSpacing = (xMax - xMin) / static_cast<float>(cols - 1);
-
-    // Match the same physical-coordinate logic used by Grid::downstreamCell.
-    const float physY =
-        yMin + ((yMax - yMin) * static_cast<float>(row) / static_cast<float>(rows - 1));
-    const float physX =
-        xMin + ((xMax - xMin) * static_cast<float>(col) / static_cast<float>(cols - 1));
-
-    const int destRow =
-        clampInt(static_cast<int>(roundf((physY + v.y - yMin) / rowSpacing)), 0, rows - 1);
-
-    const int destCol =
-        clampInt(static_cast<int>(roundf((physX + v.x - xMin) / colSpacing)), 0, cols - 1);
-
-    successor[idx] = toIndex(destRow, destCol, cols);
+    const int destRow = max(
+        0, min(rows - 1, static_cast<int>(roundf(static_cast<float>(row) + (v.y / rowSpacing)))));
+    const int destCol = max(
+        0, min(cols - 1, static_cast<int>(roundf(static_cast<float>(col) + (v.x / colSpacing)))));
+    successor[idx] = destRow * cols + destCol;
 }
 
-__global__ void computeSuccessorSliceKernel(const float2* field, int rows, int cols, float xMin,
-                                            float xMax, float yMin, float yMax, int startRow,
-                                            int localRows, int* successor) {
-    const int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    const int total = localRows * cols;
-
-    if (idx >= total) {
-        return;
+// Union-find find + path halving
+__device__ int findRoot(int* parent, int x) {
+    while (parent[x] != x) {
+        parent[x] = parent[parent[x]];
+        x = parent[x];
     }
-
-    const int localRow = idx / cols;
-    const int globalRow = startRow + localRow;
-    const int col = idx % cols;
-
-    if (rows == 1 || cols == 1) {
-        successor[idx] = toIndex(globalRow, col, cols);
-        return;
-    }
-
-    const float2 v = field[idx];
-
-    const float rowSpacing = (yMax - yMin) / static_cast<float>(rows - 1);
-    const float colSpacing = (xMax - xMin) / static_cast<float>(cols - 1);
-
-    const float physY =
-        yMin + ((yMax - yMin) * static_cast<float>(globalRow) / static_cast<float>(rows - 1));
-    const float physX =
-        xMin + ((xMax - xMin) * static_cast<float>(col) / static_cast<float>(cols - 1));
-
-    const int destRow =
-        clampInt(static_cast<int>(roundf((physY + v.y - yMin) / rowSpacing)), 0, rows - 1);
-
-    const int destCol =
-        clampInt(static_cast<int>(roundf((physX + v.x - xMin) / colSpacing)), 0, cols - 1);
-
-    successor[idx] = toIndex(destRow, destCol, cols);
+    return x;
 }
 
-__global__ void initUnionFindKernel(int n, int* parent, int* rank) {
+// Union-find union using atomicCAS — MIN-root: smaller index always becomes root,
+// matching Grid::unite so all solvers use the same DSU convention.
+__device__ void unite(int* parent, int a, int b) {
+    while (true) {
+        a = findRoot(parent, a);
+        b = findRoot(parent, b);
+        if (a == b)
+            return;
+        if (a > b) {
+            const int tmp = a;
+            a = b;
+            b = tmp;
+        }
+        const int old = atomicCAS(&parent[b], b, a);
+        if (old == b)
+            return;
+    }
+}
+
+__global__ void initUnionFindKernel(int n, int* parent) {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < n) {
         parent[idx] = idx;
-        rank[idx] = 0;
     }
 }
 
-__global__ void unionSuccessorKernel(int n, const int* successor, int* parent, int* rank) {
+__global__ void unionSuccessorKernel(int n, const int* successor, int* parent) {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < n) {
-        unite(parent, rank, idx, successor[idx]);
+        unite(parent, idx, successor[idx]);
     }
 }
 
@@ -160,10 +93,33 @@ __global__ void compressParentsKernel(int n, int* parent) {
     }
 }
 
+__global__ void computeSuccessorSliceKernel(const float2* field, int rows, int cols,
+                                            float rowSpacing, float colSpacing, int startRow,
+                                            int localRows, int* successor) {
+    const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= localRows * cols) {
+        return;
+    }
+    const int localRow = idx / cols;
+    const int globalRow = startRow + localRow;
+    const int col = idx % cols;
+    if (rows == 1 || cols == 1) {
+        successor[idx] = globalRow * cols + col;
+        return;
+    }
+    const float2 v = field[idx];
+    const int destRow =
+        max(0, min(rows - 1,
+                   static_cast<int>(roundf(static_cast<float>(globalRow) + (v.y / rowSpacing)))));
+    const int destCol = max(
+        0, min(cols - 1, static_cast<int>(roundf(static_cast<float>(col) + (v.x / colSpacing)))));
+    successor[idx] = destRow * cols + destCol;
+}
+
 } // namespace
 
 Result computeComponents(const std::vector<Vector::Vec2>& field, int rows, int cols,
-                         const Field::Bounds& bounds, unsigned int cudaBlockSize) {
+                         float rowSpacing, float colSpacing, unsigned int cudaBlockSize) {
     if (rows == 0 || cols == 0) {
         return {};
     }
@@ -179,7 +135,6 @@ Result computeComponents(const std::vector<Vector::Vec2>& field, int rows, int c
     float2* dField = nullptr;
     int* dSuccessor = nullptr;
     int* dParent = nullptr;
-    int* dRank = nullptr;
 
     const auto cleanup = [&]() {
         if (dField != nullptr) {
@@ -193,10 +148,6 @@ Result computeComponents(const std::vector<Vector::Vec2>& field, int rows, int c
         if (dParent != nullptr) {
             cudaFree(dParent);
             dParent = nullptr;
-        }
-        if (dRank != nullptr) {
-            cudaFree(dRank);
-            dRank = nullptr;
         }
     };
 
@@ -213,10 +164,6 @@ Result computeComponents(const std::vector<Vector::Vec2>& field, int rows, int c
                              sizeof(int) * static_cast<std::size_t>(total)),
                   "cudaMalloc(dParent)");
 
-        cudaCheck(cudaMalloc(reinterpret_cast<void**>(&dRank),
-                             sizeof(int) * static_cast<std::size_t>(total)),
-                  "cudaMalloc(dRank)");
-
         cudaCheck(cudaMemcpy(dField, hostField.data(),
                              sizeof(float2) * static_cast<std::size_t>(total),
                              cudaMemcpyHostToDevice),
@@ -225,14 +172,14 @@ Result computeComponents(const std::vector<Vector::Vec2>& field, int rows, int c
         const int blockSize = static_cast<int>(cudaBlockSize);
         const int launchSize = (total + blockSize - 1) / blockSize;
 
-        computeSuccessorKernel<<<launchSize, blockSize>>>(
-            dField, rows, cols, bounds.xMin, bounds.xMax, bounds.yMin, bounds.yMax, dSuccessor);
+        computeSuccessorKernel<<<launchSize, blockSize>>>(dField, rows, cols, rowSpacing,
+                                                          colSpacing, dSuccessor);
         cudaCheck(cudaGetLastError(), "computeSuccessorKernel launch");
 
-        initUnionFindKernel<<<launchSize, blockSize>>>(total, dParent, dRank);
+        initUnionFindKernel<<<launchSize, blockSize>>>(total, dParent);
         cudaCheck(cudaGetLastError(), "initUnionFindKernel launch");
 
-        unionSuccessorKernel<<<launchSize, blockSize>>>(total, dSuccessor, dParent, dRank);
+        unionSuccessorKernel<<<launchSize, blockSize>>>(total, dSuccessor, dParent);
         cudaCheck(cudaGetLastError(), "unionSuccessorKernel launch");
 
         compressParentsKernel<<<launchSize, blockSize>>>(total, dParent);
@@ -240,18 +187,27 @@ Result computeComponents(const std::vector<Vector::Vec2>& field, int rows, int c
 
         cudaCheck(cudaDeviceSynchronize(), "cudaDeviceSynchronize");
 
-        std::vector<int> successor(static_cast<std::size_t>(total));
         std::vector<int> parent(static_cast<std::size_t>(total));
-
-        cudaCheck(cudaMemcpy(successor.data(), dSuccessor,
-                             sizeof(int) * static_cast<std::size_t>(total), cudaMemcpyDeviceToHost),
-                  "cudaMemcpy D2H successor");
 
         cudaCheck(cudaMemcpy(parent.data(), dParent, sizeof(int) * static_cast<std::size_t>(total),
                              cudaMemcpyDeviceToHost),
                   "cudaMemcpy D2H parent");
 
         cleanup();
+
+        // CPU full path compression: compressParentsKernel uses non-atomic writes,
+        // so parent[i] may still point to an intermediate ancestor after the GPU pass.
+        for (int i = 0; i < total; ++i) {
+            int root = parent[static_cast<std::size_t>(i)];
+            while (parent[static_cast<std::size_t>(root)] != root)
+                root = parent[static_cast<std::size_t>(root)];
+            int x = i;
+            while (parent[static_cast<std::size_t>(x)] != root) {
+                int next = parent[static_cast<std::size_t>(x)];
+                parent[static_cast<std::size_t>(x)] = root;
+                x = next;
+            }
+        }
 
         // Convert raw roots to dense labels 0..N-1
         std::vector<int> rootToLabel(static_cast<std::size_t>(total), -1);
@@ -270,7 +226,6 @@ Result computeComponents(const std::vector<Vector::Vec2>& field, int rows, int c
         Result result;
         result.rows = rows;
         result.cols = cols;
-        result.successor = std::move(successor);
         result.componentId = std::move(componentId);
         return result;
     } catch (...) {
@@ -279,13 +234,51 @@ Result computeComponents(const std::vector<Vector::Vec2>& field, int rows, int c
     }
 }
 
+std::vector<Field::Path> reconstructPaths(const Result& result) {
+    if (result.rows == 0 || result.cols == 0) {
+        return {};
+    }
+
+    const int total = result.rows * result.cols;
+    if (static_cast<int>(result.componentId.size()) != total) {
+        throw std::runtime_error("cuda::reconstructPaths received inconsistent result sizes");
+    }
+
+    // componentId is assigned by scanning cells 0..N-1, so label k corresponds
+    // to the component whose minimum cell index is encountered k-th. Grouping
+    // cells by label while iterating in cell-index order produces paths whose
+    // cells are in ascending index order -- matching the CPU sortCellsByRoot
+    // output and making verify() pass.
+    int numComponents = 0;
+    for (int id : result.componentId) {
+        if (id >= numComponents) {
+            numComponents = id + 1;
+        }
+    }
+
+    std::vector<Field::Path> paths(static_cast<std::size_t>(numComponents));
+    for (int idx = 0; idx < total; ++idx) {
+        const int compId = result.componentId[static_cast<std::size_t>(idx)];
+        paths[static_cast<std::size_t>(compId)].push_back(toGridCell(idx, result.cols));
+    }
+
+    std::vector<Field::Path> output;
+    output.reserve(static_cast<std::size_t>(numComponents));
+    for (auto& path : paths) {
+        if (!path.empty()) {
+            output.push_back(std::move(path));
+        }
+    }
+    return output;
+}
+
 std::vector<int> computeSuccessorSlice(const std::vector<Vector::Vec2>& field, int rows, int cols,
                                        const Field::Bounds& bounds, int startRow, int endRow,
                                        unsigned int cudaBlockSize) {
     if (rows == 0 || cols == 0 || startRow >= endRow) {
         return {};
     }
-    if (startRow < 0 || endRow < startRow || endRow > rows) {
+    if (startRow < 0 || endRow > rows) {
         throw std::runtime_error("cuda::computeSuccessorSlice received an invalid row range");
     }
 
@@ -296,8 +289,8 @@ std::vector<int> computeSuccessorSlice(const std::vector<Vector::Vec2>& field, i
     for (int localRow = 0; localRow < localRows; ++localRow) {
         const int globalRow = startRow + localRow;
         for (int col = 0; col < cols; ++col) {
-            const int globalIdx = toIndex(globalRow, col, cols);
-            const int localIdx = toIndex(localRow, col, cols);
+            const int globalIdx = globalRow * cols + col;
+            const int localIdx = localRow * cols + col;
             const auto& v = field[static_cast<std::size_t>(globalIdx)];
             hostField[static_cast<std::size_t>(localIdx)] = float2{v.x, v.y};
         }
@@ -324,18 +317,20 @@ std::vector<int> computeSuccessorSlice(const std::vector<Vector::Vec2>& field, i
         cudaCheck(cudaMalloc(reinterpret_cast<void**>(&dSuccessor),
                              sizeof(int) * static_cast<std::size_t>(localTotal)),
                   "cudaMalloc(dSuccessor slice)");
-
         cudaCheck(cudaMemcpy(dField, hostField.data(),
                              sizeof(float2) * static_cast<std::size_t>(localTotal),
                              cudaMemcpyHostToDevice),
                   "cudaMemcpy H2D field slice");
 
+        const float rowSpacing =
+            (rows > 1) ? (bounds.yMax - bounds.yMin) / static_cast<float>(rows - 1) : 1.0f;
+        const float colSpacing =
+            (cols > 1) ? (bounds.xMax - bounds.xMin) / static_cast<float>(cols - 1) : 1.0f;
+
         const int blockSize = static_cast<int>(cudaBlockSize);
         const int launchSize = (localTotal + blockSize - 1) / blockSize;
-
         computeSuccessorSliceKernel<<<launchSize, blockSize>>>(
-            dField, rows, cols, bounds.xMin, bounds.xMax, bounds.yMin, bounds.yMax, startRow,
-            localRows, dSuccessor);
+            dField, rows, cols, rowSpacing, colSpacing, startRow, localRows, dSuccessor);
         cudaCheck(cudaGetLastError(), "computeSuccessorSliceKernel launch");
         cudaCheck(cudaDeviceSynchronize(), "cudaDeviceSynchronize slice");
 
@@ -344,7 +339,6 @@ std::vector<int> computeSuccessorSlice(const std::vector<Vector::Vec2>& field, i
                              sizeof(int) * static_cast<std::size_t>(localTotal),
                              cudaMemcpyDeviceToHost),
                   "cudaMemcpy D2H successor slice");
-
         cleanup();
         return successor;
     } catch (...) {
@@ -353,80 +347,4 @@ std::vector<int> computeSuccessorSlice(const std::vector<Vector::Vec2>& field, i
     }
 }
 
-std::vector<Field::Path> reconstructPaths(const Result& result) {
-    if (result.rows == 0 || result.cols == 0) {
-        return {};
-    }
-
-    const int total = result.rows * result.cols;
-    if (static_cast<int>(result.successor.size()) != total) {
-        throw std::runtime_error("cuda::reconstructPaths received inconsistent result sizes");
-    }
-
-    // owner[idx] = streamline id currently owning this cell, or -1 if unclaimed
-    std::vector<int> owner(static_cast<std::size_t>(total), -1);
-
-    // Each streamline is stored as a flattened list of cell indices.
-    std::vector<std::vector<int>> paths;
-    paths.reserve(static_cast<std::size_t>(total));
-
-    // Replay the same row-major source->destination application order used by
-    // the existing CPU implementations.
-    for (int idx = 0; idx < total; ++idx) {
-        int srcOwner = owner[static_cast<std::size_t>(idx)];
-
-        // If this source cell does not yet belong to a streamline, create one
-        // rooted at this source cell.
-        if (srcOwner == -1) {
-            srcOwner = static_cast<int>(paths.size());
-            paths.push_back(std::vector<int>{idx});
-            owner[static_cast<std::size_t>(idx)] = srcOwner;
-        }
-
-        const int dest = result.successor[static_cast<std::size_t>(idx)];
-        if (dest < 0 || dest >= total) {
-            continue;
-        }
-
-        const int destOwner = owner[static_cast<std::size_t>(dest)];
-
-        if (destOwner == -1) {
-            // Destination is unclaimed: extend the source streamline into it.
-            owner[static_cast<std::size_t>(dest)] = srcOwner;
-            paths[static_cast<std::size_t>(srcOwner)].push_back(dest);
-        } else if (destOwner != srcOwner) {
-            // Destination already belongs to another streamline:
-            // merge source into destination, matching joinStreamlines(dest, src).
-            for (const int point : paths[static_cast<std::size_t>(srcOwner)]) {
-                paths[static_cast<std::size_t>(destOwner)].push_back(point);
-                owner[static_cast<std::size_t>(point)] = destOwner;
-            }
-            paths[static_cast<std::size_t>(srcOwner)].clear();
-        }
-        // If destOwner == srcOwner, do nothing.
-        // This matches the CPU logic where self-merges are ignored.
-    }
-
-    // Emit unique non-empty paths in deterministic row-major order.
-    std::vector<Field::Path> output;
-    std::vector<bool> emitted(paths.size(), false);
-
-    for (int idx = 0; idx < total; ++idx) {
-        const int streamId = owner[static_cast<std::size_t>(idx)];
-        if (streamId < 0 || emitted[static_cast<std::size_t>(streamId)] ||
-            paths[static_cast<std::size_t>(streamId)].empty()) {
-            continue;
-        }
-
-        emitted[static_cast<std::size_t>(streamId)] = true;
-
-        Field::Path path;
-        for (const int point : paths[static_cast<std::size_t>(streamId)]) {
-            path.push_back(toGridCell(point, result.cols));
-        }
-        output.push_back(std::move(path));
-    }
-
-    return output;
-}
 } // namespace cuda

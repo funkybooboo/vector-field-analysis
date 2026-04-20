@@ -1,14 +1,14 @@
-# vortex_128x128.toml
-# Small 128×128 test version of the vortex config.
+# vortex_4096x4096.toml
+# vortex_4096x4096.toml
 #
-# Run: simulator configs/vortex_128x128.toml
+# Run: simulator configs/vortex_4096x4096.toml
 
 [simulation]
 steps = 1
 dt = 0.01
 viscosity = 0.03
-width = 128
-height = 128
+width = 4096
+height = 4096
 xmin = -1.0
 xmax = 1.0
 ymin = -1.0

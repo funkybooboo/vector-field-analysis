@@ -127,9 +127,11 @@ All solver implementations follow the same two-pass design per time step:
   is not thread-safe. Each call either extends the current streamline (destination
   unclaimed) or merges two converging paths via `joinStreamlines`.
 
-When `solver = "benchmark"` (default), all available implementations run on the same field
-data and timings are printed side-by-side. Each result is verified against the sequential
-reference, and only one implementation's data is held in memory at a time.
+The pipeline scripts (`scripts/local/pipeline.sh`, `scripts/chpc/pipeline-job.sh`) run all
+implementations in sequence. Each writes its elapsed time to `data/<stem>/timing_<name>.txt`
+via the `timing_output` config key. Output correctness is verified against the sequential
+reference using hash or `h5diff` comparison. Run `timings.sh` (project root) to read the
+timing files and print a speedup report.
 
 **Third-party dependencies:**
 

@@ -39,14 +39,15 @@ defaults apply when absent.
 
 ```
 AnalyzerConfig
-  +-- solver                  ("sequential" | "openmp" | "pthreads" | "mpi" | "cuda" | "benchmark")
-  +-- threadCount             (pthreads/openmp/mpi thread count in single-solver mode; 0 = hardware_concurrency)
-  +-- benchmarkThreads        (thread counts to iterate in benchmark mode; default [2, 4, 8])
-  +-- benchmarkCudaBlockSizes (CUDA block sizes to iterate in benchmark mode; default [64, 128, 256, 512])
+  +-- solver         ("sequential" | "openmp" | "pthreads" | "mpi" | "cuda" | "cudaMpi")
+  +-- threadCount    (pthreads/openmp thread count; 0 = hardware_concurrency)
+  +-- cudaBlockSize  (CUDA threads per block; default 256)
+  +-- output         (path for streams.h5; empty = derived from config stem)
+  +-- timingOutput   (path for timing file; empty = no timing file written)
 ```
 
 I/O paths are derived from the config filename stem at runtime and are not stored in
-`AnalyzerConfig`.
+`AnalyzerConfig` when `output` and `timingOutput` are empty.
 
 ---
 
@@ -127,23 +128,20 @@ Single loop over all `(row, col)` pairs; both passes merged into one sequential 
 
 ---
 
-## `benchmark` Mode
+## Timing
 
-When `solver = "benchmark"`, `runner.cpp` runs every available implementation and prints a
-speedup table. Each result is verified against the sequential reference before the next
-implementation runs (one implementation's data in memory at a time).
+After `computeTimeStep` returns, `runner.cpp` records elapsed milliseconds using
+`std::chrono::steady_clock`. If `timingOutput` is non-empty, it writes a key=value file:
 
-- **MPI runs first** -- all ranks must participate in the MPI collective before rank 0 diverges
-  to run the single-process solvers. If launched without `mpirun` (single rank), MPI is skipped.
+```
+solver=openmp
+ms=345.678901
+label=openmp (4 thr)
+```
 
-- **Thread counts from config** -- `benchmark_threads` (default `[2, 4, 8]`) controls which
-  thread counts are tested for `pthreads` and `openmp`. Each count gets its own row in the table.
-
-- **CUDA block sizes from config** -- `benchmark_cuda_block_sizes` (default `[64, 128, 256, 512]`)
-  controls which block sizes are tested. Each gets its own row.
-
-- **`mise run run:analyzer`** launches with `mpirun -n $MPI_RANKS` (see `.env.example`) so MPI
-  always participates with a consistent rank count.
+The pipeline scripts set `timing_output` in each per-solver TOML so files land in
+`data/<stem>/timing_<name>.txt`. Run `./timings.sh` from the project root to read all
+timing files and print a speedup table.
 
 ---
 
@@ -153,6 +151,7 @@ implementation runs (one implementation's data in memory at a time).
 |------|------|
 | `main.cpp` | Entry point; orchestrates all stages |
 | `configParser.hpp/.cpp` | Parses TOML into `AnalyzerConfig` |
+| `runner.hpp/.cpp` | Runs solver, records timing, writes timing file |
 | `streamlineSolver.hpp` | Abstract `StreamlineSolver` base class |
 | `solverFactory.hpp/.cpp` | Factory: name -> `std::unique_ptr<StreamlineSolver>` |
 | `fieldReader.hpp/.cpp` | Reads HDF5 into `Field::TimeSeries` |

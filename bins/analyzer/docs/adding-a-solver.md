@@ -108,7 +108,7 @@ void MySolver::computeTimeStep(Field::Grid& grid) {
 ```cpp
 // bins/analyzer/src/analyzerConfig.hpp
 inline constexpr std::array<std::string_view, 7> kValidSolvers = {   // was 6
-    "sequential", "openmp", "pthreads", "mpi", "cuda", "benchmark", "mysolver"
+    "sequential", "openmp", "pthreads", "mpi", "cuda", "cudaMpi", "mysolver"
 };
 ```
 
@@ -184,27 +184,28 @@ Thread count is controlled by the `ANALYZER_THREADS` env var (see `.env.example`
 
 ---
 
-## Including in `benchmark` Mode
+## Including in the Pipeline
 
-`benchmark` mode runs every solver and prints side-by-side timings. To include yours:
+The pipeline scripts (`scripts/local/pipeline.sh`, `scripts/chpc/pipeline-job.sh`) drive
+all solver variants by injecting `[analyzer]` sections. To include your solver, add a
+`run_impl` call in both scripts following the pattern of the existing solvers:
 
-1. Add it to the `runBenchmark()` function in `runner.cpp` following the pattern of existing solvers.
-2. Call `verify()` against the sequential reference result inside a scoped block so the result is freed before the next solver runs.
+```bash
+run_impl "mysolver (8t)"  mysolver  8  256  0 || ana_failed=1
+```
 
-If your solver is MPI-aware (collective calls required), it must run before the sequential
-solver so all ranks participate -- see `MpiStreamlineSolver` as the reference.
+The pipeline verifies your solver's output against the sequential reference automatically.
+Timing is written to `data/<stem>/timing_mysolver_8t.txt` and appears in `./timings.sh`
+output.
 
 ---
 
 ## Thread Count
 
-In single-solver mode (`solver = "mysolver"`), `makeSolver(name, threadCount)` receives the
-resolved thread count from `main.cpp`. Resolution order:
+`makeSolver(name, threadCount)` receives the resolved thread count from `main.cpp`.
+Resolution order:
 
 1. `threads` key in the TOML config (if non-zero)
 2. `ANALYZER_THREADS` environment variable
 3. `std::thread::hardware_concurrency()`
 4. 1 (final fallback)
-
-In `benchmark` mode, thread counts come from `config.benchmarkThreads` (default `[2, 4, 8]`)
-and are iterated automatically.
