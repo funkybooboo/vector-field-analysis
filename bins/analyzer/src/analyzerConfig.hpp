@@ -17,4 +17,6 @@ struct AnalyzerConfig {
     unsigned int cudaBlockSize = 256;
     // Output path for the streams HDF5 file. Empty = derive from config filename stem.
     std::string output;
+    // If non-empty, timing results are written here after the solver runs.
+    std::string timingOutput;
 };
