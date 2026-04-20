@@ -1,28 +1,29 @@
 # Analyzer
 
 Reads a time-series vector field from HDF5 and traces streamlines through every cell in
-each time step's field. Supports five solver implementations that can be benchmarked
-side-by-side.
+each time step's field. Supports six solver implementations: sequential, openmp, pthreads,
+mpi, cuda, and cudaMpi.
 
 ## Usage
 
 ```sh
-analyzer <config.toml>                              # run with a config file
-mpirun -n 4 analyzer configs/source_grid_divergent_512x512.toml  # benchmark with 4 MPI ranks
-mise run run:analyzer                               # build + simulate + benchmark (recommended)
+analyzer <config.toml>                                               # run with a config file
+mpirun -n 4 analyzer configs/source_grid_divergent_512x512.toml     # run with MPI solver
+mise run run:analyzer                                                # build + simulate + run (recommended)
 ```
 
-The `[analyzer]` table in the config is optional -- defaults to `solver = "benchmark"`, which
-runs all available implementations, times each, verifies output against sequential, and prints
-a side-by-side speedup table.
+The `[analyzer]` table in the config is optional -- defaults to `solver = "sequential"`.
+The pipeline scripts run all implementations automatically and write per-solver timing files
+to `data/<stem>/`. Run `./timings.sh` to print a speedup report from those files.
 
 ## What It Does
 
 1. Reads `vx[steps][height][width]` and `vy[steps][height][width]` from an HDF5 file
 2. For each time step, constructs a `Field::Grid` from that step's 2D vector slice
 3. Seeds every grid cell and traces streamlines using the selected solver (sequential,
-   openmp, pthreads, mpi, or cuda); merges converging paths across the entire field
+   openmp, pthreads, mpi, cuda, or cudaMpi); merges converging paths across the entire field
 4. Writes the traced streamlines to `streams.h5` (name derived from config filename stem)
+5. If `timing_output` is set in the config, writes elapsed milliseconds to that file
 
 ## Dependencies
 
@@ -35,6 +36,5 @@ a side-by-side speedup table.
 ```sh
 mise run build:analyzer       # build
 mise run test:analyzer        # test
-mise run run:analyzer         # run simulator then benchmark all impls under mpirun -n $MPI_RANKS
-mise run run:analyzer:mpi     # MPI solver only (MPI_RANKS defaults to 4; override with MPI_RANKS=N)
+mise run run:analyzer         # run simulator then run analyzer with sequential solver
 ```

@@ -123,7 +123,7 @@ description = "Build and run the simulator"
 run = "make run-simulator"
 
 [tasks."run:analyzer"]
-description = "Generate field data then benchmark all analyzer impls (MPI_RANKS, ANALYZER_THREADS)"
+description = "Generate field data then run analyzer (sequential solver)"
 run = "make run-analyzer"
 
 [tasks."run:analyzer:mpi"]

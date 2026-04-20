@@ -41,16 +41,18 @@ base_toml="$tmp_dir/base.toml"
 sed '/^\[analyzer\]/,$d' "$PROJECT_DIR/configs/$STEM.toml" >"$base_toml"
 
 ref_file=""
-ref_ms=""
 ana_failed=0
 
 run_impl() {
 	local label="$1" solver="$2" threads="$3" block_size="$4" mpi_n="$5"
 	local tmp_toml="$tmp_dir/$STEM.toml"
 	local tmp_out="$tmp_dir/${label}.h5"
+	local timing_name
+	timing_name=$(printf '%s' "$label" | tr -cs 'a-zA-Z0-9' '_' | sed 's/__*/_/g;s/^_//;s/_$//')
+	local timing_out="$PROJECT_DIR/data/$STEM/timing_${timing_name}.txt"
 	cp "$base_toml" "$tmp_toml"
-	printf '\n[analyzer]\nsolver = "%s"\nthreads = %d\ncuda_block_size = %d\noutput = "%s"\n' \
-		"$solver" "$threads" "$block_size" "$tmp_out" >>"$tmp_toml"
+	printf '\n[analyzer]\nsolver = "%s"\nthreads = %d\ncuda_block_size = %d\noutput = "%s"\ntiming_output = "%s"\n' \
+		"$solver" "$threads" "$block_size" "$tmp_out" "$timing_out" >>"$tmp_toml"
 
 	local stdout_capture="$tmp_dir/${label}_stdout.txt"
 	local np="$mpi_n"
@@ -59,17 +61,6 @@ run_impl() {
 		>"$stdout_capture" 2>>"$out/analyzer_stderr.txt"
 	local rc=$?
 	cat "$stdout_capture" >>"$out/analyzer_stdout.txt"
-	local ms
-	ms=$(grep -m1 ' ms$' "$stdout_capture" 2>/dev/null | awk '{print $(NF-1)}' || true)
-	local timing_col=""
-	if [[ -n "$ms" ]]; then
-		timing_col=$(printf "%10.3f ms" "$ms")
-		if [[ -n "$ref_ms" && "$ms" != "0" ]]; then
-			local speedup
-			speedup=$(awk "BEGIN {printf \"%.2fx\", $ref_ms / $ms}")
-			timing_col="$timing_col  ($speedup vs sequential)"
-		fi
-	fi
 	if [[ $rc -ne 0 ]]; then
 		echo "  FAIL: $label" | tee -a "$out/analyzer_stdout.txt"
 		return 1
@@ -80,33 +71,32 @@ run_impl() {
 	fi
 	if [[ -z "$ref_file" ]]; then
 		ref_file="$tmp_out"
-		ref_ms="$ms"
-		printf "  OK (reference): %-30s %s\n" "$label" "$timing_col"
+		printf "  OK (reference): %s\n" "$label"
 	elif h5diff -q "$ref_file" "$tmp_out"; then
-		printf "  OK (match):     %-30s %s\n" "$label" "$timing_col"
+		printf "  OK (match):     %s\n" "$label"
 	else
-		printf "  MISMATCH:       %-30s %s\n" "$label" "$timing_col"
+		printf "  MISMATCH:       %s\n" "$label"
 		return 1
 	fi
 	return 0
 }
 
-run_impl "sequential"         sequential  1  256  0 || ana_failed=1
+run_impl "sequential" sequential 1 256 0 || ana_failed=1
 
 if [[ $ana_failed -eq 0 ]]; then
-	run_impl "pthreads (2t)"  pthreads    2  256  0 || ana_failed=1
-	run_impl "pthreads (4t)"  pthreads    4  256  0 || ana_failed=1
-	run_impl "pthreads (8t)"  pthreads    8  256  0 || ana_failed=1
-	run_impl "openmp (2t)"    openmp      2  256  0 || ana_failed=1
-	run_impl "openmp (4t)"    openmp      4  256  0 || ana_failed=1
-	run_impl "openmp (8t)"    openmp      8  256  0 || ana_failed=1
-	run_impl "mpi (2 ranks)"  mpi         1  256  2 || ana_failed=1
-	run_impl "mpi (4 ranks)"  mpi         1  256  4 || ana_failed=1
-	run_impl "cuda (blk=128)" cuda        1  128  0 || ana_failed=1
-	run_impl "cuda (blk=256)" cuda        1  256  0 || ana_failed=1
-	run_impl "cuda (blk=512)" cuda        1  512  0 || ana_failed=1
-	run_impl "cudaMpi (2 ranks, blk=256)" cudaMpi  1  256  2 || true
-	run_impl "cudaMpi (4 ranks, blk=256)" cudaMpi  1  256  4 || true
+	run_impl "pthreads (2t)" pthreads 2 256 0 || ana_failed=1
+	run_impl "pthreads (4t)" pthreads 4 256 0 || ana_failed=1
+	run_impl "pthreads (8t)" pthreads 8 256 0 || ana_failed=1
+	run_impl "openmp (2t)" openmp 2 256 0 || ana_failed=1
+	run_impl "openmp (4t)" openmp 4 256 0 || ana_failed=1
+	run_impl "openmp (8t)" openmp 8 256 0 || ana_failed=1
+	run_impl "mpi (2 ranks)" mpi 1 256 2 || ana_failed=1
+	run_impl "mpi (4 ranks)" mpi 1 256 4 || ana_failed=1
+	run_impl "cuda (blk=128)" cuda 1 128 0 || ana_failed=1
+	run_impl "cuda (blk=256)" cuda 1 256 0 || ana_failed=1
+	run_impl "cuda (blk=512)" cuda 1 512 0 || ana_failed=1
+	run_impl "cudaMpi (2 ranks, blk=256)" cudaMpi 1 256 2 || true
+	run_impl "cudaMpi (4 ranks, blk=256)" cudaMpi 1 256 4 || true
 fi
 
 if [[ $ana_failed -eq 0 && -f "$tmp_dir/sequential.h5" ]]; then

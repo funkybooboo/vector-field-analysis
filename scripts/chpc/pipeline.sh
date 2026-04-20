@@ -62,7 +62,7 @@ CUDA_ROOT="$(dirname "$(dirname "$(which nvcc)")")"
 echo "==> Configuring"
 cmake -B "$PROJECT_DIR/build" \
 	-DCMAKE_BUILD_TYPE=Release \
--DENABLE_CUDA=ON \
+	-DENABLE_CUDA=ON \
 	-DCMAKE_CUDA_ARCHITECTURES="52;60;61;70;75;80;86" \
 	-DHDF5_ROOT="$HDF5_ROOT" \
 	-DHDF5_C_LIBRARY_hdf5="$HDF5_ROOT/lib/libhdf5.so" \

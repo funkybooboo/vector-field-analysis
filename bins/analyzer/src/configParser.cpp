@@ -83,6 +83,9 @@ AnalyzerConfig parseAnalyzer(const std::string& path) {
     if (const auto out = (*analyzer)["output"].value<std::string>()) {
         config.output = *out;
     }
+    if (const auto timingOut = (*analyzer)["timing_output"].value<std::string>()) {
+        config.timingOutput = *timingOut;
+    }
 
     return config;
 }

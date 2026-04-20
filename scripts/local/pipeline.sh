@@ -105,9 +105,12 @@ for stem in "${STEMS[@]}"; do
 		local label="$1" solver="$2" threads="$3" block_size="$4" mpi_n="$5"
 		local tmp_toml="$tmp_dir/${label}.toml"
 		local tmp_out="$tmp_dir/${label}.h5"
+		local timing_name
+		timing_name=$(printf '%s' "$label" | tr -cs 'a-zA-Z0-9' '_' | sed 's/__*/_/g;s/^_//;s/_$//')
+		local timing_out="$out/timing_${timing_name}.txt"
 		cp "$base_toml" "$tmp_toml"
-		printf '\n[analyzer]\nsolver = "%s"\nthreads = %d\ncuda_block_size = %d\noutput = "%s"\n' \
-			"$solver" "$threads" "$block_size" "$tmp_out" >>"$tmp_toml"
+		printf '\n[analyzer]\nsolver = "%s"\nthreads = %d\ncuda_block_size = %d\noutput = "%s"\ntiming_output = "%s"\n' \
+			"$solver" "$threads" "$block_size" "$tmp_out" "$timing_out" >>"$tmp_toml"
 
 		local stdout_capture="$tmp_dir/${label}_stdout.txt"
 		if [[ "$mpi_n" -gt 0 ]]; then
@@ -142,24 +145,24 @@ for stem in "${STEMS[@]}"; do
 	}
 
 	# sequential is always the reference
-	run_impl "sequential"         sequential  1  256  0 || { ana_failed=1; }
+	run_impl "sequential" sequential 1 256 0 || { ana_failed=1; }
 
 	if [[ $ana_failed -eq 0 ]]; then
-		run_impl "pthreads (2t)"  pthreads    2  256  0 || ana_failed=1
-		run_impl "pthreads (4t)"  pthreads    4  256  0 || ana_failed=1
-		run_impl "pthreads (8t)"  pthreads    8  256  0 || ana_failed=1
-		run_impl "openmp (2t)"    openmp      2  256  0 || ana_failed=1
-		run_impl "openmp (4t)"    openmp      4  256  0 || ana_failed=1
-		run_impl "openmp (8t)"    openmp      8  256  0 || ana_failed=1
-		run_impl "mpi (2 ranks)"  mpi         1  256  2 || ana_failed=1
-		run_impl "mpi (4 ranks)"  mpi         1  256  4 || ana_failed=1
+		run_impl "pthreads (2t)" pthreads 2 256 0 || ana_failed=1
+		run_impl "pthreads (4t)" pthreads 4 256 0 || ana_failed=1
+		run_impl "pthreads (8t)" pthreads 8 256 0 || ana_failed=1
+		run_impl "openmp (2t)" openmp 2 256 0 || ana_failed=1
+		run_impl "openmp (4t)" openmp 4 256 0 || ana_failed=1
+		run_impl "openmp (8t)" openmp 8 256 0 || ana_failed=1
+		run_impl "mpi (2 ranks)" mpi 1 256 2 || ana_failed=1
+		run_impl "mpi (4 ranks)" mpi 1 256 4 || ana_failed=1
 		# CUDA is optional -- skip on failure (may not be built with ENABLE_CUDA)
-		run_impl "cuda (blk=128)" cuda        1  128  0 || true
-		run_impl "cuda (blk=256)" cuda        1  256  0 || true
-		run_impl "cuda (blk=512)" cuda        1  512  0 || true
+		run_impl "cuda (blk=128)" cuda 1 128 0 || true
+		run_impl "cuda (blk=256)" cuda 1 256 0 || true
+		run_impl "cuda (blk=512)" cuda 1 512 0 || true
 		# cudaMpi is optional -- requires CUDA+MPI
-		run_impl "cudaMpi (2 ranks, blk=256)" cudaMpi  1  256  2 || true
-		run_impl "cudaMpi (4 ranks, blk=256)" cudaMpi  1  256  4 || true
+		run_impl "cudaMpi (2 ranks, blk=256)" cudaMpi 1 256 2 || true
+		run_impl "cudaMpi (4 ranks, blk=256)" cudaMpi 1 256 4 || true
 	fi
 
 	# Copy sequential output as the canonical streams.h5 for downstream steps

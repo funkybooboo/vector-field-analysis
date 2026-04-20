@@ -12,16 +12,21 @@ sequential merge pass.
 ## Quick Start
 
 ```sh
-# Recommended: build, generate field data, and benchmark all impls in one step
-mise run run:analyzer         # uses MPI_RANKS for a fair apples-to-apples comparison
+# Recommended: build, generate field data, and run
+mise run run:analyzer
 
-# MPI solver only with a custom rank count
-MPI_RANKS=8 mise run run:analyzer:mpi
+# MPI solver with a custom rank count
+mpirun -n 8 ./build/bins/analyzer/analyzer configs/vortex_256x256.toml  # with solver = "mpi"
 
 # Or drive manually:
-simulator configs/vortex_256x256.toml                        # generate field.h5
-analyzer configs/vortex_256x256.toml                         # benchmark all impls (single-process)
-mpirun -n 4 analyzer configs/vortex_256x256.toml             # benchmark with MPI active
+simulator configs/vortex_256x256.toml            # generate field.h5
+analyzer configs/vortex_256x256.toml             # run sequential solver
+
+# Run all implementations and compare (pipeline script):
+./scripts/local/pipeline.sh vortex_256x256
+
+# Print timing speedup report:
+./timings.sh vortex_256x256
 ```
 
 ## Input Format

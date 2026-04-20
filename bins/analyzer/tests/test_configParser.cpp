@@ -146,3 +146,19 @@ TEST_CASE("parseAnalyzer output defaults to empty string when absent", "[config]
     const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
     REQUIRE(cfg.output.empty());
 }
+
+// ---------------------------------------------------------------------------
+// Timing output field
+// ---------------------------------------------------------------------------
+
+TEST_CASE("parseAnalyzer reads timing_output path", "[config]") {
+    TempFile tmp("[analyzer]\ntiming_output = \"data/stem/timing_sequential.txt\"\n");
+    const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
+    REQUIRE(cfg.timingOutput == "data/stem/timing_sequential.txt");
+}
+
+TEST_CASE("parseAnalyzer timing_output defaults to empty string when absent", "[config]") {
+    TempFile tmp("# empty\n");
+    const auto cfg = ConfigParser::parseAnalyzer(tmp.path.string());
+    REQUIRE(cfg.timingOutput.empty());
+}
