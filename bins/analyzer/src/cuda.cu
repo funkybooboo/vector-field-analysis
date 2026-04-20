@@ -63,78 +63,31 @@ __device__ void unite(int* parent, int* rank, int a, int b) {
     }
 }
 
-__global__ void computeSuccessorKernel(const float2* field, int rows, int cols, float xMin,
-                                       float xMax, float yMin, float yMax, int* successor) {
+__global__ void computeSuccessorKernel(const float2* field, int rows, int cols, float rowSpacing,
+                                       float colSpacing, int* successor) {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    const int total = rows * cols;
-
-    if (idx >= total) {
-        return;
-    }
-
+    if (idx >= rows * cols) return;
     const int row = idx / cols;
     const int col = idx % cols;
-
-    if (rows == 1 || cols == 1) {
-        successor[idx] = idx;
-        return;
-    }
-
+    if (rows == 1 || cols == 1) { successor[idx] = idx; return; }
     const float2 v = field[idx];
-
-    const float rowSpacing = (yMax - yMin) / static_cast<float>(rows - 1);
-    const float colSpacing = (xMax - xMin) / static_cast<float>(cols - 1);
-
-    // Match the same physical-coordinate logic used by Grid::downstreamCell.
-    const float physY =
-        yMin + ((yMax - yMin) * static_cast<float>(row) / static_cast<float>(rows - 1));
-    const float physX =
-        xMin + ((xMax - xMin) * static_cast<float>(col) / static_cast<float>(cols - 1));
-
-    const int destRow =
-        clampInt(static_cast<int>(roundf((physY + v.y - yMin) / rowSpacing)), 0, rows - 1);
-
-    const int destCol =
-        clampInt(static_cast<int>(roundf((physX + v.x - xMin) / colSpacing)), 0, cols - 1);
-
+    const int destRow = clampInt(static_cast<int>(roundf(static_cast<float>(row) + (v.y / rowSpacing))), 0, rows - 1);
+    const int destCol = clampInt(static_cast<int>(roundf(static_cast<float>(col) + (v.x / colSpacing))), 0, cols - 1);
     successor[idx] = toIndex(destRow, destCol, cols);
 }
 
-__global__ void computeSuccessorSliceKernel(const float2* field, int rows, int cols, float xMin,
-                                            float xMax, float yMin, float yMax, int startRow,
+__global__ void computeSuccessorSliceKernel(const float2* field, int rows, int cols,
+                                            float rowSpacing, float colSpacing, int startRow,
                                             int localRows, int* successor) {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    const int total = localRows * cols;
-
-    if (idx >= total) {
-        return;
-    }
-
+    if (idx >= localRows * cols) return;
     const int localRow = idx / cols;
     const int globalRow = startRow + localRow;
     const int col = idx % cols;
-
-    if (rows == 1 || cols == 1) {
-        successor[idx] = toIndex(globalRow, col, cols);
-        return;
-    }
-
+    if (rows == 1 || cols == 1) { successor[idx] = toIndex(globalRow, col, cols); return; }
     const float2 v = field[idx];
-
-    const float rowSpacing = (yMax - yMin) / static_cast<float>(rows - 1);
-    const float colSpacing = (xMax - xMin) / static_cast<float>(cols - 1);
-
-    const float physY =
-        yMin + ((yMax - yMin) * static_cast<float>(globalRow) / static_cast<float>(rows - 1));
-    const float physX =
-        xMin + ((xMax - xMin) * static_cast<float>(col) / static_cast<float>(cols - 1));
-
-    const int destRow =
-        clampInt(static_cast<int>(roundf((physY + v.y - yMin) / rowSpacing)), 0, rows - 1);
-
-    const int destCol =
-        clampInt(static_cast<int>(roundf((physX + v.x - xMin) / colSpacing)), 0, cols - 1);
-
+    const int destRow = clampInt(static_cast<int>(roundf(static_cast<float>(globalRow) + (v.y / rowSpacing))), 0, rows - 1);
+    const int destCol = clampInt(static_cast<int>(roundf(static_cast<float>(col) + (v.x / colSpacing))), 0, cols - 1);
     successor[idx] = toIndex(destRow, destCol, cols);
 }
 
@@ -225,8 +178,10 @@ Result computeComponents(const std::vector<Vector::Vec2>& field, int rows, int c
         const int blockSize = static_cast<int>(cudaBlockSize);
         const int launchSize = (total + blockSize - 1) / blockSize;
 
-        computeSuccessorKernel<<<launchSize, blockSize>>>(
-            dField, rows, cols, bounds.xMin, bounds.xMax, bounds.yMin, bounds.yMax, dSuccessor);
+        const float rowSpacing = (rows > 1) ? (bounds.yMax - bounds.yMin) / static_cast<float>(rows - 1) : 0.0f;
+        const float colSpacing = (cols > 1) ? (bounds.xMax - bounds.xMin) / static_cast<float>(cols - 1) : 0.0f;
+
+        computeSuccessorKernel<<<launchSize, blockSize>>>(dField, rows, cols, rowSpacing, colSpacing, dSuccessor);
         cudaCheck(cudaGetLastError(), "computeSuccessorKernel launch");
 
         initUnionFindKernel<<<launchSize, blockSize>>>(total, dParent, dRank);
@@ -333,9 +288,12 @@ std::vector<int> computeSuccessorSlice(const std::vector<Vector::Vec2>& field, i
         const int blockSize = static_cast<int>(cudaBlockSize);
         const int launchSize = (localTotal + blockSize - 1) / blockSize;
 
-        computeSuccessorSliceKernel<<<launchSize, blockSize>>>(
-            dField, rows, cols, bounds.xMin, bounds.xMax, bounds.yMin, bounds.yMax, startRow,
-            localRows, dSuccessor);
+        const float rowSpacing = (rows > 1) ? (bounds.yMax - bounds.yMin) / static_cast<float>(rows - 1) : 0.0f;
+        const float colSpacing = (cols > 1) ? (bounds.xMax - bounds.xMin) / static_cast<float>(cols - 1) : 0.0f;
+
+        computeSuccessorSliceKernel<<<launchSize, blockSize>>>(dField, rows, cols, rowSpacing,
+                                                               colSpacing, startRow, localRows,
+                                                               dSuccessor);
         cudaCheck(cudaGetLastError(), "computeSuccessorSliceKernel launch");
         cudaCheck(cudaDeviceSynchronize(), "cudaDeviceSynchronize slice");
 
