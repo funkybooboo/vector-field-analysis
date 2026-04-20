@@ -1,8 +1,29 @@
 \section{Responsibilities}
 
 \subsection{Nate Stott}
+\begin{itemize}
+	\item Developed the comprehensive testing and automation pipeline.
+	\item Implemented the procedural vector field simulator with HDF5 support.
+	\item Integrated OpenMPI and developed the necessary communication wrappers to handle distributed data structures and global synchronization.
+	\item Co-authored the CPU-based Disjoint Set Union implementations and optimized for openMPI.
+	\item Developed the Python-based visualization tools for qualitative streamline analysis.
+	\item Tested the implementations on CHPC.
+\end{itemize}
 
 \subsection{Rylei Mindrum}
+\begin{itemize}
+	\item Architected and implemented both standalone CUDA and hybrid MPI+CUDA streamline solvers.
+	\item Designed the parallel Disjoint Set Union (DSU) implementation for the project.
+	      as well as implementing in the CUDA implementation to ensure feasibility utilizing atomic synchronization primitives for thread-safe connectivity discovery.
+	\item Focused on architectural compliance to ensure code reuse across the C++, CUDA, and OpenMPI implementations.
+	\item Tested the implementations on CHPC.
+
+\end{itemize}
 
 \subsection{Ethan Gee}
-
+\begin{itemize}
+	\item Developed the project's foundational data structures, including the \texttt{Vec2} representation and the \texttt{FieldGrid} management system.
+	\item Implemented the shared-memory parallel solvers using POSIX Threads and OpenMP.
+	\item Co-authored the CPU-based Disjoint Set Union implementations and optimized them for shared-memory environments.
+	\item Authored the final research report and conducted the comprehensive performance and scaling analysis, including the application of Amdahl's Law to the experimental findings.
+\end{itemize}
