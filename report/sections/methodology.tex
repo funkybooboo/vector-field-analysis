@@ -83,13 +83,13 @@ This works identically to the POSIX threads implementations with one modificatio
 We employ \texttt{\#pragma omp parallel for} directive with a \texttt{collapse(2)} clause to allow for easy segmentation and load balancing across our nested loops. T
 
 \subsection{Massively Parallel GPU Acceleration with CUDA}
-The CUDA implementation offloads the computationally intensive tasks of subsequent vector calculation and component discovery to the GPU, leveraging its high throughput to handle millions of cells simultaneously.
-While it shares the multi-pass architecture of the parallel CPU implementations, it extends the parallelism to the connectivity analysis through the use of device-side synchronization primitives.
+The CUDA implementation offloads the computationally intensive tasks of downstream successor computation and component discovery to the GPU, leveraging its high throughput to process many grid cells simultaneously. Each cell is handled by an independent CUDA thread, allowing the field to be analyzed in parallel at a much finer granularity than in the CPU implementations. While it shares the multi-pass structure of the parallel CPU implementations, it extends the parallelism to connectivity analysis through the use of device-side synchronization primitives.
 
 \begin{enumerate}
-	\item \textbf{Parallel Subsequent Vector Precomputation:} A CUDA kernel assigns one thread to each grid cell to calculate its downstream subsequent vector.
-	\item \textbf{Parallel Union-Find:} Unlike the shared-memory CPU versions which rely on a sequential merging pass, the CUDA implementation resolves streamline connectivity on the device using a parallel Union-Find algorithm. It employs \texttt{atomicCAS} (Compare-And-Swap) to ensure thread-safe updates to the disjoint-set.
-	\item \textbf{Path Compression and Labeling:} A final kernel performs path compression, ensuring every cell points directly to its component root.
+	\item \textbf{Parallel Successor Computation:} A CUDA kernel assigns one thread to each grid cell to compute that cell's downstream successor in parallel.
+	\item \textbf{Parallel Union-Find:} Unlike the shared-memory CPU versions, which rely on a sequential merging pass, the CUDA implementation resolves streamline connectivity on the device using a parallel Union-Find algorithm. Device-side synchronization is handled with \texttt{atomicCAS} (Compare-And-Swap), which ensures thread-safe updates during set merging.
+	\item \textbf{Path Compression and Labeling:} A compression pass updates each cell so that it points directly to its representative root. This reduces lookup cost, improves consistency of the disjoint-set structure, and yields a compact component-based representation of the streamline topology.
+	\item \textbf{Path Reconstruction for Analyzer Output:} Because the analyzer ultimately expects explicit streamline paths rather than only component labels, the GPU-generated successor structure is reconstructed into host-side streamline paths after the device computation completes. This allows the GPU-native implementation to produce the same form of output as the other solver backends while preserving the benefits of GPU-side connectivity analysis.
 \end{enumerate}
 
 
