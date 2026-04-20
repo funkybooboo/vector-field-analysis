@@ -69,12 +69,13 @@ Analysis of the GPU performance reveals a parallel efficiency significantly high
 
 \begin{table}[htbp]
 	\centering
-	\caption{Distributed Scaling Comparison (2 Nodes)}
+	\caption{Distributed Scaling Comparison}
 	\label{tab:distributed_scaling}
 	\begin{tabular}{|l|c|c|}
 		\hline
 		\textbf{Nodes} & \textbf{Distributed CPU Runtime (ms)} & \textbf{Distributed GPU Runtime (ms)} \\ \hline
-		2 Nodes        & 1992.49                               & ---                                   \\ \hline
+		2 Nodes        & 1992.49                               & 3258.99                               \\ \hline
+		4 Nodes        & 3962.65                               & 4516.31                               \\ \hline
 	\end{tabular}
 \end{table}
 
@@ -84,7 +85,9 @@ This high overhead stems from the requirement to reconcile streamline connectivi
 Because each node only possesses local knowledge of its assigned sub-grid, resolving global paths requires iterative synchronization to converge the distributed Disjoint Set Union (DSU) structure.
 As the node count increases, the latency associated with these global reductions and data transfers becomes a dominant factor, limiting the overall scalability of the distributed CPU implementation.
 
-Speedup analysis for the 2-node distributed CPU implementation shows a value of $S \approx 0.76$.
+Speedup analysis for the distributed implementations shows a significant performance drop as the node count increases.
+The 2-node CPU implementation achieved a speedup of $S \approx 0.76$, which further degraded to $S \approx 0.38$ at 4 nodes.
+Similarly, the hybrid (MPI+CUDA) implementation achieved $S \approx 0.47$ at 2 nodes and $S \approx 0.34$ at 4 nodes.
 A speedup less than unity confirms that the communication overhead $O(n)$ grows faster than the parallel speedup for this algorithm.
 In the context of Amdahl's Law, the communication costs act as a "negative" parallel component that offsets the gains from distributed computation, resulting in a total execution time that exceeds the sequential baseline.
 
@@ -104,7 +107,7 @@ Table \ref{tab:perf_summary} provides a high-level comparison of the runtime and
 		OpenMP              & 1424.25               & 1.07             \\ \hline
 		OpenMPI             & 1992.49               & 0.76             \\ \hline
 		CUDA                & 800.17                & 1.90             \\ \hline
-		Hybrid (MPI+CUDA)   & ---                   & ---              \\ \hline
+		Hybrid (MPI+CUDA)   & 3258.99               & 0.47             \\ \hline
 	\end{tabular}
 \end{table}
 
