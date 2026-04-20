@@ -53,13 +53,10 @@ run_impl() {
 		"$solver" "$threads" "$block_size" "$tmp_out" >>"$tmp_toml"
 
 	local stdout_capture="$tmp_dir/${label}_stdout.txt"
-	if [[ "$mpi_n" -gt 0 ]]; then
-		mpirun -np "$mpi_n" "$PROJECT_DIR/build/bins/analyzer/analyzer" "$tmp_toml" \
-			>"$stdout_capture" 2>>"$out/analyzer_stderr.txt"
-	else
-		"$PROJECT_DIR/build/bins/analyzer/analyzer" "$tmp_toml" \
-			>"$stdout_capture" 2>>"$out/analyzer_stderr.txt"
-	fi
+	local np="$mpi_n"
+	[[ "$np" -eq 0 ]] && np=1
+	mpirun -np "$np" "$PROJECT_DIR/build/bins/analyzer/analyzer" "$tmp_toml" \
+		>"$stdout_capture" 2>>"$out/analyzer_stderr.txt"
 	local rc=$?
 	cat "$stdout_capture" >>"$out/analyzer_stdout.txt"
 	local ms
